@@ -133,9 +133,6 @@ app_license = "mit"
 # Hook on document methods and events
 
 doc_events = {
-	"ToDo": {
-		"after_insert": "pikt_inc.events.todo.after_insert"
-	},
 	"Opportunity": {
 		"before_insert": "pikt_inc.events.opportunity.before_insert"
 	}
