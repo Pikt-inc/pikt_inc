@@ -135,6 +135,9 @@ app_license = "mit"
 doc_events = {
 	"ToDo": {
 		"after_insert": "pikt_inc.events.todo.after_insert"
+	},
+	"Opportunity": {
+		"before_insert": "pikt_inc.events.opportunity.before_insert"
 	}
 }
 
@@ -175,9 +178,11 @@ doc_events = {
 # Overriding Methods
 # ------------------------------
 #
-# override_whitelisted_methods = {
-# 	"frappe.desk.doctype.event.event.get_events": "pikt_inc.event.get_events"
-# }
+override_whitelisted_methods = {
+	"create_instant_quote_opportunity": "pikt_inc.api.public_intake.create_instant_quote_opportunity",
+	"validate_public_funnel_opportunity": "pikt_inc.api.public_intake.validate_public_funnel_opportunity",
+	"save_opportunity_walkthrough_upload": "pikt_inc.api.public_intake.save_opportunity_walkthrough_upload",
+}
 #
 # each overriding function accepts a `data` argument;
 # generated from the base implementation of the doctype dashboard,
