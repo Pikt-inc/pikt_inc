@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from pikt_inc.services import public_quote
@@ -22,6 +23,7 @@ class FakeSaveDoc(FakeDoc):
         super().__init__(*args, **kwargs)
         self.insert_called = False
         self.submit_called = False
+        self.flags = SimpleNamespace()
 
     def insert(self, ignore_permissions=False):
         self.insert_called = True
@@ -96,6 +98,7 @@ class TestPublicQuotePortal(unittest.TestCase):
     @patch.object(public_quote, "calculate_end_date", return_value="2026-10-01")
     @patch.object(public_quote, "get_user_agent", return_value="agent")
     @patch.object(public_quote, "get_request_ip", return_value="127.0.0.1")
+    @patch.object(public_quote, "link_quote_agreement_records")
     @patch.object(public_quote, "get_active_template")
     @patch.object(public_quote, "get_active_master_agreement", return_value={})
     @patch.object(public_quote, "get_addendum_row", return_value={})
@@ -120,6 +123,7 @@ class TestPublicQuotePortal(unittest.TestCase):
         _mock_addendum,
         _mock_active_master,
         mock_templates,
+        _mock_link_records,
         _mock_request_ip,
         _mock_user_agent,
         _mock_end_date,
@@ -237,6 +241,42 @@ class TestPublicQuotePortal(unittest.TestCase):
             },
         )
         self.assertEqual(mock_update_sales_order_billing.call_count, 2)
+
+    @patch.object(public_quote, "doc_db_set_values")
+    @patch.object(public_quote.frappe.db, "get_value", return_value="AR-0001")
+    def test_ensure_auto_repeat_clears_empty_end_date_on_existing_record(
+        self,
+        _mock_get_value,
+        mock_doc_db_set_values,
+    ):
+        result = public_quote.ensure_auto_repeat(
+            "SINV-0001",
+            "billing@example.com",
+            {"start_date": "2026-04-01", "end_date": ""},
+        )
+
+        self.assertEqual(result, "AR-0001")
+        self.assertEqual(mock_doc_db_set_values.call_count, 2)
+        self.assertEqual(
+            mock_doc_db_set_values.call_args_list[0].args,
+            (
+                "Auto Repeat",
+                "AR-0001",
+                {
+                    "frequency": "Monthly",
+                    "start_date": "2026-04-01",
+                    "disabled": 0,
+                    "submit_on_creation": 1,
+                    "notify_by_email": 1,
+                    "recipients": "billing@example.com",
+                    "end_date": None,
+                },
+            ),
+        )
+        self.assertEqual(
+            mock_doc_db_set_values.call_args_list[1].args,
+            ("Sales Invoice", "SINV-0001", {"auto_repeat": "AR-0001"}),
+        )
 
     @patch.object(public_quote, "fail", side_effect=RuntimeError("stop"))
     @patch.object(public_quote, "get_addendum_row", return_value={"name": "SAA-0001", "status": "Pending Billing"})

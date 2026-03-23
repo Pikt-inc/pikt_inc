@@ -168,6 +168,64 @@ doc_events = {
 
 # before_tests = "pikt_inc.install.before_tests"
 
+fixtures = [
+	{
+		"dt": "Builder Page",
+		"filters": [
+			[
+				"route",
+				"in",
+				[
+					"quote",
+					"thank-you",
+					"digital-walkthrough",
+					"digital-walkthrough-received",
+					"quote-accepted",
+					"billing-setup-complete",
+					"review-quote",
+				],
+			]
+		],
+	},
+	{
+		"dt": "Builder Component",
+		"filters": [
+			[
+				"component_name",
+				"in",
+				[
+					"LP Site Navbar",
+					"LP Site Footer",
+					"LP Hero Centered",
+					"LP Walkthrough Received",
+				],
+			]
+		],
+	},
+	{
+		"dt": "Block Template",
+		"filters": [
+			[
+				"name",
+				"in",
+				[
+					"LP Hero Centered",
+					"LP Section Header",
+					"LP Primary Button",
+					"LP Secondary Button",
+					"LP Trust Pill",
+					"LP CTA Button Row",
+					"LP Simple Info Card",
+					"LP Process Step Card",
+					"LP Checklist Item",
+					"LP Testimonial Card",
+					"LP Metric Pill",
+				],
+			]
+		],
+	},
+]
+
 # Extend DocType Class
 # ------------------------------
 #

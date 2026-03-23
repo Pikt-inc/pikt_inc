@@ -2256,7 +2256,8 @@ def ensure_auto_repeat(invoice_name, billing_email, addendum_row):
     invoice_name = clean(invoice_name)
     billing_email = clean(billing_email).lower()
     start_date = clean(addendum_row.get("start_date")) or nowdate()
-    end_date = clean(addendum_row.get("end_date"))
+    end_date_value = get_date_safe(addendum_row.get("end_date"))
+    end_date = str(end_date_value) if end_date_value else None
     auto_repeat_name = clean(
         frappe.db.get_value(
             "Auto Repeat",
