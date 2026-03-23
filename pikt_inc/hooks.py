@@ -186,6 +186,9 @@ override_whitelisted_methods = {
 	"validate_public_quote": "pikt_inc.api.public_quote.validate_public_quote",
 	"accept_public_quote": "pikt_inc.api.public_quote.accept_public_quote",
 	"load_public_quote_portal_state": "pikt_inc.api.public_quote.load_public_quote_portal_state",
+	"complete_public_service_agreement_signature": "pikt_inc.api.public_quote.complete_public_service_agreement_signature",
+	"complete_public_quote_billing_setup_v2": "pikt_inc.api.public_quote.complete_public_quote_billing_setup_v2",
+	"complete_public_quote_access_setup_v2": "pikt_inc.api.public_quote.complete_public_quote_access_setup_v2",
 }
 #
 # each overriding function accepts a `data` argument;
