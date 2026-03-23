@@ -140,28 +140,32 @@ doc_events = {
 		"before_submit": "pikt_inc.events.quotation.before_submit",
 		"after_insert": "pikt_inc.events.quotation.after_insert",
 	},
+	"Recurring Service Rule": {
+		"after_save": "pikt_inc.events.recurring_service_rule.after_save",
+	},
+	"Building": {
+		"after_save": "pikt_inc.events.building.after_save",
+	},
+	"Site Shift Requirement": {
+		"before_save": "pikt_inc.events.site_shift_requirement.before_save",
+		"after_save": "pikt_inc.events.site_shift_requirement.after_save",
+	},
+	"Dispatch Route": {
+		"before_save": "pikt_inc.events.dispatch_route.before_save",
+	},
 }
 
 # Scheduled Tasks
 # ---------------
 
-# scheduler_events = {
-# 	"all": [
-# 		"pikt_inc.tasks.all"
-# 	],
-# 	"daily": [
-# 		"pikt_inc.tasks.daily"
-# 	],
-# 	"hourly": [
-# 		"pikt_inc.tasks.hourly"
-# 	],
-# 	"weekly": [
-# 		"pikt_inc.tasks.weekly"
-# 	],
-# 	"monthly": [
-# 		"pikt_inc.tasks.monthly"
-# 	],
-# }
+scheduler_events = {
+	"all": [
+		"pikt_inc.jobs.dispatch.dispatch_route_email_orchestrator",
+	],
+	"daily": [
+		"pikt_inc.jobs.dispatch.nightly_dispatch_orchestrator",
+	],
+}
 
 # Testing
 # -------
@@ -176,13 +180,34 @@ fixtures = [
 				"route",
 				"in",
 				[
-					"quote",
-					"thank-you",
+					"",
+					"about",
+					"billing-setup-complete",
+					"commercial-cleaning-services",
+					"contact",
 					"digital-walkthrough",
 					"digital-walkthrough-received",
+					"faq",
+					"industries",
+					"industries/industrial-flex",
+					"industries/medical-offices",
+					"industries/office-buildings",
+					"industries/retail-stores",
+					"quote",
 					"quote-accepted",
-					"billing-setup-complete",
 					"review-quote",
+					"residential-cleaning-services",
+					"reviews",
+					"service-area",
+					"service-area/kyle-tx",
+					"service-area/san-marcos-tx",
+					"services",
+					"services/commercial-cleaning",
+					"services/day-porter-services",
+					"services/floor-care",
+					"services/medical-office-cleaning",
+					"services/office-cleaning",
+					"thank-you",
 				],
 			]
 		],
@@ -194,9 +219,26 @@ fixtures = [
 				"component_name",
 				"in",
 				[
+					"LP About / Story Section",
+					"LP City Links Grid",
+					"LP Contact Form",
+					"LP Contact Info Card",
+					"LP CTA Band",
+					"LP FAQ Accordion",
+					"LP Feature List Section",
 					"LP Site Navbar",
 					"LP Site Footer",
+					"LP Industry Detail Section",
+					"LP Industry Links Grid",
+					"LP Process Section",
+					"LP Quote Form",
+					"LP Quote Result Section",
+					"LP Service Area Section",
+					"LP Service Detail Section",
+					"LP Service Links Grid",
 					"LP Hero Centered",
+					"LP Testimonial Section",
+					"LP Trust Section",
 					"LP Walkthrough Received",
 				],
 			]
@@ -247,6 +289,9 @@ override_whitelisted_methods = {
 	"complete_public_service_agreement_signature": "pikt_inc.api.public_quote.complete_public_service_agreement_signature",
 	"complete_public_quote_billing_setup_v2": "pikt_inc.api.public_quote.complete_public_quote_billing_setup_v2",
 	"complete_public_quote_access_setup_v2": "pikt_inc.api.public_quote.complete_public_quote_access_setup_v2",
+	"dispatch_reconcile_routes": "pikt_inc.api.dispatch.dispatch_reconcile_routes",
+	"dispatch_reconcile_rule": "pikt_inc.api.dispatch.dispatch_reconcile_rule",
+	"dispatch_sync_paused_buildings": "pikt_inc.api.dispatch.dispatch_sync_paused_buildings",
 }
 #
 # each overriding function accepts a `data` argument;
