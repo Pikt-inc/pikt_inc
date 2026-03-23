@@ -135,7 +135,11 @@ app_license = "mit"
 doc_events = {
 	"Opportunity": {
 		"before_insert": "pikt_inc.events.opportunity.before_insert"
-	}
+	},
+	"Quotation": {
+		"before_submit": "pikt_inc.events.quotation.before_submit",
+		"after_insert": "pikt_inc.events.quotation.after_insert",
+	},
 }
 
 # Scheduled Tasks
@@ -179,6 +183,9 @@ override_whitelisted_methods = {
 	"create_instant_quote_opportunity": "pikt_inc.api.public_intake.create_instant_quote_opportunity",
 	"validate_public_funnel_opportunity": "pikt_inc.api.public_intake.validate_public_funnel_opportunity",
 	"save_opportunity_walkthrough_upload": "pikt_inc.api.public_intake.save_opportunity_walkthrough_upload",
+	"validate_public_quote": "pikt_inc.api.public_quote.validate_public_quote",
+	"accept_public_quote": "pikt_inc.api.public_quote.accept_public_quote",
+	"load_public_quote_portal_state": "pikt_inc.api.public_quote.load_public_quote_portal_state",
 }
 #
 # each overriding function accepts a `data` argument;
