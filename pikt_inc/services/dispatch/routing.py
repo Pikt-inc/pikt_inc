@@ -729,3 +729,44 @@ def handle_site_shift_requirement_after_save(doc):
     if not doc or not doc.name:
         return
     reconcile_routes(site_shift_requirement=doc.name, trigger_source="site_shift_requirement_save")
+
+
+def mark_routes_dirty_for_building(building_name: str):
+    building_name = shared.clean(building_name)
+    if not building_name:
+        return {"building": "", "routes": 0, "marked": 0}
+
+    route_names = {
+        shared.clean(row.get("parent"))
+        for row in frappe.get_all(
+            "Dispatch Route Stop",
+            filters={"building": building_name},
+            fields=["parent"],
+            limit=5000,
+        )
+        if shared.clean(row.get("parent"))
+    }
+
+    marked = 0
+    now_dt = shared.now_datetime()
+    for route_name in sorted(route_names):
+        route_row = frappe.db.get_value(
+            "Dispatch Route",
+            route_name,
+            ["status", "route_start", "last_emailed_hash", "needs_resend"],
+            as_dict=True,
+        ) or {}
+        if shared.clean(route_row.get("status")) != "Ready":
+            continue
+        if not shared.clean(route_row.get("last_emailed_hash")):
+            continue
+        route_start_dt = shared.to_datetime(route_row.get("route_start"))
+        if not route_start_dt or route_start_dt <= now_dt:
+            continue
+        if shared.as_int(route_row.get("needs_resend"), 0):
+            continue
+
+        frappe.db.set_value("Dispatch Route", route_name, "needs_resend", 1)
+        marked += 1
+
+    return {"building": building_name, "routes": len(route_names), "marked": marked}

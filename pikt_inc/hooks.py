@@ -180,12 +180,11 @@ doc_events = {
 
 scheduler_events = {
 	"all": [
+		"pikt_inc.jobs.dispatch.dispatch_orchestrator_hour_gate",
+		"pikt_inc.jobs.dispatch.dispatch_calendar_subject_sync",
 		"pikt_inc.jobs.dispatch.monitor_no_show_site_shift_requirements",
 		"pikt_inc.jobs.dispatch.dispatch_completion_finalizer",
 		"pikt_inc.jobs.dispatch.dispatch_route_email_orchestrator",
-	],
-	"daily": [
-		"pikt_inc.jobs.dispatch.nightly_dispatch_orchestrator",
 	],
 }
 
@@ -314,6 +313,7 @@ override_whitelisted_methods = {
 	"dispatch_reconcile_routes": "pikt_inc.api.dispatch.dispatch_reconcile_routes",
 	"dispatch_reconcile_rule": "pikt_inc.api.dispatch.dispatch_reconcile_rule",
 	"dispatch_sync_paused_buildings": "pikt_inc.api.dispatch.dispatch_sync_paused_buildings",
+	"dispatch_data_integrity_migration": "pikt_inc.api.dispatch.dispatch_data_integrity_migration",
 }
 #
 # each overriding function accepts a `data` argument;

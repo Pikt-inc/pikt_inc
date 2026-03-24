@@ -654,6 +654,9 @@ def handle_building_after_save(doc):
     if not doc or not doc.name:
         return
     try:
+        from . import routing
+
+        routing.mark_routes_dirty_for_building(doc.name)
         active_flag = shared.as_int(doc.active, 0)
         if active_flag == 0:
             sync_paused_buildings()
@@ -673,3 +676,211 @@ def handle_building_after_save(doc):
         sync_paused_buildings()
     except Exception as exc:
         frappe.log_error(str(exc), "Building Pause Sync Site Shift Requirements")
+
+
+def sync_calendar_subjects(window_start=None, window_end=None, clear_stale_superseded=False):
+    today = frappe.utils.getdate(frappe.utils.nowdate())
+    window_start = window_start or frappe.utils.add_days(today, -2)
+    window_end = window_end or frappe.utils.add_days(today, 45)
+
+    rows = frappe.get_all(
+        "Site Shift Requirement",
+        filters={"service_date": ["between", [window_start, window_end]]},
+        fields=[
+            "name",
+            "building",
+            "shift_type",
+            "slot_index",
+            "current_employee",
+            "status",
+            "service_timezone",
+            "custom_calendar_subject",
+            "superseded_at",
+            "superseded_reason",
+        ],
+        limit=10000,
+    )
+
+    updated = 0
+    for row in rows:
+        label = shared.make_calendar_subject(
+            row.get("building"),
+            row.get("shift_type"),
+            row.get("slot_index"),
+            row.get("current_employee"),
+            row.get("status"),
+            row.get("service_timezone"),
+        )
+        updates = {}
+        if shared.clean(row.get("custom_calendar_subject")) != label:
+            updates["custom_calendar_subject"] = label
+        if clear_stale_superseded and shared.clean(row.get("status")) != "Unfilled Closed":
+            if row.get("superseded_at") or row.get("superseded_reason"):
+                updates["superseded_at"] = None
+                updates["superseded_reason"] = None
+        if updates:
+            frappe.db.set_value("Site Shift Requirement", row.get("name"), updates)
+            updated += 1
+
+    return {
+        "window_start": str(window_start),
+        "window_end": str(window_end),
+        "processed": len(rows),
+        "updated": updated,
+    }
+
+
+def dispatch_data_integrity_migration():
+    updated_ssr_completion = 0
+    updated_slots = 0
+    updated_callouts = 0
+    updated_auto_status = 0
+    deduped_rows = 0
+    index_exists = 0
+    index_error = None
+
+    non_terminal_statuses = [
+        "Draft",
+        "Open",
+        "Assigned",
+        "Called Out",
+        "Likely No-show",
+        "Reassignment In Progress",
+        "Checked In",
+    ]
+    terminal_completion_states = ["Completed", "Completed With Exception", "Unfilled Closed", "Cancelled"]
+
+    completion_rows = frappe.get_all(
+        "Site Shift Requirement",
+        filters={
+            "status": ["in", non_terminal_statuses],
+            "completion_status": ["in", terminal_completion_states],
+        },
+        fields=["name"],
+        limit=5000,
+    )
+    for row in completion_rows:
+        frappe.db.set_value(
+            "Site Shift Requirement",
+            row.get("name"),
+            {
+                "completion_status": None,
+                "completed_at": None,
+            },
+        )
+        updated_ssr_completion += 1
+
+    slot_rows = frappe.get_all("Site Shift Requirement", fields=["name", "slot_index"], limit=10000)
+    for row in slot_rows:
+        if not row.get("slot_index") or shared.as_int(row.get("slot_index"), 0) <= 0:
+            frappe.db.set_value("Site Shift Requirement", row.get("name"), "slot_index", 1)
+            updated_slots += 1
+
+    callouts = frappe.get_all("Call Out", fields=["name", "incident_origin", "notes"], limit=10000)
+    for row in callouts:
+        notes = shared.clean(row.get("notes")).lower()
+        if "system-generated likely no-show" in notes and shared.clean(row.get("incident_origin")) != "System No-show":
+            frappe.db.set_value("Call Out", row.get("name"), "incident_origin", "System No-show")
+            updated_callouts += 1
+
+    auto_rows = frappe.get_all(
+        "Site Shift Requirement",
+        filters={
+            "status": "Assigned",
+            "current_employee": ["is", "set"],
+            "shift_assignment": ["is", "set"],
+            "auto_assignment_status": ["in", ["Not Evaluated", "Suggested", "Blocked", "Expired"]],
+        },
+        fields=["name"],
+        limit=5000,
+    )
+    for row in auto_rows:
+        frappe.db.set_value("Site Shift Requirement", row.get("name"), "auto_assignment_status", "Auto Assigned")
+        updated_auto_status += 1
+
+    duplicate_keys = frappe.db.sql(
+        """
+        SELECT recurring_service_rule, service_date, slot_index, COUNT(*) AS cnt
+        FROM `tabSite Shift Requirement`
+        WHERE IFNULL(recurring_service_rule, '') <> ''
+        GROUP BY recurring_service_rule, service_date, slot_index
+        HAVING COUNT(*) > 1
+        """,
+        as_dict=True,
+    )
+
+    for key_row in duplicate_keys:
+        dup_rows = frappe.get_all(
+            "Site Shift Requirement",
+            filters={
+                "recurring_service_rule": key_row.get("recurring_service_rule"),
+                "service_date": key_row.get("service_date"),
+                "slot_index": key_row.get("slot_index"),
+            },
+            fields=[
+                "name",
+                "creation",
+                "building",
+                "shift_type",
+                "service_timezone",
+                "status",
+                "current_employee",
+                "shift_assignment",
+                "checked_in_at",
+                "slot_index",
+            ],
+            limit=100,
+        )
+        ordered = sorted(dup_rows, key=score_existing_requirement_row, reverse=True)
+        if not ordered:
+            continue
+        canonical = ordered[0]
+        for duplicate in ordered[1:]:
+            try:
+                reason = (
+                    "Superseded by rule reconciliation: duplicate key consolidated into "
+                    f"{canonical.get('name')}"
+                )
+                supersede_requirement(duplicate, reason)
+                deduped_rows += 1
+            except Exception as exc:
+                frappe.log_error(str(exc), f"Dispatch data migration dedupe {duplicate.get('name')}")
+
+    calendar_result = sync_calendar_subjects(
+        window_start=frappe.utils.add_days(frappe.utils.getdate(frappe.utils.nowdate()), -7),
+        window_end=frappe.utils.add_days(frappe.utils.getdate(frappe.utils.nowdate()), 90),
+        clear_stale_superseded=True,
+    )
+
+    try:
+        index_check = frappe.db.sql(
+            """
+            SELECT COUNT(*) AS cnt
+            FROM information_schema.statistics
+            WHERE table_schema = DATABASE()
+              AND table_name = 'tabSite Shift Requirement'
+              AND index_name = 'uniq_ssr_rule_date_slot'
+            """,
+            as_dict=True,
+        )
+        has_index = shared.as_int(index_check[0].get("cnt") if index_check else 0, 0) > 0
+        if has_index:
+            index_exists = 1
+        else:
+            index_error = (
+                "DB unique index not present. Create uniq_ssr_rule_date_slot via a schema patch "
+                "after the data migration is clean."
+            )
+    except Exception as exc:
+        index_error = str(exc)
+
+    return {
+        "updated_ssr_completion": updated_ssr_completion,
+        "updated_slot_index": updated_slots,
+        "updated_system_no_show_callouts": updated_callouts,
+        "updated_auto_assignment_status": updated_auto_status,
+        "deduped_rows": deduped_rows,
+        "calendar_synced": calendar_result.get("updated"),
+        "index_exists": index_exists,
+        "index_error": index_error,
+    }

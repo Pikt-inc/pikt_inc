@@ -27,3 +27,8 @@ def dispatch_reconcile_rule(rule=None, trigger_source="manual", run_assignment=1
 @frappe.whitelist()
 def dispatch_sync_paused_buildings(**_kwargs):
     return planning.sync_paused_buildings()
+
+
+@frappe.whitelist()
+def dispatch_data_integrity_migration(**_kwargs):
+    return planning.dispatch_data_integrity_migration()
