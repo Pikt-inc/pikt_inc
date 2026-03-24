@@ -54,6 +54,7 @@ if "frappe" not in sys.modules:
     )
     sys.modules["frappe"] = fake_frappe
 
+from pikt_inc import hooks as app_hooks
 from pikt_inc.jobs import dispatch as dispatch_jobs
 from pikt_inc.services.dispatch import staffing
 
@@ -70,6 +71,29 @@ class FakeDoc(dict):
 
 
 class TestDispatchPhase2(unittest.TestCase):
+    def test_dispatch_hook_wiring_uses_real_frappe_doc_events(self):
+        self.assertEqual(
+            app_hooks.doc_events["Shift Assignment"]["on_submit"],
+            "pikt_inc.events.shift_assignment.on_submit",
+        )
+        self.assertEqual(
+            app_hooks.doc_events["Shift Assignment"]["on_update_after_submit"],
+            "pikt_inc.events.shift_assignment.on_update_after_submit",
+        )
+        self.assertEqual(
+            app_hooks.doc_events["Recurring Service Rule"]["on_update"],
+            "pikt_inc.events.recurring_service_rule.on_update",
+        )
+        self.assertEqual(
+            app_hooks.doc_events["Building"]["on_update"],
+            "pikt_inc.events.building.on_update",
+        )
+        self.assertEqual(
+            app_hooks.doc_events["Site Shift Requirement"]["on_update"],
+            "pikt_inc.events.site_shift_requirement.on_update",
+        )
+        self.assertNotIn("after_save", app_hooks.doc_events["Shift Assignment"])
+
     @patch.object(staffing.frappe.db, "exists", return_value=True)
     @patch.object(staffing.frappe, "get_doc")
     def test_sync_from_shift_assignment_updates_safe_requirement(self, mock_get_doc, _mock_exists):

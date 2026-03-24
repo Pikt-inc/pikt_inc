@@ -9,3 +9,11 @@ def before_save(doc, _method=None):
 
 def after_save(doc, _method=None):
     routing.handle_site_shift_requirement_after_save(doc)
+
+
+def after_insert(doc, _method=None):
+    routing.handle_site_shift_requirement_after_save(doc)
+
+
+def on_update(doc, _method=None):
+    routing.handle_site_shift_requirement_after_save(doc)

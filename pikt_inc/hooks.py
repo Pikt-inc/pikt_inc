@@ -141,20 +141,26 @@ doc_events = {
 		"after_insert": "pikt_inc.events.quotation.after_insert",
 	},
 	"Recurring Service Rule": {
-		"after_save": "pikt_inc.events.recurring_service_rule.after_save",
+		"after_insert": "pikt_inc.events.recurring_service_rule.after_insert",
+		"on_update": "pikt_inc.events.recurring_service_rule.on_update",
 	},
 	"Building": {
-		"after_save": "pikt_inc.events.building.after_save",
+		"after_insert": "pikt_inc.events.building.after_insert",
+		"on_update": "pikt_inc.events.building.on_update",
 	},
 	"Site Shift Requirement": {
 		"before_save": "pikt_inc.events.site_shift_requirement.before_save",
-		"after_save": "pikt_inc.events.site_shift_requirement.after_save",
+		"after_insert": "pikt_inc.events.site_shift_requirement.after_insert",
+		"on_update": "pikt_inc.events.site_shift_requirement.on_update",
 	},
 	"Dispatch Route": {
 		"before_save": "pikt_inc.events.dispatch_route.before_save",
 	},
 	"Shift Assignment": {
-		"after_save": "pikt_inc.events.shift_assignment.after_save",
+		"after_insert": "pikt_inc.events.shift_assignment.after_insert",
+		"on_update": "pikt_inc.events.shift_assignment.on_update",
+		"on_submit": "pikt_inc.events.shift_assignment.on_submit",
+		"on_update_after_submit": "pikt_inc.events.shift_assignment.on_update_after_submit",
 	},
 	"Employee Checkin": {
 		"after_insert": "pikt_inc.events.employee_checkin.after_insert",
