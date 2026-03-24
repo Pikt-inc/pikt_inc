@@ -57,12 +57,16 @@ app_license = "mit"
 # ----------
 
 # application home page (will override Website Settings)
-# home_page = "login"
+home_page = "home"
 
 # website user home page (by Role)
 # role_home_page = {
 # 	"Role": "home_page"
 # }
+
+website_redirects = [
+	{"source": "/home", "target": "/", "redirect_http_status": "301"},
+]
 
 # Generators
 # ----------
@@ -173,6 +177,12 @@ doc_events = {
 		"after_insert": "pikt_inc.events.dispatch_recommendation.after_insert",
 		"on_update": "pikt_inc.events.dispatch_recommendation.on_update",
 	},
+	"Employee Onboarding Request": {
+		"before_insert": "pikt_inc.events.employee_onboarding_request.before_insert",
+	},
+	"Employee Onboarding Packet": {
+		"before_save": "pikt_inc.events.employee_onboarding_packet.before_save",
+	},
 	"Digital Walkthrough Submission": {
 		"before_save": "pikt_inc.events.digital_walkthrough_submission.before_save",
 		"after_insert": "pikt_inc.events.digital_walkthrough_submission.after_insert",
@@ -233,7 +243,7 @@ fixtures = [
 				"route",
 				"in",
 				[
-					"",
+					"home",
 					"about",
 					"billing-setup-complete",
 					"commercial-cleaning-services",
