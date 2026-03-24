@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import frappe
 
-from pikt_inc.services.dispatch import planning, routing, shared, staffing
+from pikt_inc.services.dispatch import incidents, planning, routing, shared, staffing
 
 
 def nightly_dispatch_orchestrator():
@@ -52,6 +52,10 @@ def dispatch_route_email_orchestrator():
         "reconcile": reconcile_result,
         "email": email_result,
     }
+
+
+def monitor_no_show_site_shift_requirements():
+    return incidents.monitor_no_shows(now_value=shared.now())
 
 
 def dispatch_completion_finalizer():

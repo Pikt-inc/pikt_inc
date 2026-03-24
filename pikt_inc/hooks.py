@@ -165,6 +165,14 @@ doc_events = {
 	"Employee Checkin": {
 		"after_insert": "pikt_inc.events.employee_checkin.after_insert",
 	},
+	"Call Out": {
+		"after_insert": "pikt_inc.events.call_out.after_insert",
+		"on_update": "pikt_inc.events.call_out.on_update",
+	},
+	"Dispatch Recommendation": {
+		"after_insert": "pikt_inc.events.dispatch_recommendation.after_insert",
+		"on_update": "pikt_inc.events.dispatch_recommendation.on_update",
+	},
 }
 
 # Scheduled Tasks
@@ -172,6 +180,7 @@ doc_events = {
 
 scheduler_events = {
 	"all": [
+		"pikt_inc.jobs.dispatch.monitor_no_show_site_shift_requirements",
 		"pikt_inc.jobs.dispatch.dispatch_completion_finalizer",
 		"pikt_inc.jobs.dispatch.dispatch_route_email_orchestrator",
 	],

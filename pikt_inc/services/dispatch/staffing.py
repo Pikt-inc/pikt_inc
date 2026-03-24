@@ -121,9 +121,10 @@ def priority_points(priority: str) -> int:
     }.get(shared.clean(priority) or "Medium", 20)
 
 
-def build_candidates(ssr, settings: dict) -> list[dict]:
+def build_candidates(ssr, settings: dict, excluded_employees: set[str] | None = None) -> list[dict]:
     target_start = shared.to_datetime(ssr.get("arrival_window_start"))
     target_end = shared.to_datetime(ssr.get("arrival_window_end"))
+    excluded_employees = {shared.clean(value) for value in (excluded_employees or set()) if shared.clean(value)}
 
     availability_rows = frappe.get_all(
         "Employee Availability",
@@ -147,6 +148,8 @@ def build_candidates(ssr, settings: dict) -> list[dict]:
     for employee in employees:
         employee_name = employee.get("name")
         if not employee_name:
+            continue
+        if employee_name in excluded_employees:
             continue
 
         if has_assignment_conflict(employee_name, ssr.get("service_date"), target_start, target_end):
@@ -209,6 +212,90 @@ def build_candidates(ssr, settings: dict) -> list[dict]:
     return candidates
 
 
+def create_shift_assignment_for_requirement(ssr, employee_name: str):
+    employee_name = shared.clean(employee_name)
+    if not employee_name:
+        frappe.throw("Employee is required to create a shift assignment.")
+
+    company = frappe.db.get_value("Employee", employee_name, "company")
+    shift_assignment = frappe.get_doc(
+        {
+            "doctype": "Shift Assignment",
+            "employee": employee_name,
+            "company": company,
+            "shift_type": ssr.shift_type,
+            "shift_location": ssr.shift_location,
+            "start_date": ssr.service_date,
+            "end_date": ssr.service_date,
+            "custom_site_shift_requirement": ssr.name,
+        }
+    )
+    shift_assignment.insert(ignore_permissions=True)
+    if shift_assignment.docstatus == 0:
+        shift_assignment.flags.ignore_permissions = True
+        shift_assignment.submit()
+    return shift_assignment
+
+
+def ensure_active_shift_assignment_for_requirement(ssr, employee_name: str):
+    employee_name = shared.clean(employee_name)
+    existing_rows = frappe.get_all(
+        "Shift Assignment",
+        filters={
+            "custom_site_shift_requirement": ssr.name,
+            "employee": employee_name,
+            "status": "Active",
+            "docstatus": ["<", 2],
+        },
+        fields=["name"],
+        limit=1,
+    )
+    if existing_rows:
+        shift_assignment = frappe.get_doc("Shift Assignment", existing_rows[0].get("name"))
+        if shift_assignment.docstatus == 0:
+            shift_assignment.flags.ignore_permissions = True
+            shift_assignment.submit()
+        return shift_assignment
+
+    return create_shift_assignment_for_requirement(ssr, employee_name)
+
+
+def create_recommendation_batch(
+    ssr,
+    candidates: list[dict],
+    recommendation_type: str,
+    decision_notes: str,
+    top_decision_status: str = "Auto Assigned",
+):
+    created = []
+    for index, candidate in enumerate(candidates[:5], start=1):
+        confidence = "High" if candidate["total_score"] >= 85 else ("Medium" if candidate["total_score"] >= 65 else "Low")
+        decision_status = top_decision_status if index == 1 else "Suggested"
+        recommendation = frappe.get_doc(
+            {
+                "doctype": "Dispatch Recommendation",
+                "site_shift_requirement": ssr.name,
+                "candidate_employee": candidate["employee"],
+                "rank": index,
+                "total_score": candidate["total_score"],
+                "drive_time_minutes": candidate["drive_time_minutes"],
+                "distance_miles": candidate["distance_miles"],
+                "familiarity_score": candidate["familiarity_score"],
+                "availability_score": candidate["availability_score"],
+                "overtime_penalty": candidate["overtime_penalty"],
+                "priority_score": candidate["priority_score"],
+                "decision_status": decision_status,
+                "decision_notes": decision_notes,
+                "recommendation_type": recommendation_type,
+                "confidence_level": confidence,
+                "auto_assign_eligible": 1 if index == 1 else 0,
+            }
+        )
+        recommendation.insert(ignore_permissions=True)
+        created.append(recommendation.name)
+    return created
+
+
 def auto_assign_requirement(ssr_name: str, settings: dict | None = None) -> str:
     settings = settings or shared.get_dispatch_settings()
     ssr = frappe.get_doc("Site Shift Requirement", ssr_name)
@@ -242,48 +329,14 @@ def auto_assign_requirement(ssr_name: str, settings: dict | None = None) -> str:
 
     top_candidate = candidates[0]
     try:
-        company = frappe.db.get_value("Employee", top_candidate["employee"], "company")
-        shift_assignment = frappe.get_doc(
-            {
-                "doctype": "Shift Assignment",
-                "employee": top_candidate["employee"],
-                "company": company,
-                "shift_type": ssr.shift_type,
-                "shift_location": ssr.shift_location,
-                "start_date": ssr.service_date,
-                "end_date": ssr.service_date,
-                "custom_site_shift_requirement": ssr.name,
-            }
+        shift_assignment = create_shift_assignment_for_requirement(ssr, top_candidate["employee"])
+        create_recommendation_batch(
+            ssr,
+            candidates,
+            recommendation_type="Initial Assignment",
+            decision_notes="Auto-generated by the dispatch service layer.",
+            top_decision_status="Auto Assigned",
         )
-        shift_assignment.insert(ignore_permissions=True)
-        if shift_assignment.docstatus == 0:
-            shift_assignment.flags.ignore_permissions = True
-            shift_assignment.submit()
-
-        for index, candidate in enumerate(candidates[:5], start=1):
-            confidence = "High" if candidate["total_score"] >= 85 else ("Medium" if candidate["total_score"] >= 65 else "Low")
-            decision_status = "Auto Assigned" if index == 1 else "Suggested"
-            recommendation = frappe.get_doc(
-                {
-                    "doctype": "Dispatch Recommendation",
-                    "site_shift_requirement": ssr.name,
-                    "candidate_employee": candidate["employee"],
-                    "rank": index,
-                    "total_score": candidate["total_score"],
-                    "drive_time_minutes": candidate["drive_time_minutes"],
-                    "distance_miles": candidate["distance_miles"],
-                    "familiarity_score": candidate["familiarity_score"],
-                    "availability_score": candidate["availability_score"],
-                    "overtime_penalty": candidate["overtime_penalty"],
-                    "priority_score": candidate["priority_score"],
-                    "decision_status": decision_status,
-                    "decision_notes": "Auto-generated by the dispatch service layer.",
-                    "recommendation_type": "Initial Assignment",
-                    "confidence_level": confidence,
-                    "auto_assign_eligible": 1 if index == 1 else 0,
-                }
-            )
-            recommendation.insert(ignore_permissions=True)
 
         frappe.db.set_value(
             "Site Shift Requirement",
