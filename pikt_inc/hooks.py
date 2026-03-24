@@ -153,6 +153,12 @@ doc_events = {
 	"Dispatch Route": {
 		"before_save": "pikt_inc.events.dispatch_route.before_save",
 	},
+	"Shift Assignment": {
+		"after_save": "pikt_inc.events.shift_assignment.after_save",
+	},
+	"Employee Checkin": {
+		"after_insert": "pikt_inc.events.employee_checkin.after_insert",
+	},
 }
 
 # Scheduled Tasks
@@ -160,6 +166,7 @@ doc_events = {
 
 scheduler_events = {
 	"all": [
+		"pikt_inc.jobs.dispatch.dispatch_completion_finalizer",
 		"pikt_inc.jobs.dispatch.dispatch_route_email_orchestrator",
 	],
 	"daily": [

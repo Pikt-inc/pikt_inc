@@ -7,6 +7,8 @@ from . import incidents, shared
 
 _BUILDING_CACHE = {}
 _SHIFT_TYPE_CACHE = {}
+_TERMINAL_COMPLETION_STATES = {"Completed", "Completed With Exception", "Unfilled Closed", "Cancelled"}
+_ASSIGNMENT_RESETTABLE_STATUSES = {"Called Out", "Reassignment In Progress", "Open", "Draft", "Likely No-show"}
 
 
 def get_building_cached(building_name: str):
@@ -303,24 +305,7 @@ def auto_assign_requirement(ssr_name: str, settings: dict | None = None) -> str:
             },
         )
 
-        escalation_rows = frappe.get_all(
-            "Dispatch Escalation",
-            filters={
-                "site_shift_requirement": ssr.name,
-                "status": ["in", ["Open", "Acknowledged"]],
-            },
-            fields=["name"],
-            limit=5000,
-        )
-        for escalation in escalation_rows:
-            frappe.db.set_value(
-                "Dispatch Escalation",
-                escalation.get("name"),
-                {
-                    "status": "Resolved",
-                    "resolved_at": shared.now(),
-                },
-            )
+        incidents.resolve_open_escalations(ssr.name)
         return "assigned"
     except Exception as exc:
         incidents.create_or_update_escalation(
@@ -333,3 +318,284 @@ def auto_assign_requirement(ssr_name: str, settings: dict | None = None) -> str:
         )
         frappe.log_error(str(exc), f"Dispatch auto assign {ssr_name}")
         return "error"
+
+
+def sync_from_shift_assignment(assignment_name: str | None = None, assignment_doc=None):
+    assignment_name = shared.clean(assignment_name) or shared.clean(getattr(assignment_doc, "name", None))
+    if not assignment_doc and not assignment_name:
+        return {"status": "skipped", "reason": "missing_assignment"}
+
+    assignment_doc = assignment_doc or frappe.get_doc("Shift Assignment", assignment_name)
+    requirement_name = shared.clean(getattr(assignment_doc, "custom_site_shift_requirement", None))
+    if not requirement_name:
+        return {"status": "skipped", "reason": "missing_requirement", "assignment": assignment_doc.name}
+
+    if getattr(assignment_doc, "docstatus", 0) >= 2 or shared.clean(getattr(assignment_doc, "status", None)) != "Active":
+        return {"status": "skipped", "reason": "inactive_assignment", "assignment": assignment_doc.name}
+
+    if not frappe.db.exists("Site Shift Requirement", requirement_name):
+        return {
+            "status": "skipped",
+            "reason": "requirement_not_found",
+            "assignment": assignment_doc.name,
+            "site_shift_requirement": requirement_name,
+        }
+
+    ssr = frappe.get_doc("Site Shift Requirement", requirement_name)
+    safe_to_update = any(
+        [
+            not shared.clean(ssr.get("shift_assignment")),
+            shared.clean(ssr.get("shift_assignment")) == assignment_doc.name,
+            shared.clean(ssr.get("status")) in _ASSIGNMENT_RESETTABLE_STATUSES,
+            shared.clean(ssr.get("auto_assignment_status")) == "Escalated",
+        ]
+    )
+    if not safe_to_update:
+        return {
+            "status": "skipped",
+            "reason": "unsafe_requirement_state",
+            "assignment": assignment_doc.name,
+            "site_shift_requirement": requirement_name,
+        }
+
+    ssr.shift_assignment = assignment_doc.name
+    ssr.current_employee = assignment_doc.employee
+    if shared.clean(ssr.get("status")) in _ASSIGNMENT_RESETTABLE_STATUSES:
+        ssr.status = "Assigned"
+    if not shared.clean(ssr.get("shift_location")) and shared.clean(getattr(assignment_doc, "shift_location", None)):
+        ssr.shift_location = assignment_doc.shift_location
+    if not shared.clean(ssr.get("shift_type")) and shared.clean(getattr(assignment_doc, "shift_type", None)):
+        ssr.shift_type = assignment_doc.shift_type
+
+    ssr.auto_assignment_status = "Auto Assigned"
+    if shared.clean(ssr.get("status")) != "Completed":
+        if shared.clean(ssr.get("completion_status")) in _TERMINAL_COMPLETION_STATES:
+            ssr.completion_status = None
+        ssr.completed_at = None
+
+    ssr.flags.ignore_permissions = True
+    ssr.save(ignore_permissions=True)
+    return {
+        "status": "updated",
+        "assignment": assignment_doc.name,
+        "site_shift_requirement": requirement_name,
+    }
+
+
+def apply_employee_checkin(checkin_name: str | None = None, checkin_doc=None):
+    checkin_name = shared.clean(checkin_name) or shared.clean(getattr(checkin_doc, "name", None))
+    if not checkin_doc and not checkin_name:
+        return {"status": "skipped", "reason": "missing_checkin"}
+
+    checkin_doc = checkin_doc or frappe.get_doc("Employee Checkin", checkin_name)
+    employee = shared.clean(getattr(checkin_doc, "employee", None))
+    checkin_time = shared.to_datetime(getattr(checkin_doc, "time", None))
+    if not employee or not checkin_time:
+        return {"status": "skipped", "reason": "missing_employee_or_time", "checkin": checkin_doc.name}
+
+    log_type = shared.clean(getattr(checkin_doc, "log_type", None))
+    if log_type and log_type != "IN":
+        return {"status": "skipped", "reason": "non_in_log_type", "checkin": checkin_doc.name}
+
+    service_date = str(checkin_time.date())
+    candidate_rows = frappe.get_all(
+        "Site Shift Requirement",
+        filters={
+            "current_employee": employee,
+            "service_date": service_date,
+            "status": ["in", ["Assigned", "Likely No-show", "Reassignment In Progress"]],
+            "checked_in_at": ["is", "not set"],
+        },
+        fields=["name", "arrival_window_start", "arrival_window_end", "call_out_record"],
+        limit=5000,
+        order_by="arrival_window_start asc",
+    )
+
+    matched_row = None
+    matched_delta = None
+    for row in candidate_rows:
+        start_dt = shared.to_datetime(row.get("arrival_window_start"))
+        end_dt = shared.to_datetime(row.get("arrival_window_end"))
+        if not start_dt or not end_dt:
+            continue
+        if not (start_dt <= checkin_time <= end_dt):
+            continue
+
+        delta = abs((checkin_time - start_dt).total_seconds())
+        if matched_row is None or delta < matched_delta:
+            matched_row = row
+            matched_delta = delta
+
+    if not matched_row:
+        return {
+            "status": "skipped",
+            "reason": "no_matching_requirement",
+            "checkin": checkin_doc.name,
+            "employee": employee,
+        }
+
+    frappe.db.set_value(
+        "Site Shift Requirement",
+        matched_row.get("name"),
+        {
+            "checked_in_at": getattr(checkin_doc, "time", None),
+            "status": "Checked In",
+        },
+    )
+
+    incidents.close_callout_if_open(matched_row.get("call_out_record"))
+    incidents.resolve_open_escalations(matched_row.get("name"))
+    return {
+        "status": "updated",
+        "checkin": checkin_doc.name,
+        "site_shift_requirement": matched_row.get("name"),
+    }
+
+
+def finalize_completed_requirements(now_dt=None):
+    now_dt = shared.to_datetime(now_dt) or shared.now_datetime()
+    rows = frappe.get_all(
+        "Site Shift Requirement",
+        filters={
+            "status": ["in", ["Checked In", "Assigned"]],
+            "checked_in_at": ["is", "set"],
+        },
+        fields=[
+            "name",
+            "building",
+            "shift_type",
+            "slot_index",
+            "current_employee",
+            "service_timezone",
+            "arrival_window_end",
+        ],
+        limit=5000,
+    )
+
+    completed = 0
+    for row in rows:
+        arrival_window_end = shared.to_datetime(row.get("arrival_window_end"))
+        if not arrival_window_end or now_dt < arrival_window_end:
+            continue
+        if incidents.has_open_escalation_for_ssr(row.get("name")) or incidents.has_open_callout_for_ssr(row.get("name")):
+            continue
+
+        frappe.db.set_value(
+            "Site Shift Requirement",
+            row.get("name"),
+            {
+                "status": "Completed",
+                "completion_status": "Completed",
+                "completed_at": shared.now(),
+                "exception_reason": None,
+                "custom_calendar_subject": shared.make_calendar_subject(
+                    row.get("building"),
+                    row.get("shift_type"),
+                    row.get("slot_index"),
+                    row.get("current_employee"),
+                    "Completed",
+                    row.get("service_timezone"),
+                ),
+            },
+        )
+        completed += 1
+
+    return completed
+
+
+def close_unfilled_requirements(now_dt=None, settings: dict | None = None):
+    now_dt = shared.to_datetime(now_dt) or shared.now_datetime()
+    settings = settings or shared.get_dispatch_settings()
+    rows = frappe.get_all(
+        "Site Shift Requirement",
+        filters={
+            "status": ["in", ["Open", "Called Out", "Reassignment In Progress", "Likely No-show", "Assigned"]],
+            "checked_in_at": ["is", "not set"],
+        },
+        fields=[
+            "name",
+            "building",
+            "shift_type",
+            "slot_index",
+            "current_employee",
+            "service_timezone",
+            "arrival_window_end",
+        ],
+        limit=5000,
+    )
+
+    closed = 0
+    delay_minutes = max(1, shared.as_int(settings.get("unfilled_close_delay_minutes"), 120))
+    for row in rows:
+        arrival_window_end = shared.to_datetime(row.get("arrival_window_end"))
+        if not arrival_window_end:
+            continue
+
+        close_after = shared.to_datetime(
+            frappe.utils.add_to_date(arrival_window_end, minutes=delay_minutes, as_string=True)
+        )
+        if not close_after or now_dt < close_after:
+            continue
+
+        message = f"Requirement {row.get('name')} closed unfilled after policy window without check-in."
+        incidents.create_or_update_escalation(
+            row.get("name"),
+            row.get("building"),
+            "Manual Override Required",
+            message,
+            settings,
+            None,
+        )
+        frappe.db.set_value(
+            "Site Shift Requirement",
+            row.get("name"),
+            {
+                "status": "Unfilled Closed",
+                "completion_status": "Unfilled Closed",
+                "completed_at": shared.now(),
+                "auto_assignment_status": "Escalated",
+                "exception_reason": message,
+                "incident_type": "Unfilled",
+                "custom_calendar_subject": shared.make_calendar_subject(
+                    row.get("building"),
+                    row.get("shift_type"),
+                    row.get("slot_index"),
+                    row.get("current_employee"),
+                    "Unfilled Closed",
+                    row.get("service_timezone"),
+                ),
+            },
+        )
+        closed += 1
+
+    return closed
+
+
+def finalize_dispatch_completion(now_value=None, settings: dict | None = None):
+    now_dt = shared.to_datetime(now_value) or shared.now_datetime()
+    settings = settings or shared.get_dispatch_settings()
+    completed = finalize_completed_requirements(now_dt=now_dt)
+    unfilled_closed = close_unfilled_requirements(now_dt=now_dt, settings=settings)
+    return {
+        "completed": completed,
+        "unfilled_closed": unfilled_closed,
+        "now": str(now_dt),
+    }
+
+
+def handle_shift_assignment_after_save(doc):
+    if not doc or not getattr(doc, "name", None):
+        return
+    try:
+        sync_from_shift_assignment(assignment_doc=doc)
+    except Exception as exc:
+        frappe.log_error(str(exc), "Shift Assignment -> Site Shift Requirement sync")
+
+
+def handle_employee_checkin_after_insert(doc):
+    if not doc or not getattr(doc, "name", None):
+        return
+    try:
+        apply_employee_checkin(checkin_doc=doc)
+    except Exception as exc:
+        frappe.log_error(str(exc), "Employee Checkin Updates Site Shift Requirement")

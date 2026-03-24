@@ -34,6 +34,19 @@ def close_open_callouts_for_ssr(ssr_name: str):
         frappe.db.set_value("Call Out", row.get("name"), "replacement_status", "Closed")
 
 
+def close_callout_if_open(call_out_name: str) -> bool:
+    call_out_name = shared.clean(call_out_name)
+    if not call_out_name or not frappe.db.exists("Call Out", call_out_name):
+        return False
+
+    replacement_status = shared.clean(frappe.db.get_value("Call Out", call_out_name, "replacement_status"))
+    if replacement_status not in {"Recorded", "Replacement Pending"}:
+        return False
+
+    frappe.db.set_value("Call Out", call_out_name, "replacement_status", "Closed")
+    return True
+
+
 def expire_previous_recommendations(ssr_name: str):
     rows = frappe.get_all(
         "Dispatch Recommendation",
@@ -109,6 +122,54 @@ def create_or_update_escalation(ssr_name: str, building_name: str, reason: str, 
             frappe.log_error(str(exc), "Dispatch escalation email")
 
     return escalation_name
+
+
+def has_open_callout_for_ssr(ssr_name: str) -> bool:
+    rows = frappe.get_all(
+        "Call Out",
+        filters={
+            "site_shift_requirement": ssr_name,
+            "replacement_status": ["in", ["Recorded", "Replacement Pending"]],
+        },
+        fields=["name"],
+        limit=1,
+    )
+    return bool(rows)
+
+
+def has_open_escalation_for_ssr(ssr_name: str) -> bool:
+    rows = frappe.get_all(
+        "Dispatch Escalation",
+        filters={
+            "site_shift_requirement": ssr_name,
+            "status": ["in", ["Open", "Acknowledged"]],
+        },
+        fields=["name"],
+        limit=1,
+    )
+    return bool(rows)
+
+
+def resolve_open_escalations(ssr_name: str) -> int:
+    rows = frappe.get_all(
+        "Dispatch Escalation",
+        filters={
+            "site_shift_requirement": ssr_name,
+            "status": ["in", ["Open", "Acknowledged"]],
+        },
+        fields=["name"],
+        limit=5000,
+    )
+    for row in rows:
+        frappe.db.set_value(
+            "Dispatch Escalation",
+            row.get("name"),
+            {
+                "status": "Resolved",
+                "resolved_at": shared.now(),
+            },
+        )
+    return len(rows)
 
 
 def ensure_redispatch_callout(ssr_doc, trigger_source: str):
