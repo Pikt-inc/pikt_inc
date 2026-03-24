@@ -63,6 +63,7 @@ def execute():
     if _index_exists():
         return
 
+    frappe.db.commit()
     frappe.db.sql(
         """
         ALTER TABLE `tabSite Shift Requirement`

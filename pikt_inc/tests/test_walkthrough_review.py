@@ -13,12 +13,16 @@ if "frappe" not in sys.modules:
             exists=lambda *args, **kwargs: False,
             set_value=lambda *args, **kwargs: None,
             sql=lambda *args, **kwargs: [],
+            commit=lambda: None,
         ),
         get_doc=lambda *args, **kwargs: None,
         throw=lambda message, **_kwargs: (_ for _ in ()).throw(Exception(message)),
         whitelist=lambda **kwargs: (lambda fn: fn),
     )
     sys.modules["frappe"] = fake_frappe
+
+if not hasattr(sys.modules["frappe"].db, "commit"):
+    sys.modules["frappe"].db.commit = lambda: None
 
 from pikt_inc import hooks as app_hooks
 from pikt_inc.patches.post_model_sync import ensure_ssr_unique_index
@@ -139,9 +143,15 @@ class TestWalkthroughReview(unittest.TestCase):
         self.assertIsNone(doc.default_workspace)
         self.assertIsNone(doc.default_app)
 
+    @patch.object(ensure_ssr_unique_index.frappe.db, "commit")
     @patch.object(ensure_ssr_unique_index.frappe.db, "sql")
     @patch.object(ensure_ssr_unique_index.planning, "dispatch_data_integrity_migration")
-    def test_ensure_ssr_unique_index_normalizes_blank_rules_and_adds_index(self, mock_migration, mock_sql):
+    def test_ensure_ssr_unique_index_normalizes_blank_rules_and_adds_index(
+        self,
+        mock_migration,
+        mock_sql,
+        mock_commit,
+    ):
         mock_sql.side_effect = [
             None,
             [],
@@ -156,6 +166,7 @@ class TestWalkthroughReview(unittest.TestCase):
         self.assertIn("GROUP BY recurring_service_rule, service_date, slot_index", mock_sql.call_args_list[1].args[0])
         self.assertIn("information_schema.statistics", mock_sql.call_args_list[2].args[0])
         self.assertIn("ADD UNIQUE INDEX `uniq_ssr_rule_date_slot`", mock_sql.call_args_list[3].args[0])
+        mock_commit.assert_called_once_with()
 
 
 if __name__ == "__main__":

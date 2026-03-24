@@ -201,6 +201,30 @@ scheduler_events = {
 
 fixtures = [
 	{
+		"dt": "Notification",
+		"filters": [
+			[
+				"name",
+				"in",
+				[
+					"Commercial Cleaning Instant Estimate",
+					"Employee Onboarding Invite",
+					"Employee Onboarding Reminder",
+					"Employee Onboarding Submitted",
+					"Error Log",
+					"Integration Request",
+					"Lead Quotation Review Invite",
+					"New Commercial Cleaning Lead",
+					"New Contact Form Lead",
+					"New Digital Walkthrough Submission",
+					"New Unlinked Digital Walkthrough Submission",
+					"Pre-Service Visit Reminder",
+					"Reviewer Opportunity Walkthrough Submitted",
+				],
+			]
+		],
+	},
+	{
 		"dt": "Builder Page",
 		"filters": [
 			[
