@@ -74,25 +74,59 @@ def has_overlap(start_a, end_a, start_b, end_b) -> bool:
     return start_a < end_b and start_b < end_a
 
 
-def has_assignment_conflict(employee: str, service_date, target_start, target_end) -> bool:
+def shift_types_overlap(target_shift_type: str, other_shift_type: str, service_date) -> bool:
+    target_start, target_end = get_shift_type_window(target_shift_type, service_date)
+    other_start, other_end = get_shift_type_window(other_shift_type, service_date)
+    return has_overlap(target_start, target_end, other_start, other_end)
+
+
+def has_assignment_conflict(
+    employee: str,
+    service_date,
+    target_start,
+    target_end,
+    target_shift_type: str | None = None,
+    ignore_requirement: str | None = None,
+) -> bool:
+    employee = shared.clean(employee)
+    ignore_requirement = shared.clean(ignore_requirement)
+    target_shift_type = shared.clean(target_shift_type)
+    if not employee or not service_date:
+        return False
+
     assignments = frappe.get_all(
         "Shift Assignment",
         filters={
             "employee": employee,
             "start_date": ["<=", service_date],
-            "end_date": [">=", service_date],
             "status": "Active",
-            "docstatus": ["<", 2],
+            "docstatus": 1,
         },
+        or_filters=[["end_date", ">=", service_date], ["end_date", "is", "not set"]],
         fields=["name", "custom_site_shift_requirement", "shift_type"],
         limit=5000,
     )
+    allow_multiple = shared.as_int(
+        frappe.db.get_single_value("HR Settings", "allow_multiple_shift_assignments"),
+        0,
+    )
 
     for assignment in assignments:
+        linked_requirement = shared.clean(assignment.get("custom_site_shift_requirement"))
+        if ignore_requirement and linked_requirement == ignore_requirement:
+            continue
+        if not allow_multiple:
+            return True
+
+        other_shift_type = shared.clean(assignment.get("shift_type"))
+        if target_shift_type and other_shift_type:
+            if shift_types_overlap(target_shift_type, other_shift_type, service_date):
+                return True
+            continue
+
         other_start = None
         other_end = None
 
-        linked_requirement = shared.clean(assignment.get("custom_site_shift_requirement"))
         if linked_requirement and frappe.db.exists("Site Shift Requirement", linked_requirement):
             linked = frappe.db.get_value(
                 "Site Shift Requirement",
@@ -152,7 +186,14 @@ def build_candidates(ssr, settings: dict, excluded_employees: set[str] | None = 
         if employee_name in excluded_employees:
             continue
 
-        if has_assignment_conflict(employee_name, ssr.get("service_date"), target_start, target_end):
+        if has_assignment_conflict(
+            employee_name,
+            ssr.get("service_date"),
+            target_start,
+            target_end,
+            target_shift_type=ssr.get("shift_type"),
+            ignore_requirement=ssr.name,
+        ):
             continue
 
         explicit_availability = employee_name in availability_map

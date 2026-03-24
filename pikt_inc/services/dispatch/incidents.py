@@ -372,30 +372,83 @@ def approve_reassignment(recommendation_name: str | None = None, recommendation_
 
     from . import staffing
 
+    settings = shared.get_dispatch_settings()
     expire_previous_recommendations(ssr.name, recommendation_types=None, exclude_name=recommendation_doc.name)
-    shift_assignment = staffing.ensure_active_shift_assignment_for_requirement(ssr, candidate_employee)
-    deactivate_assignments_for_ssr(ssr.name, keep_name=shift_assignment.name)
-    staffing.sync_from_shift_assignment(assignment_doc=shift_assignment)
-    frappe.db.set_value(
-        "Site Shift Requirement",
-        ssr.name,
-        {
-            "status": "Assigned",
-            "current_employee": candidate_employee,
+    try:
+        if staffing.has_assignment_conflict(
+            candidate_employee,
+            ssr.service_date,
+            shared.to_datetime(ssr.get("arrival_window_start")),
+            shared.to_datetime(ssr.get("arrival_window_end")),
+            target_shift_type=ssr.get("shift_type"),
+            ignore_requirement=ssr.name,
+        ):
+            validation_error = getattr(frappe, "ValidationError", Exception)
+            raise validation_error(
+                f"Candidate {candidate_employee} has a conflicting active shift assignment."
+            )
+
+        shift_assignment = staffing.ensure_active_shift_assignment_for_requirement(ssr, candidate_employee)
+        deactivate_assignments_for_ssr(ssr.name, keep_name=shift_assignment.name)
+        staffing.sync_from_shift_assignment(assignment_doc=shift_assignment)
+        frappe.db.set_value(
+            "Site Shift Requirement",
+            ssr.name,
+            {
+                "status": "Assigned",
+                "current_employee": candidate_employee,
+                "shift_assignment": shift_assignment.name,
+                "auto_assignment_status": "Auto Assigned",
+                "exception_reason": None,
+            },
+        )
+        if ssr.call_out_record and frappe.db.exists("Call Out", ssr.call_out_record):
+            frappe.db.set_value("Call Out", ssr.call_out_record, "replacement_status", "Replaced")
+        resolve_open_escalations(ssr.name)
+        return {
+            "status": "assigned",
+            "recommendation": recommendation_doc.name,
+            "site_shift_requirement": ssr.name,
             "shift_assignment": shift_assignment.name,
-            "auto_assignment_status": "Auto Assigned",
-            "exception_reason": None,
-        },
-    )
-    if ssr.call_out_record and frappe.db.exists("Call Out", ssr.call_out_record):
-        frappe.db.set_value("Call Out", ssr.call_out_record, "replacement_status", "Replaced")
-    resolve_open_escalations(ssr.name)
-    return {
-        "status": "assigned",
-        "recommendation": recommendation_doc.name,
-        "site_shift_requirement": ssr.name,
-        "shift_assignment": shift_assignment.name,
-    }
+        }
+    except Exception as exc:
+        message = f"Approved recommendation {recommendation_doc.name} is no longer valid for requirement {ssr.name}."
+        create_or_update_escalation(
+            ssr.name,
+            ssr.building,
+            "Validation Error",
+            message,
+            settings,
+            str(exc),
+        )
+        frappe.db.set_value(
+            "Site Shift Requirement",
+            ssr.name,
+            {
+                "status": "Reassignment In Progress",
+                "auto_assignment_status": "Escalated",
+                "exception_reason": message,
+            },
+        )
+        frappe.db.set_value(
+            "Dispatch Recommendation",
+            recommendation_doc.name,
+            {
+                "decision_status": "Escalated",
+                "decision_notes": str(exc),
+            },
+        )
+        if ssr.call_out_record and frappe.db.exists("Call Out", ssr.call_out_record):
+            frappe.db.set_value("Call Out", ssr.call_out_record, "replacement_status", "Replacement Pending")
+        frappe.log_error(
+            title="Approve Recommendation And Reassign",
+            message=f"Recommendation {recommendation_doc.name}: {str(exc)}",
+        )
+        return {
+            "status": "error",
+            "recommendation": recommendation_doc.name,
+            "site_shift_requirement": ssr.name,
+        }
 
 
 def monitor_no_shows(now_value=None):

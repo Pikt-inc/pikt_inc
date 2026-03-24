@@ -40,6 +40,7 @@ if "frappe" not in sys.modules:
         db=types.SimpleNamespace(
             exists=lambda *args, **kwargs: False,
             get_value=lambda *args, **kwargs: None,
+            get_single_value=lambda *args, **kwargs: None,
             set_value=lambda *args, **kwargs: None,
             set_single_value=lambda *args, **kwargs: None,
             sql=lambda *args, **kwargs: [],
@@ -57,6 +58,7 @@ if "frappe" not in sys.modules:
 from pikt_inc import hooks as app_hooks
 from pikt_inc.jobs import dispatch as dispatch_jobs
 from pikt_inc.services.dispatch import incidents
+from pikt_inc.services.dispatch import staffing
 
 
 class FakeDoc(dict):
@@ -71,6 +73,44 @@ class FakeDoc(dict):
 
 
 class TestDispatchPhase3(unittest.TestCase):
+    @patch.object(staffing.frappe.db, "exists", return_value=True)
+    @patch.object(staffing.frappe.db, "get_value")
+    @patch.object(staffing.frappe.db, "get_single_value", return_value=1, create=True)
+    @patch.object(staffing.frappe, "get_all")
+    def test_has_assignment_conflict_uses_shift_type_overlap_even_when_ssr_windows_do_not(
+        self,
+        mock_get_all,
+        _mock_allow_multiple,
+        mock_get_value,
+        _mock_exists,
+    ):
+        mock_get_all.return_value = [
+            {
+                "name": "HR-SHA-0009",
+                "custom_site_shift_requirement": "SSR-OTHER",
+                "shift_type": "Float Coverage",
+            }
+        ]
+        mock_get_value.side_effect = [
+            {
+                "arrival_window_start": "2026-03-24 06:00:00",
+                "arrival_window_end": "2026-03-24 07:00:00",
+            },
+            {"start_time": "08:00:00", "end_time": "12:00:00"},
+            {"start_time": "09:00:00", "end_time": "17:00:00"},
+        ]
+
+        result = staffing.has_assignment_conflict(
+            "HR-EMP-00004",
+            "2026-03-24",
+            datetime(2026, 3, 24, 18, 0, 0),
+            datetime(2026, 3, 24, 19, 0, 0),
+            target_shift_type="Morning Coverage",
+            ignore_requirement="SSR-SELF",
+        )
+
+        self.assertTrue(result)
+
     def test_dispatch_phase3_hook_wiring(self):
         self.assertEqual(
             app_hooks.doc_events["Call Out"]["after_insert"],
@@ -249,14 +289,20 @@ class TestDispatchPhase3(unittest.TestCase):
     @patch.object(incidents.frappe.db, "exists")
     @patch.object(incidents.frappe.db, "set_value")
     @patch.object(incidents, "resolve_open_escalations")
+    @patch.object(incidents, "create_or_update_escalation")
+    @patch.object(incidents.shared, "get_dispatch_settings", return_value={"max_overtime_hours": 2.0, "max_distance_miles": 25.0, "escalation_role": "HR Manager", "sender_email": "ops@example.com", "unfilled_close_delay_minutes": 120})
     @patch.object(incidents.frappe, "get_doc")
     @patch("pikt_inc.services.dispatch.staffing.sync_from_shift_assignment")
     @patch("pikt_inc.services.dispatch.staffing.ensure_active_shift_assignment_for_requirement")
-    def test_approve_reassignment_assigns_candidate_for_escalated_requirement(
+    @patch("pikt_inc.services.dispatch.staffing.has_assignment_conflict", return_value=True)
+    def test_approve_reassignment_escalates_when_candidate_conflicts(
         self,
+        _mock_conflict,
         mock_ensure_assignment,
         mock_sync_assignment,
         mock_get_doc,
+        _mock_settings,
+        mock_create_escalation,
         mock_resolve_escalations,
         mock_set_value,
         mock_exists,
@@ -267,10 +313,14 @@ class TestDispatchPhase3(unittest.TestCase):
                 "name": "SSR-0004",
                 "auto_assignment_status": "Escalated",
                 "call_out_record": "CO-0004",
+                "service_date": "2026-03-24",
+                "arrival_window_start": "2026-03-24 18:00:00",
+                "arrival_window_end": "2026-03-24 19:00:00",
+                "shift_type": "Evening",
+                "building": "BLDG-0004",
             }
         )
         mock_get_doc.return_value = ssr_doc
-        mock_ensure_assignment.return_value = SimpleNamespace(name="HR-SHA-0002")
         recommendation_doc = SimpleNamespace(
             name="DR-0001",
             decision_status="Approved",
@@ -280,21 +330,29 @@ class TestDispatchPhase3(unittest.TestCase):
 
         result = incidents.approve_reassignment(recommendation_doc=recommendation_doc)
 
-        self.assertEqual(result["status"], "assigned")
-        mock_sync_assignment.assert_called_once()
+        self.assertEqual(result["status"], "error")
+        mock_ensure_assignment.assert_not_called()
+        mock_sync_assignment.assert_not_called()
         mock_set_value.assert_any_call(
             "Site Shift Requirement",
             "SSR-0004",
             {
-                "status": "Assigned",
-                "current_employee": "HR-EMP-00004",
-                "shift_assignment": "HR-SHA-0002",
-                "auto_assignment_status": "Auto Assigned",
-                "exception_reason": None,
+                "status": "Reassignment In Progress",
+                "auto_assignment_status": "Escalated",
+                "exception_reason": "Approved recommendation DR-0001 is no longer valid for requirement SSR-0004.",
             },
         )
-        mock_set_value.assert_any_call("Call Out", "CO-0004", "replacement_status", "Replaced")
-        mock_resolve_escalations.assert_called_once_with("SSR-0004")
+        mock_set_value.assert_any_call(
+            "Dispatch Recommendation",
+            "DR-0001",
+            {
+                "decision_status": "Escalated",
+                "decision_notes": "Candidate HR-EMP-00004 has a conflicting active shift assignment.",
+            },
+        )
+        mock_set_value.assert_any_call("Call Out", "CO-0004", "replacement_status", "Replacement Pending")
+        mock_create_escalation.assert_called_once()
+        mock_resolve_escalations.assert_not_called()
 
     @patch.object(incidents.frappe, "get_all")
     @patch.object(incidents.frappe, "get_doc")
