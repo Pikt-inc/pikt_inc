@@ -61,13 +61,21 @@ class TestWalkthroughReview(unittest.TestCase):
             "pikt_inc.events.digital_walkthrough_submission.before_save",
         )
         self.assertEqual(
+            app_hooks.doc_events["Digital Walkthrough Submission"]["after_insert"],
+            "pikt_inc.events.digital_walkthrough_submission.after_insert",
+        )
+        self.assertEqual(
+            app_hooks.doc_events["Digital Walkthrough Submission"]["on_update"],
+            "pikt_inc.events.digital_walkthrough_submission.on_update",
+        )
+        self.assertEqual(
             app_hooks.doc_events["User"]["before_save"],
             "pikt_inc.events.user.before_save",
         )
 
     def test_sync_submission_requires_opportunity_before_review(self):
         with self.assertRaisesRegex(Exception, "Link this walkthrough to an opportunity"):
-            walkthrough_review.sync_submission_to_opportunity(
+            walkthrough_review.validate_submission_review_link(
                 FakeDoc({"name": "DWS-0001", "status": "Reviewed", "opportunity": ""})
             )
 

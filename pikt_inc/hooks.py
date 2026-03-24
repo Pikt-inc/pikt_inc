@@ -175,6 +175,8 @@ doc_events = {
 	},
 	"Digital Walkthrough Submission": {
 		"before_save": "pikt_inc.events.digital_walkthrough_submission.before_save",
+		"after_insert": "pikt_inc.events.digital_walkthrough_submission.after_insert",
+		"on_update": "pikt_inc.events.digital_walkthrough_submission.on_update",
 	},
 	"User": {
 		"before_save": "pikt_inc.events.user.before_save",

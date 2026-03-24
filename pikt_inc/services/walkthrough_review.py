@@ -22,17 +22,27 @@ def _get_role_name(row):
     return clean(getattr(row, "role", None))
 
 
-def sync_submission_to_opportunity(doc):
+def validate_submission_review_link(doc):
     opportunity_name = clean(getattr(doc, "opportunity", None))
     submission_status = clean(getattr(doc, "status", None))
-    walkthrough_file = clean(getattr(doc, "walkthrough_file", None))
-    submission_name = clean(getattr(doc, "name", None))
 
     if not opportunity_name:
         if submission_status == "Reviewed":
             frappe.throw("Link this walkthrough to an opportunity before marking it reviewed.")
         return {"status": "skipped", "reason": "missing_opportunity"}
 
+    return {"status": "ok", "opportunity": opportunity_name}
+
+
+def sync_submission_to_opportunity(doc):
+    validation = validate_submission_review_link(doc)
+    if validation.get("status") == "skipped":
+        return validation
+
+    opportunity_name = validation["opportunity"]
+    submission_status = clean(getattr(doc, "status", None))
+    walkthrough_file = clean(getattr(doc, "walkthrough_file", None))
+    submission_name = clean(getattr(doc, "name", None))
     opp = frappe.get_doc("Opportunity", opportunity_name)
     changed = False
 
