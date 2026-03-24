@@ -173,6 +173,12 @@ doc_events = {
 		"after_insert": "pikt_inc.events.dispatch_recommendation.after_insert",
 		"on_update": "pikt_inc.events.dispatch_recommendation.on_update",
 	},
+	"Digital Walkthrough Submission": {
+		"before_save": "pikt_inc.events.digital_walkthrough_submission.before_save",
+	},
+	"User": {
+		"before_save": "pikt_inc.events.user.before_save",
+	},
 }
 
 # Scheduled Tasks
