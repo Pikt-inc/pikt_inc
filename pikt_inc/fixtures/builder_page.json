@@ -83,7 +83,7 @@
     "page_title": "Setup Complete",
     "preview": "/assets/builder/images/fallback.png",
     "project_folder": null,
-    "published": 1,
+    "published": 0,
     "route": "billing-setup-complete"
   },
   {
@@ -170,7 +170,7 @@
     "page_title": "Digital Walkthrough",
     "preview": "/files/page-a024a433-preview.webp?v=ad876",
     "project_folder": null,
-    "published": 1,
+    "published": 0,
     "route": "digital-walkthrough"
   },
   {
@@ -199,7 +199,7 @@
     "page_title": "Digital Walkthrough Received",
     "preview": "/files/page-45589538-preview.webp?v=c01b0",
     "project_folder": null,
-    "published": 1,
+    "published": 0,
     "route": "digital-walkthrough-received"
   },
   {
@@ -401,7 +401,7 @@
     "page_title": "Request a Quote",
     "preview": "/files/page-ecb33ac1-preview.webp?v=37509",
     "project_folder": null,
-    "published": 1,
+    "published": 0,
     "route": "quote"
   },
   {
@@ -430,7 +430,7 @@
     "page_title": "Quote Accepted",
     "preview": "/files/page-89284caf-preview.webp?v=9809c",
     "project_folder": null,
-    "published": 1,
+    "published": 0,
     "route": "quote-accepted"
   },
   {
@@ -488,7 +488,7 @@
     "page_title": "Preparing Your Billing Setup",
     "preview": "/assets/builder/images/fallback.png",
     "project_folder": null,
-    "published": 1,
+    "published": 0,
     "route": "review-quote"
   },
   {
@@ -807,7 +807,7 @@
     "page_title": "Instant Estimate",
     "preview": "/files/page-ee03affe-preview.webp?v=9d0b2",
     "project_folder": null,
-    "published": 1,
+    "published": 0,
     "route": "thank-you"
   }
 ]

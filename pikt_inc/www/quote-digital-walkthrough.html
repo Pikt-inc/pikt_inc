@@ -1,0 +1,136 @@
+{% extends "templates/base.html" %}
+{% from "pikt_inc/templates/includes/site_shell_macros.html" import site_shell_footer, site_shell_header %}
+{% from "pikt_inc/templates/includes/quote_funnel_macros.html" import quote_funnel_head %}
+
+{% block navbar %}{% endblock %}
+{% block footer %}{% endblock %}
+
+{% block head_include %}
+{{ super() }}
+{{ quote_funnel_head(noindex_meta) }}
+<style>
+#digital-walkthrough-upload-panel iframe { display: none !important; }
+#dw-inline-upload-shell { width: 100%; }
+#dw-inline-upload-shell .dw-upload-card { border: 1px solid #e5e7eb; border-radius: 18px; background: #f8fafc; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+#dw-inline-upload-shell .dw-upload-status { border-radius: 14px; padding: 12px 14px; line-height: 1.5; font-weight: 600; display: none; }
+#dw-inline-upload-shell .dw-upload-status.is-visible { display: block; }
+#dw-inline-upload-shell .dw-upload-status.is-info { background: #eef7ff; border: 1px solid #bfdbfe; color: #1d4ed8; }
+#dw-inline-upload-shell .dw-upload-status.is-success { background: #ecfdf3; border: 1px solid #bbf7d0; color: #166534; }
+#dw-inline-upload-shell .dw-upload-status.is-error { background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; }
+#dw-inline-upload-shell .dw-upload-controls { display: flex; flex-direction: column; gap: 12px; }
+#dw-inline-upload-shell .dw-upload-picker { appearance: none; border: 1px solid #d1d5db; background: #ffffff; color: #111827; border-radius: 14px; padding: 14px 16px; font-weight: 600; text-align: left; cursor: pointer; }
+#dw-inline-upload-shell .dw-upload-picker:disabled, #dw-inline-upload-shell .dw-upload-submit:disabled { opacity: 0.65; cursor: not-allowed; }
+#dw-inline-upload-shell .dw-upload-file { font-weight: 600; color: #111827; word-break: break-word; }
+#dw-inline-upload-shell .dw-upload-meta { font-size: 13px; color: #6b7280; line-height: 1.5; }
+#dw-inline-upload-shell .dw-upload-submit { appearance: none; border: 0; background: #171717; color: #ffffff; border-radius: 14px; padding: 14px 18px; font-weight: 600; cursor: pointer; }
+#dw-inline-upload-shell .dw-upload-submit:hover:not(:disabled) { background: #383838; }
+@media (max-width: 767px) { #dw-inline-upload-shell .dw-upload-card { padding: 16px; border-radius: 16px; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="quote-flow-page">
+  <section>
+    {{ site_shell_header() }}
+  </section>
+  <section>
+    <div class="quote-flow-wrap">
+      <section class="quote-flow-hero">
+        <p data-walkthrough-slot="eyebrow" class="quote-flow-kicker">Digital walkthrough requested</p>
+        <h1 data-walkthrough-slot="title" class="quote-flow-title">Show us the space so we can review the scope.</h1>
+        <p data-walkthrough-slot="body-copy" class="quote-flow-copy">Upload the completed walkthrough file and we will attach it directly to your estimate request for review.</p>
+        <div class="quote-flow-actions">
+          <a data-walkthrough-slot="primary-cta" class="quote-flow-btn quote-flow-btn--primary" href="#digital-walkthrough-upload-panel">Jump to Upload</a>
+          <a data-walkthrough-slot="secondary-cta" class="quote-flow-btn quote-flow-btn--secondary" href="/contact">Talk to Our Team</a>
+        </div>
+      </section>
+      <section class="quote-flow-grid quote-flow-grid--two">
+        <article class="quote-flow-card">
+          <h2 data-walkthrough-slot="form-title">Upload Your Digital Walkthrough</h2>
+          <p data-walkthrough-slot="form-copy" class="quote-flow-card-copy">Choose one completed walkthrough file and we will attach it directly to the estimate tied to this secure link.</p>
+          <div id="digital-walkthrough-upload-panel" class="quote-flow-upload-panel"></div>
+        </article>
+        <div class="quote-flow-grid">
+          <article class="quote-flow-card">
+            <h2 data-walkthrough-slot="instructions-title">What to include</h2>
+            <p data-walkthrough-slot="instructions-copy" class="quote-flow-card-copy">Give us enough detail to confirm layout, access, special areas, and scope details that can change the final review.</p>
+            <div class="quote-flow-note-list">
+              <div data-walkthrough-slot="instructions-point-1" class="quote-flow-note">This upload attaches directly to a single estimate request.</div>
+              <div data-walkthrough-slot="instructions-point-2" class="quote-flow-note">Upload one completed file from this page once the secure estimate reference is valid.</div>
+              <div data-walkthrough-slot="instructions-point-3" class="quote-flow-note">Keep the file focused on the facility and service scope tied to this request.</div>
+            </div>
+          </article>
+          <article class="quote-flow-card quote-flow-card--dark">
+            <p class="quote-flow-kicker">After upload</p>
+            <h2 data-walkthrough-slot="next-title">What happens next</h2>
+            <p data-walkthrough-slot="next-copy" class="quote-flow-card-copy">Our team reviews the walkthrough against your estimate and follows up with the next step.</p>
+            <div class="quote-flow-note-list">
+              <div data-walkthrough-slot="next-note-1" class="quote-flow-note">Uploads stay private and are reviewed internally.</div>
+              <div data-walkthrough-slot="next-note-2" class="quote-flow-note">If anything is unclear, we will use the contact details already on the request to follow up.</div>
+            </div>
+          </article>
+        </div>
+      </section>
+    </div>
+  </section>
+  <section>
+    {{ site_shell_footer() }}
+  </section>
+</div>
+<script>
+(() => {
+  const params = new URLSearchParams(window.location.search || '');
+  const opp = String(params.get('opp') || '').trim();
+  const token = String(params.get('token') || '').trim();
+  let selectedFile = null;
+  let uploadInFlight = false;
+  let opportunityState = opp ? 'checking' : 'missing';
+  let validatedOpportunity = '';
+  let validatedToken = token;
+  let validationMessage = '';
+  const q = (slot) => document.querySelector('[data-walkthrough-slot="' + slot + '"]');
+  const setText = (slot, value) => { const el = q(slot); if (el) { el.textContent = value; } return el; };
+  const setLink = (slot, label, href) => { const el = q(slot); if (!el) { return null; } if (href) { el.setAttribute('href', href); } const labelTarget = el.querySelector('p') || el.firstElementChild || el; labelTarget.textContent = label; return el; };
+  const setStatus = (type, message) => { const box = document.getElementById('dw-upload-status'); if (!box) { return; } box.className = 'dw-upload-status'; if (!message) { box.textContent = ''; return; } box.classList.add('is-visible'); box.classList.add(type || 'is-info'); box.textContent = message; };
+  const formatBytes = (bytes) => { const value = Number(bytes || 0); if (!value) { return ''; } if (value >= 1024 * 1024) { return (value / (1024 * 1024)).toFixed(1) + ' MB'; } if (value >= 1024) { return Math.round(value / 1024) + ' KB'; } return value + ' bytes'; };
+  const parseServerMessage = (payload) => { if (!payload) { return ''; } if (typeof payload._server_messages === 'string' && payload._server_messages) { try { const messages = JSON.parse(payload._server_messages); if (Array.isArray(messages) && messages.length) { const first = messages[0]; if (typeof first === 'string') { try { const parsed = JSON.parse(first); if (parsed && parsed.message) { return parsed.message; } } catch (error) { return first; } } } } catch (error) { return payload._server_messages; } } if (typeof payload.message === 'string' && payload.message) { return payload.message; } if (payload.message && typeof payload.message.message === 'string' && payload.message.message) { return payload.message.message; } if (typeof payload.exception === 'string' && payload.exception) { return payload.exception; } if (typeof payload.exc_type === 'string' && payload.exc_type) { return 'We could not attach the walkthrough. Please try again.'; } return ''; };
+  const validateOpportunity = async (opportunity, accessToken) => {
+    if (!opportunity) {
+      return { valid: 0, message: 'This upload step must be started from the estimate page so we can attach the file to the correct request.' };
+    }
+    try {
+      const query = new URLSearchParams({ opportunity, token: accessToken || '' }).toString();
+      const response = await window.fetch('/api/method/validate_public_funnel_opportunity?' + query, { method: 'GET', headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' });
+      const payload = await response.json().catch(() => ({}));
+      const message = payload && payload.message ? payload.message : {};
+      if (!response.ok) { return { valid: 0, message: 'We could not validate that estimate link. Please return to the estimate page and try again.' }; }
+      return { valid: Number(message.valid || 0) === 1 ? 1 : 0, opportunity: String(message.opportunity || '').trim(), message: String(message.message || 'We could not find that estimate. Please return to the estimate page and try again.').trim() };
+    } catch (error) {
+      return { valid: 0, message: 'We could not validate that estimate link. Please return to the estimate page and try again.' };
+    }
+  };
+  const ensureUploadShell = () => { const panel = document.getElementById('digital-walkthrough-upload-panel'); if (!panel) { return null; } const iframe = panel.querySelector('iframe'); if (iframe) { iframe.remove(); } let shell = document.getElementById('dw-inline-upload-shell'); if (!shell) { panel.innerHTML = '<div id="dw-inline-upload-shell" data-walkthrough-slot="upload-shell"></div>'; shell = document.getElementById('dw-inline-upload-shell'); } return shell; };
+  const renderUploadUI = () => {
+    const shell = ensureUploadShell();
+    if (!shell) { return; }
+    const disabled = opportunityState !== 'valid' || uploadInFlight;
+    shell.innerHTML = ['<div class="dw-upload-card">','  <div id="dw-upload-status" class="dw-upload-status"></div>','  <div class="dw-upload-controls">','    <input id="dw-upload-input" type="file" accept="image/*,video/*,.pdf,.doc,.docx,.mov,.mp4,.m4v,.heic,.heif,.webp,.gif" style="display:none" ' + (disabled ? 'disabled' : '') + '>','    <button id="dw-upload-picker" type="button" class="dw-upload-picker" ' + (disabled ? 'disabled' : '') + '>' + (opportunityState === 'valid' ? 'Choose File' : 'Estimate Link Required') + '</button>','    <div id="dw-upload-file" class="dw-upload-file">' + (selectedFile ? selectedFile.name : 'No file selected') + '</div>','    <div id="dw-upload-meta" class="dw-upload-meta">' + (selectedFile ? 'Selected file size: ' + formatBytes(selectedFile.size) : 'Accepted: images, videos, and common document formats up to 100 MB.') + '</div>','    <button id="dw-upload-submit" type="button" class="dw-upload-submit" ' + (disabled ? 'disabled' : '') + '>Submit Walkthrough</button>','  </div>','</div>'].join('');
+    const input = document.getElementById('dw-upload-input');
+    const picker = document.getElementById('dw-upload-picker');
+    const submit = document.getElementById('dw-upload-submit');
+    const fileName = document.getElementById('dw-upload-file');
+    const fileMeta = document.getElementById('dw-upload-meta');
+    if (opportunityState === 'checking') { setStatus('', ''); } else if (opportunityState === 'missing') { setStatus('is-info', 'This upload step must be started from the estimate page so we can attach the file to the correct request.'); return; } else if (opportunityState === 'invalid') { setStatus('is-error', validationMessage || 'We could not find that estimate. Please return to the estimate page and try again.'); return; }
+    if (picker) { picker.addEventListener('click', () => { if (!uploadInFlight && input) { input.click(); } }); }
+    if (input) { input.addEventListener('change', () => { selectedFile = input.files && input.files[0] ? input.files[0] : null; if (fileName) { fileName.textContent = selectedFile ? selectedFile.name : 'No file selected'; } if (fileMeta) { fileMeta.textContent = selectedFile ? ('Selected file size: ' + formatBytes(selectedFile.size)) : 'Accepted: images, videos, and common document formats up to 100 MB.'; } if (selectedFile) { setStatus('', ''); } }); }
+    if (submit) { submit.addEventListener('click', () => { if (uploadInFlight) { return; } if (opportunityState !== 'valid' || !validatedOpportunity || !validatedToken) { setStatus('is-error', validationMessage || 'This upload step must be started from the estimate page so we can attach the file to the correct request.'); return; } if (!selectedFile) { setStatus('is-error', 'Choose your completed digital walkthrough file before submitting.'); return; } uploadInFlight = true; renderUploadUI(); const formData = new window.FormData(); formData.append('opportunity', validatedOpportunity); formData.append('token', validatedToken); formData.append('walkthrough_upload', selectedFile, selectedFile.name || 'digital-walkthrough-upload'); const headers = { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' }; if (window.frappe && frappe.csrf_token) { headers['X-Frappe-CSRF-Token'] = frappe.csrf_token; } window.fetch('/api/method/save_opportunity_walkthrough_upload', { method: 'POST', body: formData, headers, credentials: 'same-origin' }).then(async (response) => { const payload = await response.json().catch(() => ({})); if (!response.ok || payload.exception || payload.exc_type || payload.exc) { throw new Error(parseServerMessage(payload) || 'We could not attach the walkthrough. Please try again.'); } window.location.assign('/digital-walkthrough-received?opp=' + encodeURIComponent(validatedOpportunity) + '&token=' + encodeURIComponent(validatedToken)); }).catch((error) => { uploadInFlight = false; renderUploadUI(); setStatus('is-error', (error && error.message) || 'We could not attach the walkthrough. Please try again.'); }); }); }
+  };
+  const applyNoOppMode = () => { setText('eyebrow', 'Estimate link required'); setText('title', 'Return to your estimate page to upload the walkthrough.'); setText('body-copy', 'This upload step only works when it is started from the estimate flow so we can attach the file to the correct request.'); setLink('primary-cta', 'Get an Estimate', '/quote'); setLink('secondary-cta', 'Talk to Our Team', '/contact'); setText('form-title', 'Estimate reference required'); setText('form-copy', 'Open this upload step from the estimate page and the file picker will unlock automatically.'); setText('instructions-title', 'How to continue'); setText('instructions-copy', 'Go back to the estimate page that sent you here, then use the walkthrough button from that screen.'); setText('instructions-point-1', 'The upload must be tied to a specific estimate request.'); setText('instructions-point-2', 'You will choose one file directly on this page once the secure estimate link is present.'); setText('instructions-point-3', 'If the original estimate page is unavailable, contact our team and we will help reopen the flow.'); setText('next-title', 'What happens next'); setText('next-copy', 'Once you return from the estimate page, the upload will attach directly to that opportunity for internal review.'); setText('next-note-1', 'Uploads stay private and are reviewed internally.'); setText('next-note-2', 'No file can be submitted from this page until the estimate reference is present.'); };
+  const applyInvalidOppMode = (message) => { setText('eyebrow', 'Estimate link invalid'); setText('title', 'We could not reopen that estimate link.'); setText('body-copy', message || 'Please return to the estimate page and try again, or contact our team if you need help reopening the request.'); setLink('primary-cta', 'Get an Estimate', '/quote'); setLink('secondary-cta', 'Talk to Our Team', '/contact'); setText('form-title', 'Estimate link required'); setText('form-copy', 'The upload form stays locked until you open it from a valid estimate page.'); setText('instructions-title', 'How to continue'); setText('instructions-copy', 'Use the digital walkthrough button from a valid estimate page so the upload can attach to the correct request.'); setText('instructions-point-1', 'This upload cannot continue from an invalid or expired secure estimate link.'); setText('instructions-point-2', 'Return to the estimate page that sent you here, then open the walkthrough step again.'); setText('instructions-point-3', 'If the original link is unavailable, contact our team and we will help reconnect the request.'); setText('next-title', 'What happens next'); setText('next-copy', 'Once you reopen the valid estimate path, the upload will attach directly to that request for internal review.'); setText('next-note-1', 'Uploads stay private and are reviewed internally.'); setText('next-note-2', 'No file can be submitted from this page until the estimate reference is valid.'); };
+  const applyWalkthroughMode = () => { setText('eyebrow', 'Digital walkthrough requested'); setText('title', 'Show us the space so we can review the scope.'); setText('body-copy', 'Upload the completed walkthrough file and we will attach it directly to your estimate request for review.'); setLink('primary-cta', 'Jump to Upload', '#digital-walkthrough-upload-panel'); setLink('secondary-cta', 'Talk to Our Team', '/contact'); setText('form-title', 'Upload Your Digital Walkthrough'); setText('form-copy', 'Choose one completed walkthrough file and we will attach it directly to estimate ' + validatedOpportunity + '.'); setText('instructions-title', 'What to include'); setText('instructions-copy', 'Give us enough detail to confirm layout, access, special areas, and any scope items that could affect the final scope.'); setText('instructions-point-1', 'This upload will attach directly to your estimate request.'); setText('instructions-point-2', 'Upload one completed digital walkthrough file below.'); setText('instructions-point-3', 'Keep the file focused on the facility and service scope tied to this estimate.'); setText('next-title', 'What happens next'); setText('next-copy', 'Our team reviews the walkthrough against your estimate and follows up with the next step.'); setText('next-note-1', 'Your upload is attached privately to this estimate request for internal review only.'); setText('next-note-2', 'If anything is unclear, we will use the contact details already on the request to follow up.'); };
+  const boot = async () => { ensureUploadShell(); if (!opp) { opportunityState = 'missing'; applyNoOppMode(); renderUploadUI(); return; } opportunityState = 'checking'; renderUploadUI(); const validation = await validateOpportunity(opp, token); if (!validation.valid) { opportunityState = 'invalid'; validationMessage = validation.message || 'We could not find that estimate. Please return to the estimate page and try again.'; applyInvalidOppMode(validationMessage); renderUploadUI(); return; } opportunityState = 'valid'; validatedOpportunity = validation.opportunity || opp; validationMessage = ''; applyWalkthroughMode(); renderUploadUI(); };
+  if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', boot, { once: true }); } else { boot(); }
+  window.addEventListener('pageshow', () => { uploadInFlight = false; selectedFile = null; renderUploadUI(); });
+})();
+</script>
+{% endblock %}

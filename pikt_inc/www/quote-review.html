@@ -1,0 +1,108 @@
+{% extends "templates/base.html" %}
+{% from "pikt_inc/templates/includes/site_shell_macros.html" import site_shell_footer, site_shell_head, site_shell_header %}
+
+{% block navbar %}{% endblock %}
+{% block footer %}{% endblock %}
+
+{% block head_include %}
+{{ super() }}
+{{ site_shell_head(noindex_meta) }}
+<style>
+#public-quote-review-compat{max-width:760px;margin:40px auto;padding:0 20px 40px;font-family:Arial,sans-serif;color:#171717;}
+#public-quote-review-compat[hidden]{display:none !important;}
+.pikt-review-compat-card{background:#fff;border:1px solid #e5e5e5;border-radius:18px;box-shadow:0 18px 48px rgba(0,0,0,.08);overflow:hidden;}
+.pikt-review-compat-card-inner{padding:28px 28px 30px;}
+.pikt-review-compat-eyebrow{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#666;font-weight:700;margin-bottom:10px;}
+#pikt-review-compat-title{font-size:34px;line-height:1.1;margin:0 0 12px;}
+#pikt-review-compat-message{font-size:16px;line-height:1.6;color:#4b5563;margin:0 0 18px;}
+#pikt-review-compat-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:20px;}
+.pikt-review-compat-link{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 20px;border-radius:999px;text-decoration:none;font-weight:700;font-size:14px;background:#f3f4f6;color:#111;}
+@media (max-width: 720px){ .pikt-review-compat-card-inner{padding:22px 18px 24px;} #pikt-review-compat-title{font-size:28px;} }
+</style>
+<script>
+(function(){
+  function byId(id){return document.getElementById(id);}
+  function setText(id,text){var el=byId(id);if(el){el.textContent=text||'';}}
+  function setHtml(id,html){var el=byId(id);if(el){el.innerHTML=html||'';}}
+  function readParams(){var params=new URLSearchParams(window.location.search||'');return {quote:(params.get('quote')||'').trim(),token:(params.get('token')||'').trim()};}
+  function parseErrorPayload(payload,fallback){
+    if(payload&&payload._server_messages){
+      try{
+        var messages=JSON.parse(payload._server_messages||'[]');
+        if(messages&&messages.length){
+          var first=messages[0];
+          if(typeof first==='string'){return first;}
+          if(first&&first.message){return first.message;}
+        }
+      }catch(ignore){}
+    }
+    if(payload&&typeof payload.message==='string'){return payload.message;}
+    if(payload&&payload.message&&typeof payload.message.message==='string'){return payload.message.message;}
+    return fallback;
+  }
+  async function validate(params){
+    var url='/api/method/validate_public_quote?quote='+encodeURIComponent(params.quote||'')+'&token='+encodeURIComponent(params.token||'');
+    var response=await window.fetch(url,{method:'GET',headers:{Accept:'application/json','X-Requested-With':'XMLHttpRequest'},credentials:'same-origin'});
+    var payload=await response.json().catch(function(){return {};});
+    if(!response.ok){throw new Error(parseErrorPayload(payload,'We could not validate that secure quote link.'));}
+    if(payload&&payload.message){return payload.message;}
+    throw new Error('We could not read the server response.');
+  }
+  function renderError(title,message){
+    setText('pikt-review-compat-title',title||'Quote unavailable');
+    setText('pikt-review-compat-message',message||'We could not validate this secure quote link.');
+    setHtml('pikt-review-compat-actions','<a class="pikt-review-compat-link" href="/contact">Contact Our Team</a><a class="pikt-review-compat-link" href="/quote">Request a New Quote</a>');
+  }
+  async function boot(){
+    var params=readParams();
+    if(!params.quote||!params.token){
+      renderError('Quote unavailable','Missing quotation reference or secure token. Please return to your quote email and try again.');
+      return;
+    }
+    setText('pikt-review-compat-title','Preparing your billing setup...');
+    setText('pikt-review-compat-message','We are moving you to the secure billing portal for this quote.');
+    try{
+      var result=await validate(params);
+      var state=(result.state||'').trim();
+      if(state==='ready'||state==='accepted'){
+        window.location.replace('/quote-accepted?quote='+encodeURIComponent(params.quote)+'&token='+encodeURIComponent(params.token));
+        return;
+      }
+      if(state==='expired'){
+        renderError('Quotation expired',result.message||'This quotation link has expired. Please contact our team if you still need service.');
+        return;
+      }
+      if(state==='cancelled'){
+        renderError('Quotation cancelled',result.message||'This quotation is no longer active.');
+        return;
+      }
+      renderError('Quote unavailable',result.message||'We could not validate this secure quote link.');
+    }catch(error){
+      renderError('Quote unavailable',error.message||'We could not validate this secure quote link.');
+    }
+  }
+  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',boot,{once:true});}else{boot();}
+})();
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="quote-flow-page">
+  <section>
+    {{ site_shell_header() }}
+  </section>
+  <section id="public-quote-review-compat">
+    <div class="pikt-review-compat-card">
+      <div class="pikt-review-compat-card-inner">
+        <div class="pikt-review-compat-eyebrow">Secure Quote Link</div>
+        <h1 id="pikt-review-compat-title">Preparing your billing setup...</h1>
+        <p id="pikt-review-compat-message">We are moving you to the secure billing portal for this quote.</p>
+        <div id="pikt-review-compat-actions"></div>
+      </div>
+    </div>
+  </section>
+  <section>
+    {{ site_shell_footer() }}
+  </section>
+</div>
+{% endblock %}

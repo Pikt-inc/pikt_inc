@@ -1,0 +1,112 @@
+{% extends "templates/base.html" %}
+{% from "pikt_inc/templates/includes/site_shell_macros.html" import site_shell_footer, site_shell_head, site_shell_header %}
+
+{% block navbar %}{% endblock %}
+{% block footer %}{% endblock %}
+
+{% block head_include %}
+{{ super() }}
+{{ site_shell_head(noindex_meta) }}
+<link rel="stylesheet" href="/assets/pikt_inc/css/quote_accepted_portal.css">
+<script src="/assets/pikt_inc/js/quote_accepted_portal.js" defer></script>
+{% endblock %}
+
+{% block content %}
+<div class="quote-portal-page">
+  <section>
+    {{ site_shell_header() }}
+  </section>
+  <section>
+    <div class="quote-portal-wrap">
+      <section id="public-quote-accepted-app">
+        <div class="pikt-portal-card">
+          <div class="pikt-portal-card-inner">
+            <div class="pikt-portal-eyebrow">Secure Quote Portal</div>
+            <h1 id="pikt-portal-title">Loading your quote...</h1>
+            <p id="pikt-portal-message">Preparing your quote and setup steps.</p>
+            <div id="pikt-portal-banner" class="pikt-portal-banner" hidden></div>
+            <div id="pikt-portal-summary" class="pikt-portal-summary"></div>
+            <div id="pikt-portal-items"></div>
+            <div id="pikt-portal-terms"></div>
+
+            <div id="pikt-agreement-wrap" class="pikt-portal-form-wrap">
+              <div id="pikt-agreement-status" class="pikt-step-status is-pending">Agreement step</div>
+              <h2 id="pikt-agreement-title">Service agreement</h2>
+              <p id="pikt-agreement-copy" class="pikt-portal-form-copy"></p>
+              <div id="pikt-agreement-summary" class="pikt-step-summary pikt-portal-hidden"></div>
+              <div id="pikt-agreement-template" class="pikt-agreement-template"></div>
+              <form id="pikt-agreement-form" class="pikt-portal-form" novalidate>
+                <div class="pikt-portal-field"><label for="agreement_signer_name">Signer Name</label><input id="agreement_signer_name" name="signer_name" type="text" autocomplete="name" required></div>
+                <div class="pikt-portal-field"><label for="agreement_signer_title">Signer Title</label><input id="agreement_signer_title" name="signer_title" type="text" autocomplete="organization-title" required></div>
+                <div class="pikt-portal-field"><label for="agreement_signer_email">Signer Email</label><input id="agreement_signer_email" name="signer_email" type="email" autocomplete="email" required></div>
+                <div class="pikt-portal-field"><label for="agreement_start_date">Agreement Start Date</label><input id="agreement_start_date" name="start_date" type="date" required></div>
+                <div class="pikt-portal-field"><label for="agreement_term_model">Term</label><select id="agreement_term_model" name="term_model" required><option value="">Select term</option><option value="Month-to-month">Month-to-month</option><option value="Fixed">Fixed term</option></select></div>
+                <div id="agreement_fixed_term_wrap" class="pikt-portal-field"><label for="agreement_fixed_term_months">Fixed Term Length</label><select id="agreement_fixed_term_months" name="fixed_term_months"><option value="">Select duration</option><option value="3">3 months</option><option value="6">6 months</option><option value="12">12 months</option></select></div>
+                <div class="pikt-portal-field is-full"><label class="pikt-portal-checkbox-row" for="agreement_assent_confirmed"><input id="agreement_assent_confirmed" name="assent_confirmed" type="checkbox" required><span>I confirm I am authorized to sign and I agree to the service agreement terms shown above.</span></label></div>
+                <div class="pikt-portal-actions"><button id="pikt-agreement-submit" class="pikt-portal-submit" type="submit">Sign Agreement</button><a class="pikt-portal-link" href="/contact">Need a Change?</a></div>
+              </form>
+            </div>
+
+            <div id="pikt-billing-form-wrap" class="pikt-portal-form-wrap">
+              <div id="pikt-billing-step-status" class="pikt-step-status is-locked">Billing step</div>
+              <h2>Billing setup</h2>
+              <p class="pikt-portal-form-copy">Use the contact and billing address that should receive your first invoice right away. Billing address and service-site address stay separate.</p>
+              <form id="pikt-billing-form" class="pikt-portal-form" novalidate>
+                <div class="pikt-portal-field"><label for="billing_contact_name">Billing Contact Name</label><input id="billing_contact_name" name="billing_contact_name" type="text" autocomplete="name" required></div>
+                <div class="pikt-portal-field"><label for="billing_email">Billing Email</label><input id="billing_email" name="billing_email" type="email" autocomplete="email" required></div>
+                <div class="pikt-portal-field is-full"><label for="billing_address_line_1">Billing Address Line 1</label><input id="billing_address_line_1" name="billing_address_line_1" type="text" autocomplete="address-line1" required></div>
+                <div class="pikt-portal-field is-full"><label for="billing_address_line_2">Billing Address Line 2</label><input id="billing_address_line_2" name="billing_address_line_2" type="text" autocomplete="address-line2"></div>
+                <div class="pikt-portal-field"><label for="billing_city">City</label><input id="billing_city" name="billing_city" type="text" autocomplete="address-level2" required></div>
+                <div class="pikt-portal-field"><label for="billing_state">State</label><input id="billing_state" name="billing_state" type="text" autocomplete="address-level1" required></div>
+                <div class="pikt-portal-field"><label for="billing_postal_code">Postal Code</label><input id="billing_postal_code" name="billing_postal_code" type="text" autocomplete="postal-code" required></div>
+                <div class="pikt-portal-field"><label for="billing_country">Country</label><input id="billing_country" name="billing_country" type="text" value="United States" autocomplete="country-name" required></div>
+                <div class="pikt-portal-field"><label for="po_number">PO Number</label><input id="po_number" name="po_number" type="text" autocomplete="off"></div>
+                <div class="pikt-portal-field"><label for="tax_id">Tax ID</label><input id="tax_id" name="tax_id" type="text" autocomplete="off"></div>
+                <div class="pikt-portal-field is-full"><label for="billing_notes">Billing Notes</label><textarea id="billing_notes" name="billing_notes" placeholder="Anything our team or AP team should know about invoice routing, references, or approvals."></textarea></div>
+                <div class="pikt-portal-actions"><button id="pikt-billing-submit" class="pikt-portal-submit" type="submit">Send My Invoice</button><a class="pikt-portal-link" href="/contact">Need a Change?</a></div>
+              </form>
+            </div>
+
+            <div id="pikt-access-form-wrap" class="pikt-portal-form-wrap" hidden>
+              <div id="pikt-access-step-status" class="pikt-step-status is-locked">Service site step</div>
+              <h2>Service site + key access</h2>
+              <p class="pikt-portal-form-copy">Tell us where service will happen and exactly how our team should access the building before the first scheduled service.</p>
+              <form id="pikt-access-form" class="pikt-portal-form" novalidate>
+                <div class="pikt-portal-form-subhead is-full">Service Site</div>
+                <div class="pikt-portal-field is-full"><label for="service_address_line_1">Service Address Line 1</label><input id="service_address_line_1" name="service_address_line_1" type="text" autocomplete="address-line1" required></div>
+                <div class="pikt-portal-field is-full"><label for="service_address_line_2">Service Address Line 2</label><input id="service_address_line_2" name="service_address_line_2" type="text" autocomplete="address-line2"></div>
+                <div class="pikt-portal-field"><label for="service_city">Service City</label><input id="service_city" name="service_city" type="text" autocomplete="address-level2" required></div>
+                <div class="pikt-portal-field"><label for="service_state">Service State</label><input id="service_state" name="service_state" type="text" autocomplete="address-level1" required></div>
+                <div class="pikt-portal-field"><label for="service_postal_code">Service Postal Code</label><input id="service_postal_code" name="service_postal_code" type="text" autocomplete="postal-code" required></div>
+                <div class="pikt-portal-field"></div>
+                <div class="pikt-portal-form-subhead is-full">Building Access</div>
+                <div class="pikt-portal-field"><label for="access_method">How will our team access the building?</label><select id="access_method" name="access_method" required><option value="">Select access method</option><option value="Door code / keypad">Door code / keypad</option><option value="Lockbox">Lockbox</option><option value="Front desk / building management">Front desk / building management</option><option value="Physical key or fob">Physical key or fob</option><option value="Staff will let us in">Staff will let us in</option><option value="Other">Other</option></select></div>
+                <div class="pikt-portal-field"><label for="access_entrance">Which entrance should we use?</label><input id="access_entrance" name="access_entrance" type="text" placeholder="Main lobby, rear service door, west entrance, etc." required></div>
+                <div class="pikt-portal-field is-full"><label for="access_entry_details">Entry details</label><textarea id="access_entry_details" name="access_entry_details" placeholder="Door code, lockbox location, front desk instructions, key/fob notes, or anything else about how we get in."></textarea></div>
+                <div class="pikt-portal-field"><label for="has_alarm_system">Is there an alarm or security system?</label><select id="has_alarm_system" name="has_alarm_system"><option value="No">No</option><option value="Yes">Yes</option></select></div>
+                <div class="pikt-portal-field is-full"><label for="alarm_instructions">Alarm / security instructions</label><textarea id="alarm_instructions" name="alarm_instructions" placeholder="Alarm code, panel location, disarm steps, re-arm steps, or leave blank if not applicable."></textarea></div>
+                <div class="pikt-portal-field"><label for="allowed_entry_time">When are we allowed to enter the building?</label><input id="allowed_entry_time" name="allowed_entry_time" type="text" placeholder="After 6 PM, before 8 AM, anytime after close, etc." required></div>
+                <div class="pikt-portal-field"><label for="primary_site_contact">Primary site contact</label><input id="primary_site_contact" name="primary_site_contact" type="text" placeholder="Name, phone, email" required></div>
+                <div class="pikt-portal-field"><label for="lockout_emergency_contact">Lockout / emergency contact</label><input id="lockout_emergency_contact" name="lockout_emergency_contact" type="text" placeholder="Who should we contact if we cannot get in?"></div>
+                <div class="pikt-portal-field is-full"><label for="key_fob_handoff_details">Physical key / fob handoff details</label><textarea id="key_fob_handoff_details" name="key_fob_handoff_details" placeholder="Pickup contact, pickup address, available times, how many keys/fobs, or leave blank if not applicable."></textarea></div>
+                <div class="pikt-portal-field is-full"><label for="areas_to_avoid">Areas to avoid or special restrictions</label><textarea id="areas_to_avoid" name="areas_to_avoid" placeholder="Offices to skip, server room, storage area, private desk area, etc."></textarea></div>
+                <div class="pikt-portal-field is-full"><label for="closing_instructions">Closing instructions</label><textarea id="closing_instructions" name="closing_instructions" placeholder="Lock rear door, arm alarm, return key to lockbox, turn off lights, etc."></textarea></div>
+                <div class="pikt-portal-field is-full"><label for="parking_elevator_notes">Parking / elevator / building notes</label><textarea id="parking_elevator_notes" name="parking_elevator_notes"></textarea></div>
+                <div class="pikt-portal-field is-full"><label for="first_service_notes">Anything else we should know before the first service?</label><textarea id="first_service_notes" name="first_service_notes"></textarea></div>
+                <div class="pikt-portal-field is-full"><label class="pikt-portal-checkbox-row" for="access_details_confirmed"><input id="access_details_confirmed" name="access_details_confirmed" type="checkbox" required><span>I confirm these access details will be accurate and ready before the first scheduled service.</span></label></div>
+                <div class="pikt-portal-actions"><button id="pikt-access-submit" class="pikt-portal-submit" type="submit">Save Site Details</button><a class="pikt-portal-link" href="/contact">Need a Change?</a></div>
+              </form>
+            </div>
+
+            <div id="pikt-portal-continue"></div>
+            <div id="pikt-portal-status" aria-live="polite"></div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </section>
+  <section>
+    {{ site_shell_footer() }}
+  </section>
+</div>
+{% endblock %}

@@ -64,6 +64,12 @@ role_home_page = {"Customer Portal User": "portal"}
 
 website_route_rules = [
 	{"from_route": "/quote", "to_route": "instant-quote"},
+	{"from_route": "/thank-you", "to_route": "quote-thank-you"},
+	{"from_route": "/digital-walkthrough", "to_route": "quote-digital-walkthrough"},
+	{"from_route": "/digital-walkthrough-received", "to_route": "quote-digital-walkthrough-received"},
+	{"from_route": "/review-quote", "to_route": "quote-review"},
+	{"from_route": "/quote-accepted", "to_route": "quote-accepted-portal"},
+	{"from_route": "/billing-setup-complete", "to_route": "quote-billing-complete"},
 	{"from_route": "/blog", "to_route": "blog-home"},
 	{"from_route": "/blog/rss.xml", "to_route": "blog-rss.xml"},
 	{"from_route": "/blog/<slug>", "to_route": "blog-post"},

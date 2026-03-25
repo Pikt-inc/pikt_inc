@@ -1,0 +1,107 @@
+{% extends "templates/base.html" %}
+{% from "pikt_inc/templates/includes/site_shell_macros.html" import site_shell_footer, site_shell_header %}
+{% from "pikt_inc/templates/includes/quote_funnel_macros.html" import quote_funnel_head %}
+
+{% block navbar %}{% endblock %}
+{% block footer %}{% endblock %}
+
+{% block head_include %}
+{{ super() }}
+{{ quote_funnel_head(noindex_meta) }}
+{% endblock %}
+
+{% block content %}
+<div class="quote-flow-page">
+  <section>
+    {{ site_shell_header() }}
+  </section>
+  <section>
+    <div class="quote-flow-wrap">
+      <section class="quote-flow-hero">
+        <p data-quote-slot="eyebrow" class="quote-flow-kicker">Walkthrough attached</p>
+        <h1 data-quote-slot="title" class="quote-flow-title">We attached your walkthrough to your estimate.</h1>
+        <p data-quote-slot="note" class="quote-flow-copy">Your upload is linked to the estimate and is ready for internal review.</p>
+        <div class="quote-flow-actions">
+          <a class="quote-flow-btn quote-flow-btn--primary" href="/contact">Talk to Our Team</a>
+          <a class="quote-flow-btn quote-flow-btn--secondary" href="/services">Review Services</a>
+        </div>
+      </section>
+      <section class="quote-flow-grid quote-flow-grid--three">
+        <article class="quote-flow-card">
+          <h2>Estimate linked</h2>
+          <p data-quote-slot="step-1-copy">Your file is attached directly to the correct estimate request.</p>
+        </article>
+        <article class="quote-flow-card">
+          <h2>Internal review</h2>
+          <p data-quote-slot="step-2-copy">Our team compares the walkthrough to the estimate request and tightens the next step from there.</p>
+        </article>
+        <article class="quote-flow-card quote-flow-card--dark">
+          <p class="quote-flow-kicker">What happens next</p>
+          <h2>Follow-up</h2>
+          <p data-quote-slot="step-3-copy">If we need anything else, we will use the contact details already on the estimate to follow up.</p>
+        </article>
+      </section>
+    </div>
+  </section>
+  <section>
+    {{ site_shell_footer() }}
+  </section>
+</div>
+<script>
+(() => {
+  const slot = (name) => document.querySelector('[data-quote-slot="' + name + '"]');
+  const validateOpportunity = async (opp, token) => {
+    if (!opp || !token) {
+      return { valid: 0 };
+    }
+    try {
+      const response = await window.fetch('/api/method/validate_public_funnel_opportunity?opportunity=' + encodeURIComponent(opp) + '&token=' + encodeURIComponent(token), {
+        method: 'GET',
+        headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        credentials: 'same-origin'
+      });
+      const payload = await response.json().catch(() => ({}));
+      const message = payload && payload.message ? payload.message : {};
+      if (!response.ok) {
+        return { valid: 0 };
+      }
+      return { valid: Number(message.valid || 0) === 1 ? 1 : 0, opportunity: String(message.opportunity || '').trim() };
+    } catch (error) {
+      return { valid: 0 };
+    }
+  };
+  const personalize = (opp) => {
+    const eyebrow = slot('eyebrow');
+    const title = slot('title');
+    const copy = slot('note');
+    const step1 = slot('step-1-copy');
+    const step2 = slot('step-2-copy');
+    const step3 = slot('step-3-copy');
+    if (eyebrow) { eyebrow.textContent = 'Walkthrough attached'; }
+    if (title) { title.textContent = 'We attached your walkthrough to your estimate'; }
+    if (copy) { copy.textContent = 'Your upload is linked to estimate ' + opp + '. Our team will review it and follow up with the refined next step.'; }
+    if (step1) { step1.textContent = 'Your file is linked directly to estimate ' + opp + ' for internal review.'; }
+    if (step2) { step2.textContent = 'We compare the walkthrough to your estimate request and tighten the next step from there.'; }
+    if (step3) { step3.textContent = 'If we need anything else, we will use the contact details already on that estimate request to follow up.'; }
+  };
+  const boot = async () => {
+    const params = new URLSearchParams(window.location.search || '');
+    const opp = String(params.get('opp') || '').trim();
+    const token = String(params.get('token') || '').trim();
+    if (!opp || !token) {
+      return;
+    }
+    const validation = await validateOpportunity(opp, token);
+    if (!validation.valid) {
+      return;
+    }
+    personalize(validation.opportunity || opp);
+  };
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot, { once: true });
+  } else {
+    boot();
+  }
+})();
+</script>
+{% endblock %}

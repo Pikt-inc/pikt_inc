@@ -1,0 +1,21 @@
+.quote-billing-complete-page{background:#fff;color:#171717;min-height:100vh}
+.quote-billing-complete-wrap{max-width:920px;margin:0 auto;padding:40px 20px 48px}
+.pikt-billing-complete-card{background:#fff;border:1px solid #e5e5e5;border-radius:20px;box-shadow:0 20px 52px rgba(0,0,0,.08);overflow:hidden}
+.pikt-billing-complete-card-inner{padding:30px 30px 34px}
+.pikt-billing-complete-eyebrow{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#166534;font-weight:700;margin-bottom:10px}
+#pikt-billing-complete-title{font-size:38px;line-height:1.08;margin:0 0 12px}
+#pikt-billing-complete-message{font-size:16px;line-height:1.65;color:#4b5563;margin:0 0 22px}
+.pikt-billing-complete-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:0 0 24px}
+.pikt-billing-complete-card-item{border:1px solid #ececec;border-radius:12px;padding:14px 16px;background:#fafafa}
+.pikt-billing-complete-card-item span{display:block;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#6b7280;margin-bottom:6px}
+.pikt-billing-complete-card-item strong{font-size:18px;color:#111;line-height:1.35}
+#pikt-billing-complete-note{font-size:15px;line-height:1.65;color:#374151;margin:0 0 24px}
+#pikt-billing-complete-actions{display:flex;flex-wrap:wrap;gap:12px}
+.pikt-billing-complete-link{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 20px;border-radius:999px;text-decoration:none;font-weight:700;font-size:14px}
+.pikt-billing-complete-link.is-primary{background:#171717;color:#fff}
+.pikt-billing-complete-link.is-secondary{background:#f3f4f6;color:#111}
+@media (max-width:720px){
+  .quote-billing-complete-wrap{padding:32px 16px}
+  .pikt-billing-complete-card-inner{padding:24px 18px 28px}
+  #pikt-billing-complete-title{font-size:30px}
+}

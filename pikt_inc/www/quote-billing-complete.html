@@ -1,0 +1,39 @@
+{% extends "templates/base.html" %}
+{% from "pikt_inc/templates/includes/site_shell_macros.html" import site_shell_footer, site_shell_head, site_shell_header %}
+
+{% block navbar %}{% endblock %}
+{% block footer %}{% endblock %}
+
+{% block head_include %}
+{{ super() }}
+{{ site_shell_head(noindex_meta) }}
+<link rel="stylesheet" href="/assets/pikt_inc/css/quote_billing_complete.css">
+<script src="/assets/pikt_inc/js/quote_billing_complete.js" defer></script>
+{% endblock %}
+
+{% block content %}
+<div class="quote-billing-complete-page">
+  <section>
+    {{ site_shell_header() }}
+  </section>
+  <section>
+    <div class="quote-billing-complete-wrap">
+      <section id="public-billing-complete-app">
+        <div class="pikt-billing-complete-card">
+          <div class="pikt-billing-complete-card-inner">
+            <div class="pikt-billing-complete-eyebrow">Setup confirmed</div>
+            <h1 id="pikt-billing-complete-title">Setup complete</h1>
+            <p id="pikt-billing-complete-message">We are finalizing your setup confirmation.</p>
+            <div id="pikt-billing-complete-summary" class="pikt-billing-complete-summary"></div>
+            <p id="pikt-billing-complete-note"></p>
+            <div id="pikt-billing-complete-actions"></div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </section>
+  <section>
+    {{ site_shell_footer() }}
+  </section>
+</div>
+{% endblock %}

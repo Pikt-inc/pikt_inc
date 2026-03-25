@@ -13,6 +13,30 @@ CUSTOM_DOCPERM_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" /
 INSTANT_QUOTE_TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "www" / "instant-quote.html"
 INSTANT_QUOTE_CONTROLLER_PATH = Path(__file__).resolve().parents[1] / "www" / "instant_quote.py"
 SITE_SHELL_MACROS_PATH = Path(__file__).resolve().parents[1] / "templates" / "includes" / "site_shell_macros.html"
+QUOTE_FUNNEL_MACROS_PATH = Path(__file__).resolve().parents[1] / "templates" / "includes" / "quote_funnel_macros.html"
+QUOTE_THANK_YOU_TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "www" / "quote-thank-you.html"
+QUOTE_THANK_YOU_CONTROLLER_PATH = Path(__file__).resolve().parents[1] / "www" / "quote_thank_you.py"
+QUOTE_DIGITAL_WALKTHROUGH_TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "www" / "quote-digital-walkthrough.html"
+QUOTE_DIGITAL_WALKTHROUGH_CONTROLLER_PATH = Path(__file__).resolve().parents[1] / "www" / "quote_digital_walkthrough.py"
+QUOTE_DIGITAL_WALKTHROUGH_RECEIVED_TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "www" / "quote-digital-walkthrough-received.html"
+QUOTE_DIGITAL_WALKTHROUGH_RECEIVED_CONTROLLER_PATH = Path(__file__).resolve().parents[1] / "www" / "quote_digital_walkthrough_received.py"
+QUOTE_REVIEW_TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "www" / "quote-review.html"
+QUOTE_REVIEW_CONTROLLER_PATH = Path(__file__).resolve().parents[1] / "www" / "quote_review.py"
+QUOTE_ACCEPTED_TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "www" / "quote-accepted-portal.html"
+QUOTE_ACCEPTED_CONTROLLER_PATH = Path(__file__).resolve().parents[1] / "www" / "quote_accepted_portal.py"
+QUOTE_ACCEPTED_ASSET_PATH = Path(__file__).resolve().parents[1] / "public" / "js" / "quote_accepted_portal.js"
+QUOTE_ACCEPTED_CSS_PATH = Path(__file__).resolve().parents[1] / "public" / "css" / "quote_accepted_portal.css"
+QUOTE_BILLING_COMPLETE_TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "www" / "quote-billing-complete.html"
+QUOTE_BILLING_COMPLETE_CONTROLLER_PATH = Path(__file__).resolve().parents[1] / "www" / "quote_billing_complete.py"
+QUOTE_BILLING_COMPLETE_ASSET_PATH = Path(__file__).resolve().parents[1] / "public" / "js" / "quote_billing_complete.js"
+QUOTE_BILLING_COMPLETE_CSS_PATH = Path(__file__).resolve().parents[1] / "public" / "css" / "quote_billing_complete.css"
+PATCHES_PATH = Path(__file__).resolve().parents[1] / "patches.txt"
+QUOTE_CLEANUP_PATCH_PATH = (
+    Path(__file__).resolve().parents[1]
+    / "patches"
+    / "post_model_sync"
+    / "remove_legacy_quote_builder_pages.py"
+)
 
 
 class TestWebsiteFixtures(unittest.TestCase):
@@ -39,6 +63,20 @@ class TestWebsiteFixtures(unittest.TestCase):
             app_hooks.website_route_rules,
         )
 
+    def test_quote_funnel_routes_are_app_owned(self):
+        expected_rules = [
+            {"from_route": "/thank-you", "to_route": "quote-thank-you"},
+            {"from_route": "/digital-walkthrough", "to_route": "quote-digital-walkthrough"},
+            {"from_route": "/digital-walkthrough-received", "to_route": "quote-digital-walkthrough-received"},
+            {"from_route": "/review-quote", "to_route": "quote-review"},
+            {"from_route": "/quote-accepted", "to_route": "quote-accepted-portal"},
+            {"from_route": "/billing-setup-complete", "to_route": "quote-billing-complete"},
+        ]
+
+        for rule in expected_rules:
+            with self.subTest(rule=rule):
+                self.assertIn(rule, app_hooks.website_route_rules)
+
     def test_instant_quote_template_contains_submission_contract(self):
         template = INSTANT_QUOTE_TEMPLATE_PATH.read_text(encoding="utf-8")
 
@@ -62,6 +100,30 @@ class TestWebsiteFixtures(unittest.TestCase):
         self.assertTrue(INSTANT_QUOTE_TEMPLATE_PATH.exists())
         self.assertTrue(SITE_SHELL_MACROS_PATH.exists())
 
+    def test_quote_funnel_files_exist(self):
+        for path in (
+            QUOTE_FUNNEL_MACROS_PATH,
+            QUOTE_THANK_YOU_TEMPLATE_PATH,
+            QUOTE_THANK_YOU_CONTROLLER_PATH,
+            QUOTE_DIGITAL_WALKTHROUGH_TEMPLATE_PATH,
+            QUOTE_DIGITAL_WALKTHROUGH_CONTROLLER_PATH,
+            QUOTE_DIGITAL_WALKTHROUGH_RECEIVED_TEMPLATE_PATH,
+            QUOTE_DIGITAL_WALKTHROUGH_RECEIVED_CONTROLLER_PATH,
+            QUOTE_REVIEW_TEMPLATE_PATH,
+            QUOTE_REVIEW_CONTROLLER_PATH,
+            QUOTE_ACCEPTED_TEMPLATE_PATH,
+            QUOTE_ACCEPTED_CONTROLLER_PATH,
+            QUOTE_ACCEPTED_ASSET_PATH,
+            QUOTE_ACCEPTED_CSS_PATH,
+            QUOTE_BILLING_COMPLETE_TEMPLATE_PATH,
+            QUOTE_BILLING_COMPLETE_CONTROLLER_PATH,
+            QUOTE_BILLING_COMPLETE_ASSET_PATH,
+            QUOTE_BILLING_COMPLETE_CSS_PATH,
+            QUOTE_CLEANUP_PATCH_PATH,
+        ):
+            with self.subTest(path=path.name):
+                self.assertTrue(path.exists())
+
     def test_quote_schema_fixtures_are_exported(self):
         fixture_doctypes = [row["dt"] for row in app_hooks.fixtures]
 
@@ -81,3 +143,46 @@ class TestWebsiteFixtures(unittest.TestCase):
         self.assertIn(("Digital Walkthrough Submission", "opportunity"), field_names)
         self.assertIn(("Quotation", "Customer"), docperm_keys)
         self.assertIn(("Opportunity", "Digital Walkthrough Reviewer"), docperm_keys)
+
+    def test_quote_builder_pages_are_unpublished(self):
+        builder_pages = json.loads(BUILDER_PAGE_FIXTURE_PATH.read_text(encoding="utf-8"))
+        quote_routes = {
+            "quote",
+            "thank-you",
+            "digital-walkthrough",
+            "digital-walkthrough-received",
+            "review-quote",
+            "quote-accepted",
+            "billing-setup-complete",
+        }
+
+        for page in builder_pages:
+            if page["route"] in quote_routes:
+                with self.subTest(route=page["route"]):
+                    self.assertEqual(page["published"], 0)
+
+    def test_quote_funnel_frontend_contracts(self):
+        thank_you_template = QUOTE_THANK_YOU_TEMPLATE_PATH.read_text(encoding="utf-8")
+        walkthrough_template = QUOTE_DIGITAL_WALKTHROUGH_TEMPLATE_PATH.read_text(encoding="utf-8")
+        review_template = QUOTE_REVIEW_TEMPLATE_PATH.read_text(encoding="utf-8")
+        accepted_script = QUOTE_ACCEPTED_ASSET_PATH.read_text(encoding="utf-8")
+        complete_script = QUOTE_BILLING_COMPLETE_ASSET_PATH.read_text(encoding="utf-8")
+
+        self.assertIn("validate_public_funnel_opportunity", thank_you_template)
+        self.assertIn("/digital-walkthrough", thank_you_template)
+        self.assertIn("save_opportunity_walkthrough_upload", walkthrough_template)
+        self.assertIn("validate_public_quote", review_template)
+        self.assertIn("accept_public_quote", accepted_script)
+        self.assertIn("load_public_quote_portal_state", accepted_script)
+        self.assertIn("complete_public_service_agreement_signature", accepted_script)
+        self.assertIn("complete_public_quote_billing_setup_v2", accepted_script)
+        self.assertIn("complete_public_quote_access_setup_v2", accepted_script)
+        self.assertIn("load_public_quote_portal_state", complete_script)
+
+    def test_quote_cleanup_patch_is_registered(self):
+        patches_text = PATCHES_PATH.read_text(encoding="utf-8")
+
+        self.assertIn(
+            "pikt_inc.patches.post_model_sync.remove_legacy_quote_builder_pages",
+            patches_text,
+        )

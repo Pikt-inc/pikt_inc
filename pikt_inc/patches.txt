@@ -17,3 +17,4 @@ pikt_inc.patches.post_model_sync.deprecate_onboarding_server_scripts
 pikt_inc.patches.post_model_sync.ensure_customer_portal_role
 pikt_inc.patches.post_model_sync.remove_legacy_blog_builder_pages
 pikt_inc.patches.post_model_sync.ensure_starter_blog_content
+pikt_inc.patches.post_model_sync.remove_legacy_quote_builder_pages
