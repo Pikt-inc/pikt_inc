@@ -256,6 +256,8 @@ fixtures = [
 					"industries/medical-offices",
 					"industries/office-buildings",
 					"industries/retail-stores",
+					"blog",
+					"blog/<slug>",
 					"quote",
 					"quote-accepted",
 					"review-quote",
@@ -328,6 +330,10 @@ fixtures = [
 				],
 			]
 		],
+	},
+	{
+		"dt": "Workspace",
+		"filters": [["name", "in", ["Marketing Blog"]]],
 	},
 ]
 

@@ -1,0 +1,366 @@
+from __future__ import annotations
+
+import json
+import importlib
+import sys
+from datetime import datetime
+from pathlib import Path
+from unittest import TestCase
+from unittest.mock import patch
+import types
+
+APP_ROOT = Path(__file__).resolve().parents[2]
+if str(APP_ROOT) not in sys.path:
+    sys.path.insert(0, str(APP_ROOT))
+
+if "frappe" not in sys.modules:
+    fake_frappe = types.ModuleType("frappe")
+    fake_utils = types.ModuleType("frappe.utils")
+    fake_utils.get_url = lambda path="": f"https://example.test{path}"
+    fake_utils.now_datetime = lambda: datetime(2026, 3, 25, 12, 0, 0)
+    fake_utils.get_datetime = lambda value: value if isinstance(value, datetime) else datetime.fromisoformat(str(value))
+    fake_frappe.db = types.SimpleNamespace(
+        get_value=lambda *args, **kwargs: None,
+        count=lambda *args, **kwargs: 0,
+    )
+    fake_frappe.get_all = lambda *args, **kwargs: []
+    fake_frappe.get_roles = lambda _user=None: []
+    fake_frappe.local = types.SimpleNamespace(response={})
+    fake_frappe.session = types.SimpleNamespace(user="Guest")
+    fake_frappe.throw = lambda message, **_kwargs: (_ for _ in ()).throw(Exception(message))
+    fake_frappe.utils = fake_utils
+    sys.modules["frappe"] = fake_frappe
+    sys.modules["frappe.utils"] = fake_utils
+
+if "frappe.model" not in sys.modules:
+    sys.modules["frappe.model"] = types.SimpleNamespace(document=types.SimpleNamespace(Document=object))
+if "frappe.model.document" not in sys.modules:
+    sys.modules["frappe.model.document"] = types.SimpleNamespace(Document=object)
+
+try:
+    app_hooks = importlib.import_module("pikt_inc.hooks")
+    blog = importlib.import_module("pikt_inc.services.blog")
+except ModuleNotFoundError:
+    app_hooks = importlib.import_module("pikt_inc.pikt_inc.hooks")
+    blog = importlib.import_module("pikt_inc.pikt_inc.services.blog")
+
+
+class FakeDoc(dict):
+    def __getattr__(self, item):
+        try:
+            return self[item]
+        except KeyError as exc:
+            raise AttributeError(item) from exc
+
+    def __setattr__(self, key, value):
+        self[key] = value
+
+
+class FakeDB:
+    def __init__(self, dataset):
+        self.dataset = dataset
+
+    def get_value(self, doctype, name, fields, as_dict=False):
+        if doctype == "User" and fields == "full_name":
+            return self.dataset["users"].get(name, {}).get("full_name")
+
+        rows = self.dataset["categories"] if doctype == "Marketing Blog Category" else self.dataset["posts"]
+        for row in rows:
+            if row["name"] == name:
+                if isinstance(fields, list):
+                    return {field: row.get(field) for field in fields}
+                return row.get(fields)
+        return None
+
+    def count(self, doctype, filters=None):
+        return len(fake_get_all_factory(self.dataset)(doctype, filters=filters))
+
+
+def _match_filters(row, filters):
+    if not filters:
+        return True
+    for key, value in filters.items():
+        row_value = row.get(key)
+        if isinstance(value, list) and value and value[0] == "!=":
+            if row_value == value[1]:
+                return False
+            continue
+        if row_value != value:
+            return False
+    return True
+
+
+def _sort_rows(rows, order_by):
+    def sort_key(value):
+        if value is None:
+            return ""
+        if hasattr(value, "timestamp"):
+            return value.timestamp()
+        if isinstance(value, (int, float, bool)):
+            return value
+        return str(value)
+
+    if not order_by:
+        return list(rows)
+    sorted_rows = list(rows)
+    clauses = [clause.strip() for clause in order_by.split(",")]
+    for clause in reversed(clauses):
+        parts = clause.split()
+        field = parts[0]
+        direction = parts[1].lower() if len(parts) > 1 else "asc"
+        sorted_rows.sort(key=lambda row: sort_key(row.get(field)), reverse=(direction == "desc"))
+    return sorted_rows
+
+
+def fake_get_all_factory(dataset):
+    def fake_get_all(doctype, filters=None, fields=None, order_by=None, limit=0, limit_start=0, limit_page_length=0, **_kwargs):
+        source = dataset["categories"] if doctype == "Marketing Blog Category" else dataset["posts"]
+        rows = [row.copy() for row in source if _match_filters(row, filters or {})]
+        rows = _sort_rows(rows, order_by)
+
+        if limit:
+            rows = rows[:limit]
+        if limit_start:
+            rows = rows[limit_start:]
+        if limit_page_length:
+            rows = rows[:limit_page_length]
+
+        if fields:
+            projected = []
+            for row in rows:
+                projected.append({field: row.get(field) for field in fields})
+            return projected
+        return rows
+
+    return fake_get_all
+
+
+class TestBlog(TestCase):
+    def setUp(self):
+        self.dataset = {
+            "users": {"editor@example.com": {"full_name": "Editor User"}},
+            "categories": [
+                {
+                    "name": "MBC-00001",
+                    "title": "Office Cleaning",
+                    "slug": "office-cleaning",
+                    "description": "Office insights",
+                },
+                {
+                    "name": "MBC-00002",
+                    "title": "Medical Facilities",
+                    "slug": "medical-facilities",
+                    "description": "Medical insights",
+                },
+            ],
+            "posts": [
+                {
+                    "name": "MBP-00001",
+                    "title": "How to Keep a Lobby Presentation Ready",
+                    "slug": "keep-a-lobby-presentation-ready",
+                    "published": 1,
+                    "published_on": datetime(2026, 3, 10, 9, 0, 0),
+                    "category": "MBC-00001",
+                    "author_name": "Editor User",
+                    "excerpt": "Lobby routines that stop grime from showing up first.",
+                    "body_html": "<p>Lobby body.</p>",
+                    "cover_image": "/files/lobby.webp",
+                    "og_image": "",
+                    "seo_title": "Lobby Cleaning Checklist",
+                    "seo_description": "A faster lobby checklist for shared spaces.",
+                    "canonical_url": "",
+                    "no_index": 0,
+                    "featured": 1,
+                    "modified": datetime(2026, 3, 11, 9, 0, 0),
+                },
+                {
+                    "name": "MBP-00002",
+                    "title": "Medical Waiting Room Turnover",
+                    "slug": "medical-waiting-room-turnover",
+                    "published": 1,
+                    "published_on": datetime(2026, 3, 8, 10, 0, 0),
+                    "category": "MBC-00002",
+                    "author_name": "Editor User",
+                    "excerpt": "Waiting room steps for tighter patient turnover.",
+                    "body_html": "<p>Medical body.</p>",
+                    "cover_image": "/files/medical.webp",
+                    "og_image": "",
+                    "seo_title": "",
+                    "seo_description": "",
+                    "canonical_url": "https://example.test/custom-medical",
+                    "no_index": 0,
+                    "featured": 0,
+                    "modified": datetime(2026, 3, 9, 9, 0, 0),
+                },
+                {
+                    "name": "MBP-00003",
+                    "title": "Draft Post",
+                    "slug": "draft-post",
+                    "published": 0,
+                    "published_on": None,
+                    "category": "MBC-00001",
+                    "author_name": "Editor User",
+                    "excerpt": "Draft only.",
+                    "body_html": "<p>Draft body.</p>",
+                    "cover_image": "",
+                    "og_image": "",
+                    "seo_title": "",
+                    "seo_description": "",
+                    "canonical_url": "",
+                    "no_index": 0,
+                    "featured": 0,
+                    "modified": datetime(2026, 3, 7, 9, 0, 0),
+                },
+                {
+                    "name": "MBP-00004",
+                    "title": "Internal Only Post",
+                    "slug": "internal-only-post",
+                    "published": 1,
+                    "published_on": datetime(2026, 3, 5, 9, 0, 0),
+                    "category": "MBC-00001",
+                    "author_name": "Editor User",
+                    "excerpt": "Visible but excluded from feeds.",
+                    "body_html": "<p>Internal body.</p>",
+                    "cover_image": "",
+                    "og_image": "",
+                    "seo_title": "",
+                    "seo_description": "",
+                    "canonical_url": "",
+                    "no_index": 1,
+                    "featured": 0,
+                    "modified": datetime(2026, 3, 6, 9, 0, 0),
+                },
+            ],
+        }
+        blog.frappe.db = FakeDB(self.dataset)
+        blog.frappe.get_all = fake_get_all_factory(self.dataset)
+        blog.frappe.local.response = {}
+        blog.frappe.session.user = "Guest"
+        blog.frappe.get_roles = lambda _user=None: []
+        blog.frappe.utils.get_url = lambda path="": f"https://example.test{path}"
+        blog.frappe.utils.get_datetime = lambda value: value if isinstance(value, datetime) else datetime.fromisoformat(str(value))
+        blog.frappe.utils.now_datetime = lambda: datetime(2026, 3, 25, 12, 0, 0)
+        blog.now_datetime = lambda: datetime(2026, 3, 25, 12, 0, 0)
+
+    def test_prepare_blog_category_generates_slug(self):
+        doc = FakeDoc({"name": "MBC-00010", "title": "  Healthcare Operations  ", "slug": "", "description": "  A desc  "})
+
+        with patch.object(blog, "_slug_exists", return_value=False):
+            result = blog.prepare_blog_category_for_save(doc)
+
+        self.assertEqual(result["slug"], "healthcare-operations")
+        self.assertEqual(doc.slug, "healthcare-operations")
+        self.assertEqual(doc.title, "Healthcare Operations")
+
+    def test_prepare_blog_post_sets_slug_excerpt_and_published_on(self):
+        doc = FakeDoc(
+            {
+                "name": "MBP-00010",
+                "title": "New Facility Checklist",
+                "slug": "",
+                "published": 1,
+                "published_on": None,
+                "category": "MBC-00001",
+                "author_name": "",
+                "excerpt": "",
+                "body_html": "<p>Line one.</p><p>Line two.</p>",
+            }
+        )
+
+        with patch.object(blog, "_get_existing_value", return_value={}), patch.object(
+            blog, "_make_unique_slug", return_value="new-facility-checklist"
+        ), patch.object(blog, "_current_user_author_name", return_value="Editor User"):
+            result = blog.prepare_blog_post_for_save(doc)
+
+        self.assertEqual(result["slug"], "new-facility-checklist")
+        self.assertEqual(doc.slug, "new-facility-checklist")
+        self.assertEqual(doc.author_name, "Editor User")
+        self.assertIn("Line one", doc.excerpt)
+        self.assertEqual(doc.published_on, datetime(2026, 3, 25, 12, 0, 0))
+
+    def test_prepare_blog_post_rejects_slug_change_after_publish(self):
+        doc = FakeDoc(
+            {
+                "name": "MBP-00001",
+                "title": "How to Keep a Lobby Presentation Ready",
+                "slug": "new-slug",
+                "published": 1,
+                "category": "MBC-00001",
+                "body_html": "<p>Body.</p>",
+            }
+        )
+
+        with patch.object(
+            blog,
+            "_get_existing_value",
+            return_value={"name": "MBP-00001", "slug": "keep-a-lobby-presentation-ready", "published_on": "2026-03-10 09:00:00"},
+        ):
+            with self.assertRaisesRegex(Exception, "Slug cannot be changed"):
+                blog.prepare_blog_post_for_save(doc)
+
+    def test_get_blog_index_data_filters_and_paginates(self):
+        data = blog.get_blog_index_data(page="1", category="office-cleaning")
+
+        self.assertEqual(data["active_category_slug"], "office-cleaning")
+        self.assertEqual([post["slug"] for post in data["posts"]], ["keep-a-lobby-presentation-ready", "internal-only-post"])
+        self.assertEqual(data["pagination"]["page_count"], 1)
+        self.assertEqual(data["metatags"]["title"], "Office Cleaning | Commercial Cleaning Blog")
+        self.assertIn("structured_data_json", data)
+
+    def test_get_blog_post_data_returns_404_for_unpublished_post(self):
+        data = blog.get_blog_post_data("draft-post")
+
+        self.assertTrue(data["not_found"])
+        self.assertEqual(blog.frappe.local.response["http_status_code"], 404)
+        self.assertEqual(data["metatags"]["title"], "Article Not Found")
+
+    def test_get_blog_post_data_supports_preview_for_website_manager(self):
+        blog.frappe.session.user = "editor@example.com"
+        blog.frappe.get_roles = lambda _user=None: ["Website Manager"]
+        data = blog.get_blog_post_data("draft-post", preview=1)
+
+        self.assertFalse(data["not_found"])
+        self.assertEqual(data["post"]["slug"], "draft-post")
+
+    def test_get_blog_post_data_builds_metadata_and_related_posts(self):
+        data = blog.get_blog_post_data("keep-a-lobby-presentation-ready")
+
+        self.assertFalse(data["not_found"])
+        self.assertEqual(data["post"]["canonical_url"], "https://example.test/blog/keep-a-lobby-presentation-ready")
+        self.assertEqual(data["metatags"]["title"], "Lobby Cleaning Checklist")
+        self.assertEqual(data["related_posts"][0]["slug"], "internal-only-post")
+        self.assertEqual(data["next_post"]["slug"], "medical-waiting-room-turnover")
+
+    def test_rss_and_sitemap_exclude_draft_and_noindex_posts(self):
+        rss = blog.get_rss_feed_data()
+        sitemap = blog.get_blog_sitemap_data()
+
+        self.assertEqual([post["title"] for post in rss["posts"]], [
+            "How to Keep a Lobby Presentation Ready",
+            "Medical Waiting Room Turnover",
+        ])
+        self.assertEqual([entry["loc"] for entry in sitemap["links"]], [
+            "https://example.test/blog/keep-a-lobby-presentation-ready",
+            "https://example.test/blog/medical-waiting-room-turnover",
+        ])
+
+    def test_hooks_and_fixtures_include_blog_surface(self):
+        builder_fixture = next(item for item in app_hooks.fixtures if item["dt"] == "Builder Page")
+        workspace_fixture = next(item for item in app_hooks.fixtures if item["dt"] == "Workspace")
+
+        self.assertIn("blog", builder_fixture["filters"][0][2])
+        self.assertIn("blog/<slug>", builder_fixture["filters"][0][2])
+        self.assertEqual(workspace_fixture["filters"][0][2], ["Marketing Blog"])
+
+    def test_fixture_files_parse(self):
+        blog_pages = Path(__file__).resolve().parents[1] / "fixtures" / "blog_builder_page.json"
+        workspace = Path(__file__).resolve().parents[1] / "fixtures" / "workspace.json"
+
+        self.assertEqual(len(json.loads(blog_pages.read_text(encoding="utf-8"))), 2)
+        self.assertEqual(json.loads(workspace.read_text(encoding="utf-8"))[0]["name"], "Marketing Blog")
+
+
+if __name__ == "__main__":
+    import unittest
+
+    unittest.main()
