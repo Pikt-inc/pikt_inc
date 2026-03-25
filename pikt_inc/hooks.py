@@ -60,9 +60,7 @@ app_license = "mit"
 home_page = "home"
 
 # website user home page (by Role)
-# role_home_page = {
-# 	"Role": "home_page"
-# }
+role_home_page = {"Customer Portal User": "portal"}
 
 website_redirects = [
 	{"source": "/home", "target": "/", "redirect_http_status": "301"},
@@ -258,6 +256,10 @@ fixtures = [
 					"industries/retail-stores",
 					"blog",
 					"blog/<slug>",
+					"portal",
+					"portal/agreements",
+					"portal/billing",
+					"portal/locations",
 					"quote",
 					"quote-accepted",
 					"review-quote",
@@ -305,6 +307,13 @@ fixtures = [
 					"LP Testimonial Section",
 					"LP Trust Section",
 					"LP Walkthrough Received",
+					"Portal Shell Header",
+					"Portal Summary Stat Card",
+					"Portal Record List Card",
+					"Portal Invoice Row Card",
+					"Portal Agreement Preview Card",
+					"Portal Location Edit Card",
+					"Portal Empty State Block",
 				],
 			]
 		],
