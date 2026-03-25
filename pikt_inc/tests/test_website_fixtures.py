@@ -144,7 +144,7 @@ class TestWebsiteFixtures(unittest.TestCase):
         self.assertIn(("Quotation", "Customer"), docperm_keys)
         self.assertIn(("Opportunity", "Digital Walkthrough Reviewer"), docperm_keys)
 
-    def test_quote_builder_pages_are_unpublished(self):
+    def test_quote_builder_pages_are_absent_from_fixture(self):
         builder_pages = json.loads(BUILDER_PAGE_FIXTURE_PATH.read_text(encoding="utf-8"))
         quote_routes = {
             "quote",
@@ -156,10 +156,23 @@ class TestWebsiteFixtures(unittest.TestCase):
             "billing-setup-complete",
         }
 
-        for page in builder_pages:
-            if page["route"] in quote_routes:
-                with self.subTest(route=page["route"]):
-                    self.assertEqual(page["published"], 0)
+        fixture_routes = {page["route"] for page in builder_pages}
+        self.assertTrue(quote_routes.isdisjoint(fixture_routes))
+
+    def test_builder_page_export_excludes_quote_routes(self):
+        builder_fixture = next(row for row in app_hooks.fixtures if row["dt"] == "Builder Page")
+        exported_routes = set(builder_fixture["filters"][0][2])
+        quote_routes = {
+            "quote",
+            "thank-you",
+            "digital-walkthrough",
+            "digital-walkthrough-received",
+            "review-quote",
+            "quote-accepted",
+            "billing-setup-complete",
+        }
+
+        self.assertTrue(quote_routes.isdisjoint(exported_routes))
 
     def test_quote_funnel_frontend_contracts(self):
         thank_you_template = QUOTE_THANK_YOU_TEMPLATE_PATH.read_text(encoding="utf-8")
