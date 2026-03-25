@@ -48,6 +48,9 @@ try:
     blog_post = importlib.import_module("pikt_inc.www.blog_post")
     blog_rss = importlib.import_module("pikt_inc.www.blog_rss")
     blog_sitemap = importlib.import_module("pikt_inc.www.blog_sitemap")
+    ensure_starter_blog_content = importlib.import_module(
+        "pikt_inc.patches.post_model_sync.ensure_starter_blog_content"
+    )
     remove_legacy_blog_builder_pages = importlib.import_module(
         "pikt_inc.patches.post_model_sync.remove_legacy_blog_builder_pages"
     )
@@ -58,6 +61,9 @@ except ModuleNotFoundError:
     blog_post = importlib.import_module("pikt_inc.www.blog_post")
     blog_rss = importlib.import_module("pikt_inc.www.blog_rss")
     blog_sitemap = importlib.import_module("pikt_inc.www.blog_sitemap")
+    ensure_starter_blog_content = importlib.import_module(
+        "pikt_inc.patches.post_model_sync.ensure_starter_blog_content"
+    )
     remove_legacy_blog_builder_pages = importlib.import_module(
         "pikt_inc.patches.post_model_sync.remove_legacy_blog_builder_pages"
     )
@@ -70,6 +76,7 @@ BLOG_BUILDER_FIXTURE_PATH = APP_PATH / "fixtures" / "blog_builder_page.json"
 BLOG_HOME_TEMPLATE_PATH = APP_PATH / "www" / "blog-home.html"
 BLOG_POST_TEMPLATE_PATH = APP_PATH / "www" / "blog-post.html"
 BLOG_RSS_TEMPLATE_PATH = APP_PATH / "www" / "blog-rss.xml"
+STARTER_CONTENT_PATCH_PATH = APP_PATH / "patches" / "post_model_sync" / "ensure_starter_blog_content.py"
 LEGACY_RSS_CONTROLLER_PATH = APP_PATH / "www" / "blog" / "rss.py"
 LEGACY_RSS_TEMPLATE_PATH = APP_PATH / "www" / "blog" / "rss.xml"
 
@@ -380,7 +387,7 @@ class TestBlog(TestCase):
         route_rules = {(rule["from_route"], rule["to_route"]) for rule in app_hooks.website_route_rules}
 
         self.assertIn(("/blog", "blog-home"), route_rules)
-        self.assertIn(("/blog/rss.xml", "blog-rss"), route_rules)
+        self.assertIn(("/blog/rss.xml", "blog-rss.xml"), route_rules)
         self.assertIn(("/blog/<slug>", "blog-post"), route_rules)
         self.assertNotIn("blog", builder_fixture["filters"][0][2])
         self.assertNotIn("blog/<slug>", builder_fixture["filters"][0][2])
@@ -409,6 +416,17 @@ class TestBlog(TestCase):
         self.assertEqual(context.no_cache, 1)
         self.assertEqual(context.body_class, "no-web-page-sections")
         get_blog_post_data.assert_called_once_with(slug="keep-a-lobby-presentation-ready", preview="1")
+
+    def test_blog_post_context_sets_http_status_code_for_not_found(self):
+        context = types.SimpleNamespace(no_cache=0, body_class=None)
+        blog.frappe.form_dict = {"slug": "missing-post"}
+
+        with patch.object(blog_post.blog, "get_blog_post_data", return_value={"not_found": 1, "post": None}) as get_blog_post_data:
+            result = blog_post.get_context(context)
+
+        self.assertEqual(result["not_found"], 1)
+        self.assertEqual(context.http_status_code, 404)
+        get_blog_post_data.assert_called_once_with(slug="missing-post", preview=None)
 
     def test_feed_and_sitemap_controllers_delegate_to_service(self):
         rss_context = types.SimpleNamespace(no_cache=0)
@@ -450,14 +468,73 @@ class TestBlog(TestCase):
         self.assertEqual([name for _doctype, name, _kwargs in deleted], ["page-blog-index", "page-blog-detail"])
         self.assertEqual(len(cleared), 1)
 
+    def test_ensure_starter_blog_content_patch_seeds_empty_sites(self):
+        created_docs = []
+        cleared = []
+
+        class FakeInsertedDoc:
+            def __init__(self, payload):
+                self.payload = payload
+                self.doctype = payload["doctype"]
+                self.name = payload.get("name") or ("MBC-STARTER" if self.doctype == "Marketing Blog Category" else "MBP-STARTER")
+
+            def insert(self, ignore_permissions=False):
+                created_docs.append((self.doctype, dict(self.payload), ignore_permissions))
+                return self
+
+        fake_frappe = types.SimpleNamespace(
+            db=types.SimpleNamespace(
+                exists=lambda doctype, name: (doctype, name) in {
+                    ("DocType", "Marketing Blog Category"),
+                    ("DocType", "Marketing Blog Post"),
+                },
+                count=lambda doctype: 0 if doctype == "Marketing Blog Post" else 0,
+                get_value=lambda doctype, filters, fieldname: None,
+            ),
+            get_doc=lambda payload: FakeInsertedDoc(payload),
+            clear_cache=lambda: cleared.append(True),
+        )
+
+        with patch.object(ensure_starter_blog_content, "frappe", fake_frappe):
+            result = ensure_starter_blog_content.execute()
+
+        self.assertEqual(result["status"], "created")
+        self.assertEqual([doctype for doctype, _payload, _ignore in created_docs], ["Marketing Blog Category", "Marketing Blog Post"])
+        self.assertEqual(created_docs[1][1]["category"], "MBC-STARTER")
+        self.assertTrue(created_docs[1][1]["published"])
+        self.assertEqual(len(cleared), 1)
+
+    def test_ensure_starter_blog_content_patch_skips_when_posts_exist(self):
+        fake_frappe = types.SimpleNamespace(
+            db=types.SimpleNamespace(
+                exists=lambda doctype, name: (doctype, name) in {
+                    ("DocType", "Marketing Blog Category"),
+                    ("DocType", "Marketing Blog Post"),
+                },
+                count=lambda doctype: 1 if doctype == "Marketing Blog Post" else 1,
+                get_value=lambda doctype, filters, fieldname: "MBC-EXISTING",
+            ),
+            get_doc=lambda payload: (_ for _ in ()).throw(AssertionError("get_doc should not be called")),
+            clear_cache=lambda: (_ for _ in ()).throw(AssertionError("clear_cache should not be called")),
+        )
+
+        with patch.object(ensure_starter_blog_content, "frappe", fake_frappe):
+            result = ensure_starter_blog_content.execute()
+
+        self.assertEqual(result["status"], "noop")
+        self.assertEqual(result["created"], [])
+
     def test_blog_surface_files_and_patch_registration(self):
         self.assertFalse(BLOG_BUILDER_FIXTURE_PATH.exists())
         self.assertTrue(BLOG_HOME_TEMPLATE_PATH.exists())
         self.assertTrue(BLOG_POST_TEMPLATE_PATH.exists())
         self.assertTrue(BLOG_RSS_TEMPLATE_PATH.exists())
+        self.assertTrue(STARTER_CONTENT_PATCH_PATH.exists())
         self.assertFalse(LEGACY_RSS_CONTROLLER_PATH.exists())
         self.assertFalse(LEGACY_RSS_TEMPLATE_PATH.exists())
         self.assertIn("remove_legacy_blog_builder_pages", PATCHES_PATH.read_text(encoding="utf-8"))
+        self.assertIn("ensure_starter_blog_content", PATCHES_PATH.read_text(encoding="utf-8"))
+        self.assertIn("/files/PIKT_LOGO_OFFICIAL-2.webp", BLOG_HOME_TEMPLATE_PATH.read_text(encoding="utf-8") + (APP_PATH / "templates" / "includes" / "blog_macros.html").read_text(encoding="utf-8"))
         self.assertEqual(json.loads(WORKSPACE_FIXTURE_PATH.read_text(encoding="utf-8"))[0]["name"], "Marketing Blog")
 
 

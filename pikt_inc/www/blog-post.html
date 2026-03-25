@@ -21,7 +21,9 @@
         <p class="blog-note">Blog</p>
         <h1>Article not found.</h1>
         <p class="blog-copy">This post is unavailable or has not been published.</p>
-        <a class="blog-button" href="/blog">View all articles</a>
+        <div class="blog-tools">
+          <a class="blog-tool-link" href="/blog">View all articles</a>
+        </div>
         {% else %}
         <p class="blog-note">{% if post.category_title %}{{ post.category_title }}{% else %}Commercial Cleaning Blog{% endif %}</p>
         <h1>{{ post.title }}</h1>
@@ -30,6 +32,11 @@
           <span>{{ post.author_name }}</span>
         </div>
         <p class="blog-copy">{{ post.excerpt }}</p>
+        <div class="blog-tools">
+          <a class="blog-tool-link" href="/blog">All articles</a>
+          <a class="blog-tool-link" href="/blog/rss.xml">RSS Feed</a>
+          <a class="blog-tool-link" href="/blog-sitemap.xml">Blog Sitemap</a>
+        </div>
         {% endif %}
       </section>
       {% if not not_found %}
@@ -65,7 +72,7 @@
     </div>
   </section>
   <section>
-    {{ blog_footer(rss_url, blog_sitemap_url) }}
+    {{ blog_footer() }}
   </section>
 </div>
 {% endblock %}

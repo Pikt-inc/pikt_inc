@@ -64,7 +64,7 @@ role_home_page = {"Customer Portal User": "portal"}
 
 website_route_rules = [
 	{"from_route": "/blog", "to_route": "blog-home"},
-	{"from_route": "/blog/rss.xml", "to_route": "blog-rss"},
+	{"from_route": "/blog/rss.xml", "to_route": "blog-rss.xml"},
 	{"from_route": "/blog/<slug>", "to_route": "blog-post"},
 ]
 

@@ -23,6 +23,10 @@
           Evergreen guidance, recurring service ideas, and operational lessons from the field. Use the category
           filters to explore the articles most relevant to your building type.
         </p>
+        <div class="blog-tools">
+          <a class="blog-tool-link" href="/blog/rss.xml">RSS Feed</a>
+          <a class="blog-tool-link" href="/blog-sitemap.xml">Blog Sitemap</a>
+        </div>
         <div class="blog-chips">
           <a class="blog-chip {% if not active_category_slug %}active{% endif %}" href="/blog">All posts</a>
           {% for category in categories %}
@@ -67,7 +71,7 @@
     </div>
   </section>
   <section>
-    {{ blog_footer(rss_url, blog_sitemap_url) }}
+    {{ blog_footer() }}
   </section>
 </div>
 {% endblock %}

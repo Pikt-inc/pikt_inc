@@ -50,9 +50,11 @@ if "frappe" not in sys.modules:
 try:
     app_hooks = importlib.import_module("pikt_inc.hooks")
     portal = importlib.import_module("pikt_inc.services.customer_portal")
+    portal_api = importlib.import_module("pikt_inc.api.customer_portal")
 except ModuleNotFoundError:
     app_hooks = importlib.import_module("pikt_inc.pikt_inc.hooks")
     portal = importlib.import_module("pikt_inc.pikt_inc.services.customer_portal")
+    portal_api = importlib.import_module("pikt_inc.pikt_inc.api.customer_portal")
 
 
 PORTAL_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "customer_portal_builder_page.json"
@@ -461,6 +463,15 @@ class TestCustomerPortal(TestCase):
         self.assertEqual(routes, {"portal", "portal/agreements", "portal/billing", "portal/locations"})
         self.assertTrue(all(doc["authenticated_access"] == 1 for doc in portal_pages))
         self.assertTrue(all(doc["disable_indexing"] == 1 for doc in portal_pages))
+        self.assertEqual(
+            {doc["page_data_script"] for doc in portal_pages},
+            {
+                'data.update(frappe.call("pikt_inc.api.customer_portal.get_customer_portal_dashboard_data"))',
+                'data.update(frappe.call("pikt_inc.api.customer_portal.get_customer_portal_agreements_data"))',
+                'data.update(frappe.call("pikt_inc.api.customer_portal.get_customer_portal_billing_data"))',
+                'data.update(frappe.call("pikt_inc.api.customer_portal.get_customer_portal_locations_data"))',
+            },
+        )
 
     def test_portal_component_fixture_contains_expected_components(self):
         components = json.loads(PORTAL_COMPONENT_FIXTURE_PATH.read_text(encoding="utf-8"))
@@ -479,3 +490,27 @@ class TestCustomerPortal(TestCase):
         )
         for component in components:
             self.assertIsInstance(json.loads(component["block"]), dict)
+
+    def test_api_getters_proxy_to_service(self):
+        with patch.object(portal_api.customer_portal_service, "get_customer_portal_dashboard_data", return_value={"page_key": "overview"}) as dashboard, patch.object(
+            portal_api.customer_portal_service,
+            "get_customer_portal_agreements_data",
+            return_value={"page_key": "agreements"},
+        ) as agreements, patch.object(
+            portal_api.customer_portal_service,
+            "get_customer_portal_billing_data",
+            return_value={"page_key": "billing"},
+        ) as billing, patch.object(
+            portal_api.customer_portal_service,
+            "get_customer_portal_locations_data",
+            return_value={"page_key": "locations"},
+        ) as locations:
+            self.assertEqual(portal_api.get_customer_portal_dashboard_data(), {"page_key": "overview"})
+            self.assertEqual(portal_api.get_customer_portal_agreements_data(), {"page_key": "agreements"})
+            self.assertEqual(portal_api.get_customer_portal_billing_data(), {"page_key": "billing"})
+            self.assertEqual(portal_api.get_customer_portal_locations_data(), {"page_key": "locations"})
+
+        dashboard.assert_called_once_with()
+        agreements.assert_called_once_with()
+        billing.assert_called_once_with()
+        locations.assert_called_once_with()

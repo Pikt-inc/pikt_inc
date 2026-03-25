@@ -37,6 +37,26 @@ def _payload(kwargs: dict) -> dict:
 
 
 @frappe.whitelist()
+def get_customer_portal_dashboard_data(**kwargs):
+    return customer_portal_service.get_customer_portal_dashboard_data()
+
+
+@frappe.whitelist()
+def get_customer_portal_agreements_data(**kwargs):
+    return customer_portal_service.get_customer_portal_agreements_data()
+
+
+@frappe.whitelist()
+def get_customer_portal_billing_data(**kwargs):
+    return customer_portal_service.get_customer_portal_billing_data()
+
+
+@frappe.whitelist()
+def get_customer_portal_locations_data(**kwargs):
+    return customer_portal_service.get_customer_portal_locations_data()
+
+
+@frappe.whitelist()
 def update_customer_portal_billing(**kwargs):
     return customer_portal_service.update_customer_portal_billing(**_payload(kwargs))
 
