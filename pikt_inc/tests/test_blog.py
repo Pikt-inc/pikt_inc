@@ -356,7 +356,10 @@ class TestBlog(TestCase):
         blog_pages = Path(__file__).resolve().parents[1] / "fixtures" / "blog_builder_page.json"
         workspace = Path(__file__).resolve().parents[1] / "fixtures" / "workspace.json"
 
-        self.assertEqual(len(json.loads(blog_pages.read_text(encoding="utf-8"))), 2)
+        blog_page_docs = json.loads(blog_pages.read_text(encoding="utf-8"))
+
+        self.assertEqual(len(blog_page_docs), 2)
+        self.assertTrue(all(doc["canonical_url"] is None for doc in blog_page_docs))
         self.assertEqual(json.loads(workspace.read_text(encoding="utf-8"))[0]["name"], "Marketing Blog")
 
 
