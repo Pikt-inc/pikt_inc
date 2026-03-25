@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from typing import Any
 
@@ -49,6 +50,15 @@ BUILDING_EDIT_FIELDS = (
     "first_service_notes",
     "access_details_confirmed",
 )
+LOCATION_ACCESS_METHOD_OPTIONS = (
+    "Door code / keypad",
+    "Lockbox",
+    "Front desk / building management",
+    "Physical key or fob",
+    "Staff will let us in",
+    "Other",
+)
+LOCATION_ALARM_OPTIONS = ("No", "Yes")
 
 
 class PortalAccessError(Exception):
@@ -653,6 +663,27 @@ def _contact_updates(display_name: str, phone: str, designation: str, address_na
     return updates
 
 
+def _shared_contact_updates(
+    portal_display_name: str,
+    portal_phone: str,
+    portal_designation: str,
+    billing_display_name: str,
+    billing_phone: str,
+    billing_designation: str,
+    billing_address_name: str,
+    portal_address_name: str = "",
+) -> dict[str, Any]:
+    # One Contact record cannot hold different billing and portal phone/title values.
+    # When the same record is used for both, billing-specific fields win and portal
+    # values only fill gaps so we do not overwrite the billing update with a second write.
+    return _contact_updates(
+        portal_display_name or billing_display_name,
+        billing_phone or portal_phone,
+        billing_designation or portal_designation,
+        billing_address_name or portal_address_name,
+    )
+
+
 def _set_download_response(filename: str, content: Any, content_type: str = "application/octet-stream"):
     local = getattr(frappe, "local", None)
     if local is None:
@@ -670,8 +701,31 @@ def _set_download_response(filename: str, content: Any, content_type: str = "app
 def render_invoice_pdf(invoice_name: str) -> bytes:
     from frappe.utils.pdf import get_pdf
 
-    html = frappe.get_print("Sales Invoice", invoice_name, as_pdf=False)
-    return get_pdf(html)
+    local = getattr(frappe, "local", None)
+    flags = getattr(local, "flags", None)
+    if flags is None and local is not None:
+        from types import SimpleNamespace
+
+        flags = SimpleNamespace()
+        local.flags = flags
+
+    had_flag = hasattr(flags, "ignore_print_permissions") if flags is not None else False
+    original_flag = getattr(flags, "ignore_print_permissions", None) if flags is not None else None
+    if flags is not None:
+        flags.ignore_print_permissions = True
+    try:
+        html = frappe.get_print("Sales Invoice", invoice_name, as_pdf=False)
+        return get_pdf(html)
+    finally:
+        if flags is None:
+            pass
+        elif had_flag:
+            flags.ignore_print_permissions = original_flag
+        else:
+            try:
+                delattr(flags, "ignore_print_permissions")
+            except Exception:
+                flags.ignore_print_permissions = None
 
 
 def get_customer_portal_dashboard_data() -> dict[str, Any]:
@@ -778,11 +832,17 @@ def get_customer_portal_locations_data() -> dict[str, Any]:
     except PortalAccessError as exc:
         return _error_page_data("locations", "Portal access unavailable", str(exc))
 
+    shaped_buildings = _shape_building_rows(_get_buildings(scope.customer_name))
     data = _base_page_data("locations")
     data.update(
         {
             "customer_display": scope.customer_display,
-            "buildings": _shape_building_rows(_get_buildings(scope.customer_name)),
+            "buildings": shaped_buildings,
+            "buildings_json": json.dumps(shaped_buildings, ensure_ascii=False),
+            "location_form_options": {
+                "access_methods": list(LOCATION_ACCESS_METHOD_OPTIONS),
+                "alarm_system": list(LOCATION_ALARM_OPTIONS),
+            },
             "empty_state_title": "No service locations are linked to your account yet.",
             "empty_state_copy": "Once service locations are added, you will be able to review and update access details here.",
         }
@@ -839,7 +899,22 @@ def update_customer_portal_billing(**kwargs):
         clean(kwargs.get("tax_id")),
     )
 
-    if clean(scope.portal_contact_name):
+    if clean(scope.portal_contact_name) and clean(scope.portal_contact_name) == clean(contact_name):
+        public_quote_service.doc_db_set_values(
+            "Contact",
+            contact_name,
+            _shared_contact_updates(
+                portal_contact_name,
+                portal_contact_phone,
+                portal_contact_title,
+                billing_contact_name,
+                billing_phone,
+                billing_title,
+                address_name,
+                clean(scope.portal_address_name),
+            ),
+        )
+    elif clean(scope.portal_contact_name):
         public_quote_service.doc_db_set_values(
             "Contact",
             scope.portal_contact_name,

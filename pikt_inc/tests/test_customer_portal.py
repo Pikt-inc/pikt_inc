@@ -387,6 +387,60 @@ class TestCustomerPortal(TestCase):
         self.assertGreaterEqual(doc_db_set_values.call_count, 2)
         self.assertEqual(response["status"], "updated")
 
+    def test_billing_update_preserves_billing_fields_for_shared_contact(self):
+        scope = portal.PortalScope(
+            session_user="portal@example.com",
+            customer_name="CUST-1",
+            customer_display="Portal Customer LLC",
+            portal_contact_name="CONTACT-1",
+            portal_contact_email="portal@example.com",
+            portal_contact_phone="512-555-0101",
+            portal_contact_designation="Office Manager",
+            portal_address_name="ADDR-PORTAL",
+            billing_contact_name="CONTACT-1",
+            billing_contact_email="portal@example.com",
+            billing_contact_phone="512-555-0101",
+            billing_contact_designation="Office Manager",
+            billing_address_name="ADDR-1",
+            tax_id="99-1234567",
+        )
+
+        with patch.object(portal, "_require_portal_scope", return_value=scope), patch.object(
+            portal, "_portal_contact_payload", return_value={"display_name": "Pat Portal"}
+        ), patch.object(portal.public_quote_service, "valid_email", return_value=True), patch.object(
+            portal.public_quote_service, "ensure_address", return_value="ADDR-UPDATED"
+        ), patch.object(
+            portal.public_quote_service, "ensure_contact", return_value="CONTACT-1"
+        ), patch.object(
+            portal.public_quote_service, "sync_customer"
+        ), patch.object(
+            portal.public_quote_service, "doc_db_set_values"
+        ) as doc_db_set_values, patch.object(
+            portal, "get_customer_portal_billing_data", return_value={"page_key": "billing"}
+        ):
+            portal.update_customer_portal_billing(
+                portal_contact_name="Pat Portal",
+                portal_contact_phone="512-555-0111",
+                portal_contact_title="Facilities Lead",
+                billing_contact_name="Billing Team",
+                billing_email="portal@example.com",
+                billing_contact_phone="512-555-0222",
+                billing_contact_title="Controller",
+                billing_address_line_1="456 Billing Ave",
+                billing_city="Austin",
+                billing_state="TX",
+                billing_postal_code="78702",
+                billing_country="United States",
+                tax_id="12-3456789",
+            )
+
+        final_update = doc_db_set_values.call_args_list[-1].args
+        self.assertEqual(final_update[0], "Contact")
+        self.assertEqual(final_update[1], "CONTACT-1")
+        self.assertEqual(final_update[2]["phone"], "512-555-0222")
+        self.assertEqual(final_update[2]["designation"], "Controller")
+        self.assertEqual(final_update[2]["address"], "ADDR-UPDATED")
+
     def test_location_update_rejects_out_of_scope_building(self):
         scope = portal.PortalScope(
             session_user="portal@example.com",
@@ -437,6 +491,21 @@ class TestCustomerPortal(TestCase):
         self.assertEqual(portal.frappe.local.response["type"], "download")
         self.assertEqual(portal.frappe.local.response["content_type"], "application/pdf")
 
+    def test_render_invoice_pdf_uses_scoped_print_bypass(self):
+        portal.frappe.local.flags = types.SimpleNamespace(ignore_print_permissions=False)
+        observed = []
+
+        def fake_get_print(*_args, **_kwargs):
+            observed.append(portal.frappe.local.flags.ignore_print_permissions)
+            return "<html>invoice</html>"
+
+        with patch.object(portal.frappe, "get_print", side_effect=fake_get_print):
+            pdf = portal.render_invoice_pdf("SINV-0001")
+
+        self.assertEqual(observed, [True])
+        self.assertFalse(portal.frappe.local.flags.ignore_print_permissions)
+        self.assertEqual(pdf, b"<html>invoice</html>")
+
     def test_hooks_include_customer_portal_home_and_patch(self):
         self.assertEqual(app_hooks.role_home_page["Customer Portal User"], "portal")
         builder_fixture = next(fixture for fixture in app_hooks.fixtures if fixture["dt"] == "Builder Page")
@@ -472,6 +541,11 @@ class TestCustomerPortal(TestCase):
                 'data.update(frappe.call("pikt_inc.api.customer_portal.get_customer_portal_locations_data"))',
             },
         )
+        locations_page = next(doc for doc in portal_pages if doc["route"] == "portal/locations")
+        self.assertIn("portal-locations-data", locations_page["blocks"])
+        self.assertIn("buildings_json", locations_page["blocks"])
+        self.assertNotIn("selected{% endif %}", locations_page["blocks"])
+        self.assertNotIn("checked{% endif %}", locations_page["blocks"])
 
     def test_portal_component_fixture_contains_expected_components(self):
         components = json.loads(PORTAL_COMPONENT_FIXTURE_PATH.read_text(encoding="utf-8"))
