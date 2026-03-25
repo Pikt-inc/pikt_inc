@@ -22,11 +22,15 @@ if "frappe" not in sys.modules:
     fake_frappe.db = types.SimpleNamespace(
         get_value=lambda *args, **kwargs: None,
         count=lambda *args, **kwargs: 0,
+        exists=lambda *args, **kwargs: False,
     )
     fake_frappe.get_all = lambda *args, **kwargs: []
     fake_frappe.get_roles = lambda _user=None: []
     fake_frappe.local = types.SimpleNamespace(response={})
+    fake_frappe.form_dict = {}
     fake_frappe.session = types.SimpleNamespace(user="Guest")
+    fake_frappe.delete_doc = lambda *args, **kwargs: None
+    fake_frappe.clear_cache = lambda: None
     fake_frappe.throw = lambda message, **_kwargs: (_ for _ in ()).throw(Exception(message))
     fake_frappe.utils = fake_utils
     sys.modules["frappe"] = fake_frappe
@@ -40,9 +44,34 @@ if "frappe.model.document" not in sys.modules:
 try:
     app_hooks = importlib.import_module("pikt_inc.hooks")
     blog = importlib.import_module("pikt_inc.services.blog")
+    blog_home = importlib.import_module("pikt_inc.www.blog_home")
+    blog_post = importlib.import_module("pikt_inc.www.blog_post")
+    blog_rss = importlib.import_module("pikt_inc.www.blog_rss")
+    blog_sitemap = importlib.import_module("pikt_inc.www.blog_sitemap")
+    remove_legacy_blog_builder_pages = importlib.import_module(
+        "pikt_inc.patches.post_model_sync.remove_legacy_blog_builder_pages"
+    )
 except ModuleNotFoundError:
     app_hooks = importlib.import_module("pikt_inc.pikt_inc.hooks")
     blog = importlib.import_module("pikt_inc.pikt_inc.services.blog")
+    blog_home = importlib.import_module("pikt_inc.www.blog_home")
+    blog_post = importlib.import_module("pikt_inc.www.blog_post")
+    blog_rss = importlib.import_module("pikt_inc.www.blog_rss")
+    blog_sitemap = importlib.import_module("pikt_inc.www.blog_sitemap")
+    remove_legacy_blog_builder_pages = importlib.import_module(
+        "pikt_inc.patches.post_model_sync.remove_legacy_blog_builder_pages"
+    )
+
+
+APP_PATH = Path(__file__).resolve().parents[1]
+WORKSPACE_FIXTURE_PATH = APP_PATH / "fixtures" / "workspace.json"
+PATCHES_PATH = APP_PATH / "patches.txt"
+BLOG_BUILDER_FIXTURE_PATH = APP_PATH / "fixtures" / "blog_builder_page.json"
+BLOG_HOME_TEMPLATE_PATH = APP_PATH / "www" / "blog-home.html"
+BLOG_POST_TEMPLATE_PATH = APP_PATH / "www" / "blog-post.html"
+BLOG_RSS_TEMPLATE_PATH = APP_PATH / "www" / "blog-rss.xml"
+LEGACY_RSS_CONTROLLER_PATH = APP_PATH / "www" / "blog" / "rss.py"
+LEGACY_RSS_TEMPLATE_PATH = APP_PATH / "www" / "blog" / "rss.xml"
 
 
 class FakeDoc(dict):
@@ -235,6 +264,7 @@ class TestBlog(TestCase):
         blog.frappe.db = FakeDB(self.dataset)
         blog.frappe.get_all = fake_get_all_factory(self.dataset)
         blog.frappe.local.response = {}
+        blog.frappe.form_dict = {}
         blog.frappe.session.user = "Guest"
         blog.frappe.get_roles = lambda _user=None: []
         blog.frappe.utils.get_url = lambda path="": f"https://example.test{path}"
@@ -344,23 +374,91 @@ class TestBlog(TestCase):
             "https://example.test/blog/medical-waiting-room-turnover",
         ])
 
-    def test_hooks_and_fixtures_include_blog_surface(self):
+    def test_hooks_and_routes_include_blog_surface(self):
         builder_fixture = next(item for item in app_hooks.fixtures if item["dt"] == "Builder Page")
         workspace_fixture = next(item for item in app_hooks.fixtures if item["dt"] == "Workspace")
+        route_rules = {(rule["from_route"], rule["to_route"]) for rule in app_hooks.website_route_rules}
 
-        self.assertIn("blog", builder_fixture["filters"][0][2])
-        self.assertIn("blog/<slug>", builder_fixture["filters"][0][2])
+        self.assertIn(("/blog", "blog-home"), route_rules)
+        self.assertIn(("/blog/rss.xml", "blog-rss"), route_rules)
+        self.assertIn(("/blog/<slug>", "blog-post"), route_rules)
+        self.assertNotIn("blog", builder_fixture["filters"][0][2])
+        self.assertNotIn("blog/<slug>", builder_fixture["filters"][0][2])
         self.assertEqual(workspace_fixture["filters"][0][2], ["Marketing Blog"])
 
-    def test_fixture_files_parse(self):
-        blog_pages = Path(__file__).resolve().parents[1] / "fixtures" / "blog_builder_page.json"
-        workspace = Path(__file__).resolve().parents[1] / "fixtures" / "workspace.json"
+    def test_blog_home_context_delegates_to_service(self):
+        context = types.SimpleNamespace(no_cache=0, body_class=None)
+        blog.frappe.form_dict = {"page": "2", "category": "medical-facilities"}
 
-        blog_page_docs = json.loads(blog_pages.read_text(encoding="utf-8"))
+        with patch.object(blog_home.blog, "get_blog_index_data", return_value={"posts": []}) as get_blog_index_data:
+            result = blog_home.get_context(context)
 
-        self.assertEqual(len(blog_page_docs), 2)
-        self.assertTrue(all(doc["canonical_url"] is None for doc in blog_page_docs))
-        self.assertEqual(json.loads(workspace.read_text(encoding="utf-8"))[0]["name"], "Marketing Blog")
+        self.assertEqual(result, {"posts": []})
+        self.assertEqual(context.no_cache, 1)
+        self.assertEqual(context.body_class, "no-web-page-sections")
+        get_blog_index_data.assert_called_once_with(page="2", category="medical-facilities")
+
+    def test_blog_post_context_delegates_to_service(self):
+        context = types.SimpleNamespace(no_cache=0, body_class=None)
+        blog.frappe.form_dict = {"slug": "keep-a-lobby-presentation-ready", "preview": "1"}
+
+        with patch.object(blog_post.blog, "get_blog_post_data", return_value={"post": {"slug": "keep-a-lobby-presentation-ready"}}) as get_blog_post_data:
+            result = blog_post.get_context(context)
+
+        self.assertEqual(result["post"]["slug"], "keep-a-lobby-presentation-ready")
+        self.assertEqual(context.no_cache, 1)
+        self.assertEqual(context.body_class, "no-web-page-sections")
+        get_blog_post_data.assert_called_once_with(slug="keep-a-lobby-presentation-ready", preview="1")
+
+    def test_feed_and_sitemap_controllers_delegate_to_service(self):
+        rss_context = types.SimpleNamespace(no_cache=0)
+        sitemap_context = types.SimpleNamespace(no_cache=0)
+
+        with patch.object(blog_rss.blog, "get_rss_feed_data", return_value={"posts": []}) as get_rss_feed_data:
+            rss_result = blog_rss.get_context(rss_context)
+        with patch.object(blog_sitemap.blog, "get_blog_sitemap_data", return_value={"links": []}) as get_blog_sitemap_data:
+            sitemap_result = blog_sitemap.get_context(sitemap_context)
+
+        self.assertEqual(blog_rss.base_template_path, "www/blog-rss.xml")
+        self.assertEqual(blog_sitemap.base_template_path, "www/blog-sitemap.xml")
+        self.assertEqual(rss_result, {"posts": []})
+        self.assertEqual(sitemap_result, {"links": []})
+        self.assertEqual(rss_context.no_cache, 1)
+        self.assertEqual(sitemap_context.no_cache, 1)
+        get_rss_feed_data.assert_called_once_with()
+        get_blog_sitemap_data.assert_called_once_with()
+
+    def test_remove_legacy_blog_builder_pages_patch_removes_existing_pages(self):
+        existing_docs = {
+            ("DocType", "Builder Page"),
+            ("Builder Page", "page-blog-index"),
+            ("Builder Page", "page-blog-detail"),
+        }
+        deleted = []
+        cleared = []
+        fake_frappe = types.SimpleNamespace(
+            db=types.SimpleNamespace(exists=lambda doctype, name: (doctype, name) in existing_docs),
+            delete_doc=lambda doctype, name, **kwargs: deleted.append((doctype, name, kwargs)),
+            clear_cache=lambda: cleared.append(True),
+        )
+
+        with patch.object(remove_legacy_blog_builder_pages, "frappe", fake_frappe):
+            result = remove_legacy_blog_builder_pages.execute()
+
+        self.assertEqual(result["status"], "removed")
+        self.assertEqual(result["removed"], ["page-blog-index", "page-blog-detail"])
+        self.assertEqual([name for _doctype, name, _kwargs in deleted], ["page-blog-index", "page-blog-detail"])
+        self.assertEqual(len(cleared), 1)
+
+    def test_blog_surface_files_and_patch_registration(self):
+        self.assertFalse(BLOG_BUILDER_FIXTURE_PATH.exists())
+        self.assertTrue(BLOG_HOME_TEMPLATE_PATH.exists())
+        self.assertTrue(BLOG_POST_TEMPLATE_PATH.exists())
+        self.assertTrue(BLOG_RSS_TEMPLATE_PATH.exists())
+        self.assertFalse(LEGACY_RSS_CONTROLLER_PATH.exists())
+        self.assertFalse(LEGACY_RSS_TEMPLATE_PATH.exists())
+        self.assertIn("remove_legacy_blog_builder_pages", PATCHES_PATH.read_text(encoding="utf-8"))
+        self.assertEqual(json.loads(WORKSPACE_FIXTURE_PATH.read_text(encoding="utf-8"))[0]["name"], "Marketing Blog")
 
 
 if __name__ == "__main__":

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pikt_inc.services import blog
 
-base_template_path = "www/blog/rss.xml"
+base_template_path = "www/blog-rss.xml"
 no_cache = 1
 sitemap = 0
 

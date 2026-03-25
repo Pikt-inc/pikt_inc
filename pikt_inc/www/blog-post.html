@@ -1,0 +1,71 @@
+{% extends "templates/base.html" %}
+{% from "pikt_inc/templates/includes/blog_macros.html" import blog_footer, blog_head, blog_header %}
+
+{% block navbar %}{% endblock %}
+{% block footer %}{% endblock %}
+
+{% block head_include %}
+{{ super() }}
+{{ blog_head(rss_url, structured_data_json, noindex_meta) }}
+{% endblock %}
+
+{% block content %}
+<div class="blog-page">
+  <section>
+    {{ blog_header() }}
+  </section>
+  <section>
+    <div class="blog-wrap">
+      <section class="blog-hero blog-article">
+        {% if not_found %}
+        <p class="blog-note">Blog</p>
+        <h1>Article not found.</h1>
+        <p class="blog-copy">This post is unavailable or has not been published.</p>
+        <a class="blog-button" href="/blog">View all articles</a>
+        {% else %}
+        <p class="blog-note">{% if post.category_title %}{{ post.category_title }}{% else %}Commercial Cleaning Blog{% endif %}</p>
+        <h1>{{ post.title }}</h1>
+        <div class="blog-meta">
+          {% if post.published_label %}<span>{{ post.published_label }}</span>{% endif %}
+          <span>{{ post.author_name }}</span>
+        </div>
+        <p class="blog-copy">{{ post.excerpt }}</p>
+        {% endif %}
+      </section>
+      {% if not not_found %}
+      <section class="blog-article-grid">
+        <article class="blog-content">
+          {% if post.cover_image %}
+          <p><img src="{{ post.cover_image }}" alt="{{ post.title }}"></p>
+          {% endif %}
+          <div class="blog-richtext">{{ post.body_html | safe }}</div>
+          <div class="blog-adjacent">
+            {% if previous_post %}
+            <a href="{{ previous_post.url }}"><strong>Previous:</strong><br>{{ previous_post.title }}</a>
+            {% endif %}
+            {% if next_post %}
+            <a href="{{ next_post.url }}"><strong>Next:</strong><br>{{ next_post.title }}</a>
+            {% endif %}
+          </div>
+        </article>
+        <aside class="blog-aside">
+          <h3>More from the blog</h3>
+          {% if related_posts %}
+          <ul>
+            {% for related in related_posts %}
+            <li><a href="{{ related.url }}">{{ related.title }}</a></li>
+            {% endfor %}
+          </ul>
+          {% else %}
+          <p>More articles will appear here as the library grows.</p>
+          {% endif %}
+        </aside>
+      </section>
+      {% endif %}
+    </div>
+  </section>
+  <section>
+    {{ blog_footer(rss_url, blog_sitemap_url) }}
+  </section>
+</div>
+{% endblock %}

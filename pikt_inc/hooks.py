@@ -62,6 +62,12 @@ home_page = "home"
 # website user home page (by Role)
 role_home_page = {"Customer Portal User": "portal"}
 
+website_route_rules = [
+	{"from_route": "/blog", "to_route": "blog-home"},
+	{"from_route": "/blog/rss.xml", "to_route": "blog-rss"},
+	{"from_route": "/blog/<slug>", "to_route": "blog-post"},
+]
+
 website_redirects = [
 	{"source": "/home", "target": "/", "redirect_http_status": "301"},
 ]
@@ -254,8 +260,6 @@ fixtures = [
 					"industries/medical-offices",
 					"industries/office-buildings",
 					"industries/retail-stores",
-					"blog",
-					"blog/<slug>",
 					"portal",
 					"portal/agreements",
 					"portal/billing",
