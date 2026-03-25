@@ -401,6 +401,76 @@ class TestPublicQuote(unittest.TestCase):
         self.assertEqual(mock_db_set_value.call_args_list[0].args[2]["quotation_to"], "Customer")
         self.assertEqual(mock_db_set_value.call_args_list[1].args[2]["custom_accepted_sales_order"], "SO-TEST-0001")
 
+    @patch.object(public_quote, "build_accept_payload", side_effect=lambda *args, **kwargs: {"args": args, "kwargs": kwargs})
+    @patch.object(public_quote, "mark_opportunity_converted")
+    @patch.object(public_quote, "build_sales_order", side_effect=RuntimeError("duplicate submit"))
+    @patch.object(public_quote, "load_quote_taxes", return_value=[{"account_head": "Tax - PI"}])
+    @patch.object(public_quote, "load_accept_items", return_value=[{"name": "QTI-1"}])
+    @patch.object(public_quote, "get_quote_row")
+    @patch.object(public_quote.frappe.db, "get_value", return_value="")
+    @patch.object(public_quote.frappe.db, "exists")
+    @patch.object(
+        public_quote,
+        "get_public_quote_access_result",
+        return_value={
+            "state": "ready",
+            "message": "",
+            "row": {
+                "name": "SAL-QTN-TEST-0001",
+                "quotation_to": "Customer",
+                "party_name": "CUST-TEST-0001",
+                "opportunity": "CRM-OPP-TEST-0001",
+            },
+        },
+    )
+    def test_accept_public_quote_returns_existing_sales_order_after_retry_race(
+        self,
+        _mock_access_result,
+        mock_exists,
+        _mock_db_get_value,
+        mock_get_quote_row,
+        _mock_load_items,
+        _mock_load_taxes,
+        _mock_build_sales_order,
+        mock_mark_converted,
+        _mock_build_payload,
+    ):
+        def exists_side_effect(doctype, name=None):
+            if doctype == "Customer" and (name or "") == "CUST-TEST-0001":
+                return True
+            if doctype == "Sales Order" and (name or "") == "SO-TEST-0002":
+                return True
+            if doctype == "Sales Order":
+                return False
+            return False
+
+        mock_exists.side_effect = exists_side_effect
+        mock_get_quote_row.side_effect = [
+            {
+                "name": "SAL-QTN-TEST-0001",
+                "quotation_to": "Customer",
+                "party_name": "CUST-TEST-0001",
+                "opportunity": "CRM-OPP-TEST-0001",
+                "custom_accepted_sales_order": "",
+            },
+            {
+                "name": "SAL-QTN-TEST-0001",
+                "quotation_to": "Customer",
+                "party_name": "CUST-TEST-0001",
+                "opportunity": "CRM-OPP-TEST-0001",
+                "custom_accepted_sales_order": "SO-TEST-0002",
+            },
+        ]
+
+        result = public_quote.accept_public_quote(
+            quote="SAL-QTN-TEST-0001",
+            token="expected-token",
+        )
+
+        self.assertEqual(result["args"][0], "accepted")
+        self.assertEqual(result["kwargs"]["sales_order_name"], "SO-TEST-0002")
+        mock_mark_converted.assert_called_once_with("CRM-OPP-TEST-0001")
+
     @patch.object(public_quote, "get_active_template")
     @patch.object(public_quote, "get_addendum_row")
     @patch.object(public_quote, "get_active_master_agreement")

@@ -8,6 +8,7 @@ DEFAULT_COUNTRY = "United States"
 DEFAULT_CURRENCY = "USD"
 DEFAULT_PRICE_LIST = "Standard Selling"
 DEFAULT_WAREHOUSE = "Stores - Pikt, inc."
+SAVEPOINT_PREFIX = "pikt_public_quote"
 
 
 def clean(value):
@@ -91,6 +92,87 @@ def doc_db_set_values(doctype_name, record_name, values):
     for fieldname, value in items:
         index += 1
         doc.db_set(clean(fieldname), value, update_modified=(index == total))
+
+
+def sanitize_identifier(value, fallback="step"):
+    value = clean(value).lower()
+    tokens = []
+    for char in value:
+        if char.isalnum():
+            tokens.append(char)
+            continue
+        if tokens and tokens[-1] != "_":
+            tokens.append("_")
+    identifier = "".join(tokens).strip("_")
+    return (identifier or fallback)[:48]
+
+
+def normalize_savepoint_name(savepoint_name):
+    savepoint_name = clean(savepoint_name)
+    if not savepoint_name:
+        return ""
+    if any((not char.isalnum()) and char != "_" for char in savepoint_name):
+        return ""
+    return savepoint_name
+
+
+def get_traceback_text():
+    try:
+        return frappe.get_traceback()
+    except Exception:
+        return ""
+
+
+def begin_savepoint(step_name):
+    now_value = now_datetime()
+    timestamp = (
+        now_value.strftime("%H%M%S%f")
+        if hasattr(now_value, "strftime")
+        else sanitize_identifier(now_value, "now")
+    )
+    identifier = (
+        f"{SAVEPOINT_PREFIX}_{sanitize_identifier(step_name)}_{timestamp}"
+    )
+    try:
+        frappe.db.sql(f"SAVEPOINT {identifier}")
+        return identifier
+    except Exception:
+        return ""
+
+
+def rollback_savepoint(savepoint_name):
+    savepoint_name = normalize_savepoint_name(savepoint_name)
+    if not savepoint_name:
+        return
+    try:
+        frappe.db.sql(f"ROLLBACK TO SAVEPOINT {savepoint_name}")
+    except Exception:
+        pass
+
+
+def release_savepoint(savepoint_name):
+    savepoint_name = normalize_savepoint_name(savepoint_name)
+    if not savepoint_name:
+        return
+    try:
+        frappe.db.sql(f"RELEASE SAVEPOINT {savepoint_name}")
+    except Exception:
+        pass
+
+
+def lock_document_row(doctype_name, record_name):
+    doctype_name = clean(doctype_name).replace("`", "")
+    record_name = clean(record_name)
+    if not doctype_name or not record_name:
+        return False
+    try:
+        frappe.db.sql(
+            f"select name from `tab{doctype_name}` where name = %s for update",
+            (record_name,),
+        )
+        return True
+    except Exception:
+        return False
 
 
 def get_datetime_safe(value):
@@ -925,6 +1007,27 @@ def build_accept_payload(state, message="", row=None, items=None, sales_order_na
     return payload
 
 
+def get_existing_accept_response(
+    quote_name,
+    row=None,
+    message="This quotation has already been accepted.",
+    sales_order_name="",
+):
+    quote_name = clean(quote_name) or clean((row or {}).get("name"))
+    row = row or get_quote_row(quote_name)
+    sales_order_name = clean(sales_order_name) or clean((row or {}).get("custom_accepted_sales_order"))
+    if sales_order_name and frappe.db.exists("Sales Order", sales_order_name):
+        mark_opportunity_converted((row or {}).get("opportunity"))
+        return build_accept_payload(
+            "accepted",
+            message,
+            row=row,
+            items=load_accept_items(quote_name),
+            sales_order_name=sales_order_name,
+        )
+    return None
+
+
 def resolve_customer_name(row, sales_order_row):
     customer_name = clean((sales_order_row or {}).get("customer"))
     if customer_name:
@@ -1449,11 +1552,21 @@ def accept_public_quote(quote=None, token=None):
         return build_accept_payload(state, result.get("message", ""))
 
     quote_name = clean((row or {}).get("name"))
-    quote_items = load_accept_items(quote_name)
-    quote_taxes = load_quote_taxes(quote_name)
-    current_target = clean((row or {}).get("quotation_to"))
+    savepoint_name = begin_savepoint("accept_quote")
 
     try:
+        lock_document_row("Quotation", quote_name)
+        locked_row = get_quote_row(quote_name)
+        existing_response = get_existing_accept_response(quote_name, row=locked_row)
+        if existing_response:
+            release_savepoint(savepoint_name)
+            return existing_response
+        if not row:
+            row = locked_row
+
+        quote_items = load_accept_items(quote_name)
+        quote_taxes = load_quote_taxes(quote_name)
+        current_target = clean((row or {}).get("quotation_to"))
         if current_target == "Lead":
             lead_row = get_lead_row((row or {}).get("party_name"))
             customer = ensure_customer(row, lead_row)
@@ -1468,7 +1581,14 @@ def accept_public_quote(quote=None, token=None):
                 },
                 update_modified=False,
             )
-            row = get_quote_row(quote_name)
+            row = dict(row or {})
+            row.update(
+                {
+                    "quotation_to": "Customer",
+                    "party_name": customer,
+                    "customer_name": customer_display,
+                }
+            )
             quote_items = load_accept_items(quote_name)
             quote_taxes = load_quote_taxes(quote_name)
         else:
@@ -1503,6 +1623,7 @@ def accept_public_quote(quote=None, token=None):
 
         row = get_quote_row(quote_name)
         quote_items = load_accept_items(quote_name)
+        release_savepoint(savepoint_name)
         return build_accept_payload(
             "accepted",
             "Your quotation has been accepted.",
@@ -1511,7 +1632,11 @@ def accept_public_quote(quote=None, token=None):
             sales_order_name=sales_order.name,
         )
     except Exception:
-        frappe.log_error(frappe.get_traceback(), "Accept Public Quotation")
+        rollback_savepoint(savepoint_name)
+        fallback_response = get_existing_accept_response(quote_name)
+        if fallback_response:
+            return fallback_response
+        frappe.log_error(get_traceback_text(), "Accept Public Quotation")
         return build_accept_payload(
             "invalid",
             "We could not accept this quotation right now. Please contact our team for help.",
@@ -1629,6 +1754,34 @@ def build_service_agreement_signature_response(
     }
 
 
+def get_existing_service_agreement_signature_response(
+    quote_name,
+    sales_order_name,
+    quote_row=None,
+    sales_order_row=None,
+):
+    existing_addendum = get_addendum_row(quote_name, sales_order_name)
+    if not clean(existing_addendum.get("name")):
+        return None
+    quote_row = quote_row or get_quote_row(quote_name)
+    sales_order_row = sales_order_row or get_sales_order_row(sales_order_name)
+    link_quote_agreement_records(
+        clean(existing_addendum.get("service_agreement")),
+        clean(existing_addendum.get("name")),
+        quote_row,
+        sales_order_row,
+    )
+    return build_service_agreement_signature_response(
+        clean(existing_addendum.get("service_agreement")),
+        clean(existing_addendum.get("name")),
+        clean(existing_addendum.get("status")),
+        clean(existing_addendum.get("start_date")),
+        clean(existing_addendum.get("end_date")),
+        clean(existing_addendum.get("term_model")),
+        clean(existing_addendum.get("fixed_term_months")),
+    )
+
+
 def link_quote_agreement_records(master_name, addendum_name, quote_row, sales_order_row):
     master_name = clean(master_name)
     addendum_name = clean(addendum_name)
@@ -1720,23 +1873,14 @@ def complete_public_service_agreement_signature(quote=None, token=None, **kwargs
         or customer_name
     )
 
-    existing_addendum = get_addendum_row(quote_name, sales_order_name)
-    if clean(existing_addendum.get("name")):
-        link_quote_agreement_records(
-            clean(existing_addendum.get("service_agreement")),
-            clean(existing_addendum.get("name")),
-            quote_row,
-            sales_order_row,
-        )
-        return build_service_agreement_signature_response(
-            clean(existing_addendum.get("service_agreement")),
-            clean(existing_addendum.get("name")),
-            clean(existing_addendum.get("status")),
-            clean(existing_addendum.get("start_date")),
-            clean(existing_addendum.get("end_date")),
-            clean(existing_addendum.get("term_model")),
-            clean(existing_addendum.get("fixed_term_months")),
-        )
+    existing_response = get_existing_service_agreement_signature_response(
+        quote_name,
+        sales_order_name,
+        quote_row=quote_row,
+        sales_order_row=sales_order_row,
+    )
+    if existing_response:
+        return existing_response
 
     active_master = get_active_master_agreement(customer_name)
     master_name = clean(active_master.get("name"))
@@ -1758,8 +1902,21 @@ def complete_public_service_agreement_signature(quote=None, token=None, **kwargs
         "start_date": start_date,
         "term_label": get_term_label(term_model, fixed_term_months),
     }
+    savepoint_name = begin_savepoint("service_agreement_signature")
 
     try:
+        lock_document_row("Sales Order", sales_order_name)
+        sales_order_row = get_sales_order_row(sales_order_name)
+        existing_response = get_existing_service_agreement_signature_response(
+            quote_name,
+            sales_order_name,
+            quote_row=quote_row,
+            sales_order_row=sales_order_row,
+        )
+        if existing_response:
+            release_savepoint(savepoint_name)
+            return existing_response
+
         if not master_name:
             master_doc = frappe.get_doc(
                 {
@@ -1822,6 +1979,7 @@ def complete_public_service_agreement_signature(quote=None, token=None, **kwargs
         addendum_doc.insert(ignore_permissions=True)
 
         link_quote_agreement_records(master_name, addendum_doc.name, quote_row, sales_order_row)
+        release_savepoint(savepoint_name)
         return build_service_agreement_signature_response(
             master_name,
             addendum_doc.name,
@@ -1832,7 +1990,16 @@ def complete_public_service_agreement_signature(quote=None, token=None, **kwargs
             fixed_term_months if term_model == "Fixed" else "",
         )
     except Exception:
-        frappe.log_error(frappe.get_traceback(), "Complete Public Service Agreement Signature")
+        rollback_savepoint(savepoint_name)
+        existing_response = get_existing_service_agreement_signature_response(
+            quote_name,
+            sales_order_name,
+            quote_row=quote_row,
+            sales_order_row=sales_order_row,
+        )
+        if existing_response:
+            return existing_response
+        frappe.log_error(get_traceback_text(), "Complete Public Service Agreement Signature")
         fail("We could not save the service agreement right now. Please try again or contact our team.")
 
 
@@ -1855,6 +2022,27 @@ def build_billing_setup_response(
         "addendum": clean(addendum_name),
         "addendum_status": clean(addendum_status),
     }
+
+
+def get_existing_billing_setup_response(quote_name, sales_order_name, addendum_row=None, sales_order_row=None):
+    sales_order_name = clean(sales_order_name)
+    sales_order_row = sales_order_row or get_sales_order_row(sales_order_name)
+    addendum_row = addendum_row or get_addendum_row(quote_name, sales_order_name)
+    invoice_name = clean(sales_order_row.get("custom_initial_invoice")) or clean(addendum_row.get("initial_invoice"))
+    billing_completed_on = clean(addendum_row.get("billing_completed_on")) or clean(
+        sales_order_row.get("custom_billing_setup_completed_on")
+    )
+    if not invoice_name or not billing_completed_on or not frappe.db.exists("Sales Invoice", invoice_name):
+        return None
+    return build_billing_setup_response(
+        quote_name,
+        sales_order_name,
+        invoice_name,
+        clean(frappe.db.get_value("Sales Invoice", invoice_name, "auto_repeat")),
+        clean(addendum_row.get("service_agreement")) or clean(sales_order_row.get("custom_service_agreement")),
+        clean(addendum_row.get("name")) or clean(sales_order_row.get("custom_service_agreement_addendum")),
+        clean(addendum_row.get("status")) or "Pending Site Access",
+    )
 
 
 def ensure_signed_addendum(quote_name, sales_order_name):
@@ -2373,8 +2561,33 @@ def complete_public_quote_billing_setup_v2(quote=None, token=None, **kwargs):
 
     customer_row = get_customer_row(customer_name)
     customer_display = clean(customer_row.get("customer_name")) or customer_name
+    existing_response = get_existing_billing_setup_response(
+        quote_name,
+        sales_order_name,
+        addendum_row=addendum_row,
+        sales_order_row=sales_order_row,
+    )
+    if existing_response:
+        return existing_response
+    savepoint_name = begin_savepoint("quote_billing_setup")
 
     try:
+        lock_document_row("Sales Order", sales_order_name)
+        sales_order_row = get_sales_order_row(sales_order_name)
+        addendum_row = ensure_signed_addendum(quote_name, sales_order_name)
+        service_agreement_name = clean(addendum_row.get("service_agreement")) or clean(
+            sales_order_row.get("custom_service_agreement")
+        )
+        existing_response = get_existing_billing_setup_response(
+            quote_name,
+            sales_order_name,
+            addendum_row=addendum_row,
+            sales_order_row=sales_order_row,
+        )
+        if existing_response:
+            release_savepoint(savepoint_name)
+            return existing_response
+
         contact_name = ensure_contact(
             customer_name,
             customer_display,
@@ -2428,6 +2641,7 @@ def complete_public_quote_billing_setup_v2(quote=None, token=None, **kwargs):
                 service_agreement_name,
                 clean(addendum_row.get("name")),
             )
+            release_savepoint(savepoint_name)
             return build_billing_setup_response(
                 quote_name,
                 sales_order_name,
@@ -2458,7 +2672,11 @@ def complete_public_quote_billing_setup_v2(quote=None, token=None, **kwargs):
             service_agreement_name,
             clean(addendum_row.get("name")),
         )
-        send_invoice_email(invoice_doc, billing_email)
+        release_savepoint(savepoint_name)
+        try:
+            send_invoice_email(invoice_doc, billing_email)
+        except Exception:
+            frappe.log_error(get_traceback_text(), "Public Quote Billing Invoice Email")
         return build_billing_setup_response(
             quote_name,
             sales_order_name,
@@ -2469,7 +2687,11 @@ def complete_public_quote_billing_setup_v2(quote=None, token=None, **kwargs):
             addendum_status,
         )
     except Exception:
-        frappe.log_error(frappe.get_traceback(), "Complete Public Quote Billing Setup V2")
+        rollback_savepoint(savepoint_name)
+        existing_response = get_existing_billing_setup_response(quote_name, sales_order_name)
+        if existing_response:
+            return existing_response
+        frappe.log_error(get_traceback_text(), "Complete Public Quote Billing Setup V2")
         fail("We could not complete billing setup right now. Please reply to your quote email and our team will help.")
 
 
@@ -2494,6 +2716,30 @@ def build_access_setup_response(
         "addendum_status": clean(addendum_status),
         "access_completed_on": str(access_completed_on),
     }
+
+
+def get_existing_access_setup_response(quote_name, sales_order_name, addendum_row=None, sales_order_row=None):
+    sales_order_name = clean(sales_order_name)
+    sales_order_row = sales_order_row or get_sales_order_row(sales_order_name)
+    addendum_row = addendum_row or get_addendum_row(quote_name, sales_order_name)
+    building_name = clean(sales_order_row.get("custom_building")) or clean(addendum_row.get("building"))
+    access_completed_on = clean(addendum_row.get("access_completed_on")) or clean(
+        sales_order_row.get("custom_access_details_completed_on")
+    )
+    if not access_completed_on and building_name and frappe.db.exists("Building", building_name):
+        access_completed_on = clean(get_building_row(building_name).get("access_details_completed_on"))
+    if not building_name or not access_completed_on:
+        return None
+    return build_access_setup_response(
+        quote_name,
+        sales_order_name,
+        clean(sales_order_row.get("custom_initial_invoice")) or clean(addendum_row.get("initial_invoice")),
+        building_name,
+        clean(addendum_row.get("service_agreement")) or clean(sales_order_row.get("custom_service_agreement")),
+        clean(addendum_row.get("name")) or clean(sales_order_row.get("custom_service_agreement_addendum")),
+        clean(addendum_row.get("status")) or "Active",
+        access_completed_on,
+    )
 
 
 def make_access_notes(
@@ -2921,8 +3167,33 @@ def complete_public_quote_access_setup_v2(quote=None, token=None, **kwargs):
     service_agreement_name = clean(addendum_row.get("service_agreement")) or clean(
         sales_order_row.get("custom_service_agreement")
     )
+    existing_response = get_existing_access_setup_response(
+        quote_name,
+        sales_order_name,
+        addendum_row=addendum_row,
+        sales_order_row=sales_order_row,
+    )
+    if existing_response:
+        return existing_response
+    savepoint_name = begin_savepoint("quote_access_setup")
 
     try:
+        lock_document_row("Sales Order", sales_order_name)
+        sales_order_row = get_sales_order_row(sales_order_name)
+        addendum_row = get_addendum_row(quote_name, sales_order_name)
+        service_agreement_name = clean(addendum_row.get("service_agreement")) or clean(
+            sales_order_row.get("custom_service_agreement")
+        )
+        existing_response = get_existing_access_setup_response(
+            quote_name,
+            sales_order_name,
+            addendum_row=addendum_row,
+            sales_order_row=sales_order_row,
+        )
+        if existing_response:
+            release_savepoint(savepoint_name)
+            return existing_response
+
         building_name, access_completed_on = create_or_update_building(
             sales_order_row,
             service_address_line_1,
@@ -2978,6 +3249,7 @@ def complete_public_quote_access_setup_v2(quote=None, token=None, **kwargs):
             building_name,
             access_completed_on,
         )
+        release_savepoint(savepoint_name)
         return build_access_setup_response(
             quote_name,
             sales_order_name,
@@ -2989,5 +3261,9 @@ def complete_public_quote_access_setup_v2(quote=None, token=None, **kwargs):
             access_completed_on,
         )
     except Exception:
-        frappe.log_error(frappe.get_traceback(), "Complete Public Quote Access Setup V2")
+        rollback_savepoint(savepoint_name)
+        existing_response = get_existing_access_setup_response(quote_name, sales_order_name)
+        if existing_response:
+            return existing_response
+        frappe.log_error(get_traceback_text(), "Complete Public Quote Access Setup V2")
         fail("We could not save building access details right now. Please try again or contact our team.")

@@ -14,6 +14,9 @@ INSTANT_QUOTE_TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "www" / "ins
 INSTANT_QUOTE_CONTROLLER_PATH = Path(__file__).resolve().parents[1] / "www" / "instant_quote.py"
 SITE_SHELL_MACROS_PATH = Path(__file__).resolve().parents[1] / "templates" / "includes" / "site_shell_macros.html"
 QUOTE_FUNNEL_MACROS_PATH = Path(__file__).resolve().parents[1] / "templates" / "includes" / "quote_funnel_macros.html"
+BLOG_MACROS_PATH = Path(__file__).resolve().parents[1] / "templates" / "includes" / "blog_macros.html"
+BLOG_HOME_TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "www" / "blog-home.html"
+BLOG_POST_TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "www" / "blog-post.html"
 QUOTE_THANK_YOU_TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "www" / "quote-thank-you.html"
 QUOTE_THANK_YOU_CONTROLLER_PATH = Path(__file__).resolve().parents[1] / "www" / "quote_thank_you.py"
 QUOTE_DIGITAL_WALKTHROUGH_TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "www" / "quote-digital-walkthrough.html"
@@ -123,6 +126,19 @@ class TestWebsiteFixtures(unittest.TestCase):
         ):
             with self.subTest(path=path.name):
                 self.assertTrue(path.exists())
+
+    def test_blog_pages_use_canonical_site_shell(self):
+        blog_macros = BLOG_MACROS_PATH.read_text(encoding="utf-8")
+        blog_home = BLOG_HOME_TEMPLATE_PATH.read_text(encoding="utf-8")
+        blog_post = BLOG_POST_TEMPLATE_PATH.read_text(encoding="utf-8")
+
+        self.assertIn('site_shell_head', blog_macros)
+        self.assertNotIn('macro blog_header', blog_macros)
+        self.assertNotIn('macro blog_footer', blog_macros)
+        self.assertIn('site_shell_header', blog_home)
+        self.assertIn('site_shell_footer', blog_home)
+        self.assertIn('site_shell_header', blog_post)
+        self.assertIn('site_shell_footer', blog_post)
 
     def test_quote_schema_fixtures_are_exported(self):
         fixture_doctypes = [row["dt"] for row in app_hooks.fixtures]

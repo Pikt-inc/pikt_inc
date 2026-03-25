@@ -242,6 +242,90 @@ class TestPublicQuotePortal(unittest.TestCase):
         )
         self.assertEqual(mock_update_sales_order_billing.call_count, 2)
 
+    @patch.object(public_quote.frappe, "log_error")
+    @patch.object(public_quote, "send_invoice_email", side_effect=RuntimeError("smtp down"))
+    @patch.object(public_quote, "update_addendum_after_billing", return_value="Pending Site Access")
+    @patch.object(public_quote, "ensure_auto_repeat", return_value="AR-0001")
+    @patch.object(public_quote, "update_invoice_links")
+    @patch.object(public_quote, "create_invoice_from_sales_order", return_value=FakeDoc({"name": "SINV-0002"}))
+    @patch.object(public_quote, "ensure_sales_order_submitted", return_value=FakeDoc({"name": "SO-0001"}))
+    @patch.object(public_quote, "update_sales_order_billing")
+    @patch.object(public_quote, "sync_customer")
+    @patch.object(public_quote, "ensure_address", return_value="ADDR-0001")
+    @patch.object(public_quote, "ensure_contact", return_value="CONT-0001")
+    @patch.object(public_quote, "get_customer_row", return_value={"customer_name": "Pikt Inc"})
+    @patch.object(public_quote, "get_sales_order_row", return_value={"customer": "CUST-0001", "custom_initial_invoice": ""})
+    @patch.object(
+        public_quote,
+        "ensure_signed_addendum",
+        return_value={
+            "name": "SAA-0001",
+            "service_agreement": "SA-0001",
+            "initial_invoice": "",
+            "billing_completed_on": "",
+        },
+    )
+    @patch.object(
+        public_quote,
+        "ensure_quote_is_valid_for_portal_write",
+        return_value={"name": "SAL-QTN-0001", "custom_accepted_sales_order": "SO-0001"},
+    )
+    @patch.object(public_quote.frappe.db, "get_value", return_value="")
+    @patch.object(public_quote.frappe.db, "exists")
+    def test_complete_public_quote_billing_setup_v2_succeeds_when_invoice_email_fails(
+        self,
+        mock_exists,
+        _mock_get_value,
+        _mock_valid_quote,
+        _mock_addendum,
+        _mock_sales_order,
+        _mock_customer,
+        _mock_contact,
+        _mock_address,
+        _mock_sync_customer,
+        _mock_update_sales_order_billing,
+        _mock_submit_sales_order,
+        _mock_create_invoice,
+        _mock_update_invoice_links,
+        _mock_auto_repeat,
+        _mock_update_addendum,
+        mock_send_invoice_email,
+        mock_log_error,
+    ):
+        def exists_side_effect(doctype, name=None):
+            if doctype in {"Sales Order", "Customer"}:
+                return True
+            return False
+
+        mock_exists.side_effect = exists_side_effect
+
+        result = public_quote.complete_public_quote_billing_setup_v2(
+            quote="SAL-QTN-0001",
+            token="token-1",
+            billing_contact_name="Patten Whiting",
+            billing_email="billing@example.com",
+            billing_address_line_1="123 Main",
+            billing_city="Dallas",
+            billing_state="TX",
+            billing_postal_code="75001",
+        )
+
+        self.assertEqual(
+            result,
+            {
+                "status": "ok",
+                "quote": "SAL-QTN-0001",
+                "sales_order": "SO-0001",
+                "invoice": "SINV-0002",
+                "auto_repeat": "AR-0001",
+                "service_agreement": "SA-0001",
+                "addendum": "SAA-0001",
+                "addendum_status": "Pending Site Access",
+            },
+        )
+        mock_send_invoice_email.assert_called_once()
+        mock_log_error.assert_called_once()
+
     @patch.object(public_quote, "doc_db_set_values")
     @patch.object(public_quote.frappe.db, "get_value", return_value="AR-0001")
     def test_ensure_auto_repeat_clears_empty_end_date_on_existing_record(
@@ -379,6 +463,76 @@ class TestPublicQuotePortal(unittest.TestCase):
                 "access_completed_on": "2026-03-23 11:00:00",
             },
         )
+
+    @patch.object(public_quote, "create_or_update_building")
+    @patch.object(
+        public_quote,
+        "get_addendum_row",
+        return_value={
+            "name": "SAA-0001",
+            "status": "Active",
+            "initial_invoice": "SINV-0001",
+            "billing_completed_on": "2026-03-23 10:00:00",
+            "access_completed_on": "2026-03-23 11:00:00",
+            "service_agreement": "SA-0001",
+            "building": "BLDG-0001",
+        },
+    )
+    @patch.object(
+        public_quote,
+        "get_sales_order_row",
+        return_value={
+            "docstatus": 1,
+            "custom_initial_invoice": "SINV-0001",
+            "custom_building": "BLDG-0001",
+            "custom_access_details_completed_on": "2026-03-23 11:00:00",
+        },
+    )
+    @patch.object(
+        public_quote,
+        "ensure_quote_is_valid_for_portal_write",
+        return_value={"name": "SAL-QTN-0001", "custom_accepted_sales_order": "SO-0001"},
+    )
+    @patch.object(public_quote.frappe.db, "exists", return_value=True)
+    def test_complete_public_quote_access_setup_v2_reuses_existing_completed_state(
+        self,
+        _mock_exists,
+        _mock_valid_quote,
+        _mock_sales_order,
+        _mock_addendum,
+        mock_create_or_update_building,
+    ):
+        result = public_quote.complete_public_quote_access_setup_v2(
+            quote="SAL-QTN-0001",
+            token="token-1",
+            service_address_line_1="123 Main",
+            service_city="Dallas",
+            service_state="TX",
+            service_postal_code="75001",
+            access_method="Door code / keypad",
+            access_entrance="Front",
+            access_entry_details="Suite 100",
+            has_alarm_system="No",
+            allowed_entry_time="After 6pm",
+            primary_site_contact="Patten Whiting",
+            access_details_confirmed=1,
+        )
+
+        self.assertEqual(
+            result,
+            {
+                "status": "ok",
+                "quote": "SAL-QTN-0001",
+                "sales_order": "SO-0001",
+                "invoice": "SINV-0001",
+                "building": "BLDG-0001",
+                "service_agreement": "SA-0001",
+                "addendum": "SAA-0001",
+                "addendum_status": "Active",
+                "access_completed_on": "2026-03-23 11:00:00",
+            },
+        )
+        mock_create_or_update_building.assert_not_called()
 
     @patch.object(public_quote, "doc_db_set_values")
     @patch.object(public_quote.frappe.db, "exists", return_value=True)

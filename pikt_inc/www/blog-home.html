@@ -1,5 +1,6 @@
 {% extends "templates/base.html" %}
-{% from "pikt_inc/templates/includes/blog_macros.html" import blog_footer, blog_head, blog_header %}
+{% from "pikt_inc/templates/includes/blog_macros.html" import blog_head %}
+{% from "pikt_inc/templates/includes/site_shell_macros.html" import site_shell_footer, site_shell_header %}
 
 {% block navbar %}{% endblock %}
 {% block footer %}{% endblock %}
@@ -12,7 +13,7 @@
 {% block content %}
 <div class="blog-page">
   <section>
-    {{ blog_header() }}
+    {{ site_shell_header() }}
   </section>
   <section>
     <div class="blog-wrap">
@@ -71,7 +72,7 @@
     </div>
   </section>
   <section>
-    {{ blog_footer() }}
+    {{ site_shell_footer() }}
   </section>
 </div>
 {% endblock %}

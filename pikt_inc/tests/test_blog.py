@@ -534,7 +534,11 @@ class TestBlog(TestCase):
         self.assertFalse(LEGACY_RSS_TEMPLATE_PATH.exists())
         self.assertIn("remove_legacy_blog_builder_pages", PATCHES_PATH.read_text(encoding="utf-8"))
         self.assertIn("ensure_starter_blog_content", PATCHES_PATH.read_text(encoding="utf-8"))
-        self.assertIn("/files/PIKT_LOGO_OFFICIAL-2.webp", BLOG_HOME_TEMPLATE_PATH.read_text(encoding="utf-8") + (APP_PATH / "templates" / "includes" / "blog_macros.html").read_text(encoding="utf-8"))
+        self.assertIn(
+            "/files/PIKT_LOGO_OFFICIAL-2.webp",
+            BLOG_HOME_TEMPLATE_PATH.read_text(encoding="utf-8")
+            + (APP_PATH / "templates" / "includes" / "site_shell_macros.html").read_text(encoding="utf-8"),
+        )
         self.assertEqual(json.loads(WORKSPACE_FIXTURE_PATH.read_text(encoding="utf-8"))[0]["name"], "Marketing Blog")
 
 
