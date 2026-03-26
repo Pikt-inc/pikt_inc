@@ -9,6 +9,7 @@ from pikt_inc.tests._frappe_harness import install_test_frappe
 install_test_frappe()
 
 from pikt_inc.services import public_quote
+from pikt_inc.services.public_quote import acceptance, payloads, portal
 
 
 class FakeDoc(dict):
@@ -52,8 +53,8 @@ class FailingInsertDoc(FakeDoc):
 
 
 class TestPublicQuote(unittest.TestCase):
-    @patch.object(public_quote, "make_accept_token", return_value="accept-token")
-    @patch.object(public_quote, "add_to_date", return_value="2026-04-30 23:59:59")
+    @patch.object(acceptance, "make_accept_token", return_value="accept-token")
+    @patch.object(acceptance, "add_to_date", return_value="2026-04-30 23:59:59")
     @patch.object(public_quote.frappe.db, "exists", return_value=True)
     def test_prepare_public_quotation_acceptance_sets_token_and_expiry(
         self,
@@ -117,7 +118,7 @@ class TestPublicQuote(unittest.TestCase):
         self.assertEqual(submission.status, "Reviewed")
         self.assertTrue(submission.save_called)
 
-    @patch.object(public_quote, "get_quote_row")
+    @patch.object(portal, "get_quote_row")
     def test_get_public_quote_access_result_rejects_invalid_token(self, mock_get_quote_row):
         mock_get_quote_row.return_value = {
             "name": "SAL-QTN-TEST-0001",
@@ -137,8 +138,8 @@ class TestPublicQuote(unittest.TestCase):
         self.assertEqual(result["state"], "invalid")
         self.assertIn("no longer valid", result["message"])
 
-    @patch.object(public_quote, "now_datetime", return_value=public_quote.get_datetime("2026-05-01 00:00:00"))
-    @patch.object(public_quote, "get_quote_row")
+    @patch.object(portal, "now_datetime", return_value=public_quote.get_datetime("2026-05-01 00:00:00"))
+    @patch.object(portal, "get_quote_row")
     def test_get_public_quote_access_result_rejects_expired_quote(self, mock_get_quote_row, _mock_now_datetime):
         mock_get_quote_row.return_value = {
             "name": "SAL-QTN-TEST-0001",
@@ -158,10 +159,10 @@ class TestPublicQuote(unittest.TestCase):
         self.assertEqual(result["state"], "expired")
         self.assertIn("has expired", result["message"])
 
-    @patch.object(public_quote, "get_building_row", return_value={})
-    @patch.object(public_quote, "get_sales_order_row", return_value={})
+    @patch.object(payloads, "get_building_row", return_value={})
+    @patch.object(payloads, "get_sales_order_row", return_value={})
     @patch.object(
-        public_quote,
+        payloads,
         "get_lead_row",
         return_value={
             "first_name": "Patten",
@@ -170,9 +171,9 @@ class TestPublicQuote(unittest.TestCase):
             "email_id": "lead@example.com",
         },
     )
-    @patch.object(public_quote, "load_review_items", return_value=[{"item_code": "ITEM-1", "qty": 1}])
+    @patch.object(portal, "load_review_items", return_value=[{"item_code": "ITEM-1", "qty": 1}])
     @patch.object(
-        public_quote,
+        portal,
         "get_public_quote_access_result",
         return_value={
             "state": "ready",
@@ -252,7 +253,7 @@ class TestPublicQuote(unittest.TestCase):
             },
         )
 
-    @patch.object(public_quote, "get_customer_row", return_value={"customer_primary_contact": "CONTACT-1", "customer_primary_address": "ADDR-1", "email_id": "billing@example.com"})
+    @patch.object(acceptance, "get_customer_row", return_value={"customer_primary_contact": "CONTACT-1", "customer_primary_address": "ADDR-1", "email_id": "billing@example.com"})
     @patch.object(public_quote.frappe, "get_doc")
     def test_build_sales_order_copies_item_and_tax_linkage(self, mock_get_doc, _mock_customer_row):
         created_docs = []
@@ -319,11 +320,11 @@ class TestPublicQuote(unittest.TestCase):
         self.assertEqual(sales_order_doc["items"][0]["warehouse"], public_quote.DEFAULT_WAREHOUSE)
         self.assertEqual(sales_order_doc["taxes"][0]["account_head"], "Tax - PI")
 
-    @patch.object(public_quote, "build_accept_payload", side_effect=lambda *args, **kwargs: {"args": args, "kwargs": kwargs})
-    @patch.object(public_quote, "mark_opportunity_converted")
-    @patch.object(public_quote, "load_accept_items", return_value=[{"name": "QTI-1"}])
+    @patch.object(acceptance, "build_accept_payload", side_effect=lambda *args, **kwargs: {"args": args, "kwargs": kwargs})
+    @patch.object(acceptance, "mark_opportunity_converted")
+    @patch.object(acceptance, "load_accept_items", return_value=[{"name": "QTI-1"}])
     @patch.object(
-        public_quote,
+        acceptance,
         "get_public_quote_access_result",
         return_value={
             "state": "accepted",
@@ -348,18 +349,18 @@ class TestPublicQuote(unittest.TestCase):
         self.assertEqual(result["args"][0], "accepted")
         self.assertEqual(result["kwargs"]["sales_order_name"], "SO-TEST-0001")
 
-    @patch.object(public_quote, "build_accept_payload", side_effect=lambda *args, **kwargs: {"args": args, "kwargs": kwargs})
-    @patch.object(public_quote, "mark_opportunity_converted")
-    @patch.object(public_quote, "build_sales_order", return_value=SimpleNamespace(name="SO-TEST-0001"))
-    @patch.object(public_quote, "load_quote_taxes", return_value=[{"account_head": "Tax - PI"}])
-    @patch.object(public_quote, "load_accept_items", return_value=[{"name": "QTI-1"}])
-    @patch.object(public_quote, "ensure_customer", return_value="CUST-TEST-0001")
-    @patch.object(public_quote, "get_lead_row", return_value={"company_name": "Pikt Inc", "email_id": "lead@example.com"})
-    @patch.object(public_quote, "get_quote_row")
+    @patch.object(acceptance, "build_accept_payload", side_effect=lambda *args, **kwargs: {"args": args, "kwargs": kwargs})
+    @patch.object(acceptance, "mark_opportunity_converted")
+    @patch.object(acceptance, "build_sales_order", return_value=SimpleNamespace(name="SO-TEST-0001"))
+    @patch.object(acceptance, "load_quote_taxes", return_value=[{"account_head": "Tax - PI"}])
+    @patch.object(acceptance, "load_accept_items", return_value=[{"name": "QTI-1"}])
+    @patch.object(acceptance, "ensure_customer", return_value="CUST-TEST-0001")
+    @patch.object(acceptance, "get_lead_row", return_value={"company_name": "Pikt Inc", "email_id": "lead@example.com"})
+    @patch.object(acceptance, "get_quote_row")
     @patch.object(public_quote.frappe.db, "set_value")
     @patch.object(public_quote.frappe.db, "get_value", side_effect=["Pikt Inc", ""])
     @patch.object(
-        public_quote,
+        acceptance,
         "get_public_quote_access_result",
         return_value={
             "state": "ready",
@@ -417,16 +418,19 @@ class TestPublicQuote(unittest.TestCase):
         self.assertEqual(mock_db_set_value.call_args_list[0].args[2]["quotation_to"], "Customer")
         self.assertEqual(mock_db_set_value.call_args_list[1].args[2]["custom_accepted_sales_order"], "SO-TEST-0001")
 
-    @patch.object(public_quote, "build_accept_payload", side_effect=lambda *args, **kwargs: {"args": args, "kwargs": kwargs})
-    @patch.object(public_quote, "mark_opportunity_converted")
-    @patch.object(public_quote, "build_sales_order", side_effect=RuntimeError("duplicate submit"))
-    @patch.object(public_quote, "load_quote_taxes", return_value=[{"account_head": "Tax - PI"}])
-    @patch.object(public_quote, "load_accept_items", return_value=[{"name": "QTI-1"}])
-    @patch.object(public_quote, "get_quote_row")
+    @patch.object(payloads, "build_accept_payload", side_effect=lambda *args, **kwargs: {"args": args, "kwargs": kwargs})
+    @patch.object(acceptance, "build_accept_payload", side_effect=lambda *args, **kwargs: {"args": args, "kwargs": kwargs})
+    @patch.object(acceptance, "mark_opportunity_converted")
+    @patch.object(acceptance, "build_sales_order", side_effect=RuntimeError("duplicate submit"))
+    @patch.object(acceptance, "load_quote_taxes", return_value=[{"account_head": "Tax - PI"}])
+    @patch.object(acceptance, "load_accept_items", return_value=[{"name": "QTI-1"}])
+    @patch.object(payloads, "load_accept_items", return_value=[{"name": "QTI-1"}])
+    @patch.object(payloads, "get_quote_row")
+    @patch.object(acceptance, "get_quote_row")
     @patch.object(public_quote.frappe.db, "get_value", return_value="")
     @patch.object(public_quote.frappe.db, "exists")
     @patch.object(
-        public_quote,
+        acceptance,
         "get_public_quote_access_result",
         return_value={
             "state": "ready",
@@ -445,11 +449,14 @@ class TestPublicQuote(unittest.TestCase):
         mock_exists,
         _mock_db_get_value,
         mock_get_quote_row,
+        mock_get_quote_row_payloads,
+        _mock_payload_items,
         _mock_load_items,
         _mock_load_taxes,
         _mock_build_sales_order,
         mock_mark_converted,
         _mock_build_payload,
+        _mock_payload_build,
     ):
         def exists_side_effect(doctype, name=None):
             if doctype == "Customer" and (name or "") == "CUST-TEST-0001":
@@ -477,6 +484,13 @@ class TestPublicQuote(unittest.TestCase):
                 "custom_accepted_sales_order": "SO-TEST-0002",
             },
         ]
+        mock_get_quote_row_payloads.return_value = {
+            "name": "SAL-QTN-TEST-0001",
+            "quotation_to": "Customer",
+            "party_name": "CUST-TEST-0001",
+            "opportunity": "CRM-OPP-TEST-0001",
+            "custom_accepted_sales_order": "SO-TEST-0002",
+        }
 
         result = public_quote.accept_public_quote(
             quote="SAL-QTN-TEST-0001",
@@ -487,10 +501,10 @@ class TestPublicQuote(unittest.TestCase):
         self.assertEqual(result["kwargs"]["sales_order_name"], "SO-TEST-0002")
         mock_mark_converted.assert_called_once_with("CRM-OPP-TEST-0001")
 
-    @patch.object(public_quote, "get_active_template")
-    @patch.object(public_quote, "get_addendum_row")
-    @patch.object(public_quote, "get_active_master_agreement")
-    @patch.object(public_quote, "get_customer_row", return_value={"customer_name": "Pikt Inc"})
+    @patch.object(payloads, "get_active_template")
+    @patch.object(payloads, "get_addendum_row")
+    @patch.object(payloads, "get_active_master_agreement")
+    @patch.object(payloads, "get_customer_row", return_value={"customer_name": "Pikt Inc"})
     def test_build_agreement_payload_stage_selection(
         self,
         _mock_customer_row,
@@ -572,8 +586,8 @@ class TestPublicQuote(unittest.TestCase):
                 self.assertEqual(result["billing_step_complete"], expected["billing_step_complete"])
                 self.assertEqual(result["access_step_complete"], expected["access_step_complete"])
 
-    @patch.object(public_quote, "get_customer_row", return_value={"lead_name": "", "email_id": ""})
-    @patch.object(public_quote, "find_customer_by_email", side_effect=["", "CUST-EXISTING"])
+    @patch.object(acceptance, "get_customer_row", return_value={"lead_name": "", "email_id": ""})
+    @patch.object(acceptance, "find_customer_for_quote", side_effect=["", "CUST-EXISTING"])
     @patch.object(public_quote.frappe, "get_doc", return_value=FailingInsertDoc({"doctype": "Customer"}))
     @patch.object(public_quote.frappe.db, "set_value")
     @patch.object(public_quote.frappe.db, "exists", return_value=True)
