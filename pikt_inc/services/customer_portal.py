@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from typing import Any
 
@@ -838,7 +837,6 @@ def get_customer_portal_locations_data() -> dict[str, Any]:
         {
             "customer_display": scope.customer_display,
             "buildings": shaped_buildings,
-            "buildings_json": json.dumps(shaped_buildings, ensure_ascii=False),
             "location_form_options": {
                 "access_methods": list(LOCATION_ACCESS_METHOD_OPTIONS),
                 "alarm_system": list(LOCATION_ALARM_OPTIONS),

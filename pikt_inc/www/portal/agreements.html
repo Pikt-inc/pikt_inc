@@ -1,0 +1,95 @@
+{% extends "templates/base.html" %}
+{% from "pikt_inc/templates/includes/customer_portal_macros.html" import customer_portal_footer, customer_portal_head, customer_portal_header %}
+
+{% block navbar %}{% endblock %}
+{% block footer %}{% endblock %}
+
+{% block head_include %}
+{{ super() }}
+{{ customer_portal_head(noindex_meta) }}
+{% endblock %}
+
+{% block content %}
+<div class="portal-page">
+  {{ customer_portal_header(customer_display, portal_title, primary_nav, utility_nav) }}
+  <main class="portal-shell-main">
+    <div class="portal-shell-wrap">
+      {% if access_denied %}
+      <section class="portal-hero">
+        <p class="portal-note">Agreements</p>
+        <h1>{{ error_title }}</h1>
+        <p class="portal-copy">{{ error_message }}</p>
+        <div class="portal-actions">
+          <a class="portal-button portal-button--solid" href="{{ portal_contact_path }}">Contact support</a>
+        </div>
+      </section>
+      {% else %}
+      <section class="portal-hero">
+        <p class="portal-note">Agreements</p>
+        <h1>Contracts and signed addenda</h1>
+        <p class="portal-copy">Review the current master agreement, signed quote addenda, and stored rendered snapshots for your records.</p>
+      </section>
+      {% if active_master %}
+      <section class="portal-card">
+        <div class="portal-section-head">
+          <div>
+            <p class="portal-kicker">Master agreement</p>
+            <h2>{{ active_master.title }}</h2>
+          </div>
+          <a class="portal-button portal-button--ghost" href="{{ active_master.download_url }}">Download snapshot</a>
+        </div>
+        <div class="portal-inline-summary">
+          <span>{{ active_master.status }}</span>
+          {% if active_master.template %}<span>{{ active_master.template }}</span>{% endif %}
+          {% if active_master.signed_on_label %}<span>Signed {{ active_master.signed_on_label }}</span>{% endif %}
+        </div>
+        <details class="portal-divider">
+          <summary class="portal-text-link">Preview rendered agreement</summary>
+          <div class="portal-richtext">{{ active_master.preview_html | safe }}</div>
+        </details>
+      </section>
+      {% endif %}
+      <section class="portal-card">
+        <div class="portal-section-head">
+          <div>
+            <p class="portal-kicker">Quote addenda</p>
+            <h2>Signed service addenda</h2>
+          </div>
+        </div>
+        {% if addenda %}
+        <div class="portal-stack">
+          {% for addendum in addenda %}
+          <article class="portal-card">
+            <div class="portal-section-head">
+              <div>
+                <strong>{{ addendum.title }}</strong>
+                <p class="portal-muted">{{ addendum.status }} • {{ addendum.term_model }}{% if addendum.start_date_label %} • Starts {{ addendum.start_date_label }}{% endif %}{% if addendum.end_date_label %} • Ends {{ addendum.end_date_label }}{% endif %}</p>
+              </div>
+              <a class="portal-button portal-button--ghost" href="{{ addendum.download_url }}">Download snapshot</a>
+            </div>
+            <div class="portal-inline-summary">
+              {% if addendum.invoice %}<span>Invoice {{ addendum.invoice }}</span>{% endif %}
+              {% if addendum.building %}<span>Location {{ addendum.building }}</span>{% endif %}
+              {% if addendum.billing_completed_on_label %}<span>Billing {{ addendum.billing_completed_on_label }}</span>{% endif %}
+              {% if addendum.access_completed_on_label %}<span>Access {{ addendum.access_completed_on_label }}</span>{% endif %}
+            </div>
+            <details class="portal-divider">
+              <summary class="portal-text-link">Preview rendered addendum</summary>
+              <div class="portal-richtext">{{ addendum.preview_html | safe }}</div>
+            </details>
+          </article>
+          {% endfor %}
+        </div>
+        {% else %}
+        <section class="portal-empty">
+          <h2>{{ empty_state_title }}</h2>
+          <p>{{ empty_state_copy }}</p>
+        </section>
+        {% endif %}
+      </section>
+      {% endif %}
+    </div>
+  </main>
+  {{ customer_portal_footer(primary_nav, utility_nav, portal_contact_path) }}
+</div>
+{% endblock %}

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import importlib
-import json
 from datetime import datetime
 from pathlib import Path
 import sys
@@ -55,15 +54,30 @@ try:
     app_hooks = importlib.import_module("pikt_inc.hooks")
     portal = importlib.import_module("pikt_inc.services.customer_portal")
     portal_api = importlib.import_module("pikt_inc.api.customer_portal")
+    portal_page_helper = importlib.import_module("pikt_inc.www._portal_page")
+    portal_www_index = importlib.import_module("pikt_inc.www.portal.index")
+    portal_www_agreements = importlib.import_module("pikt_inc.www.portal.agreements")
+    portal_www_billing = importlib.import_module("pikt_inc.www.portal.billing")
+    portal_www_locations = importlib.import_module("pikt_inc.www.portal.locations")
 except ModuleNotFoundError:
     app_hooks = importlib.import_module("pikt_inc.pikt_inc.hooks")
     portal = importlib.import_module("pikt_inc.pikt_inc.services.customer_portal")
     portal_api = importlib.import_module("pikt_inc.pikt_inc.api.customer_portal")
+    portal_page_helper = importlib.import_module("pikt_inc.pikt_inc.www._portal_page")
+    portal_www_index = importlib.import_module("pikt_inc.pikt_inc.www.portal.index")
+    portal_www_agreements = importlib.import_module("pikt_inc.pikt_inc.www.portal.agreements")
+    portal_www_billing = importlib.import_module("pikt_inc.pikt_inc.www.portal.billing")
+    portal_www_locations = importlib.import_module("pikt_inc.pikt_inc.www.portal.locations")
 
 
-PORTAL_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "customer_portal_builder_page.json"
-PORTAL_COMPONENT_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "customer_portal_builder_component.json"
 PATCHES_PATH = Path(__file__).resolve().parents[1] / "patches.txt"
+PORTAL_MACROS_PATH = Path(__file__).resolve().parents[1] / "templates" / "includes" / "customer_portal_macros.html"
+PORTAL_CSS_PATH = Path(__file__).resolve().parents[1] / "public" / "css" / "customer_portal.css"
+PORTAL_FORMS_JS_PATH = Path(__file__).resolve().parents[1] / "public" / "js" / "customer_portal_forms.js"
+PORTAL_OVERVIEW_TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "www" / "portal" / "index.html"
+PORTAL_AGREEMENTS_TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "www" / "portal" / "agreements.html"
+PORTAL_BILLING_TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "www" / "portal" / "billing.html"
+PORTAL_LOCATIONS_TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "www" / "portal" / "locations.html"
 
 
 class FakeDB:
@@ -514,60 +528,106 @@ class TestCustomerPortal(TestCase):
         self.assertEqual(app_hooks.role_home_page["Customer Portal User"], "portal")
         builder_fixture = next(fixture for fixture in app_hooks.fixtures if fixture["dt"] == "Builder Page")
         routes = builder_fixture["filters"][0][2]
-        self.assertIn("portal", routes)
-        self.assertIn("portal/agreements", routes)
-        self.assertIn("portal/billing", routes)
-        self.assertIn("portal/locations", routes)
+        self.assertNotIn("portal", routes)
+        self.assertNotIn("portal/agreements", routes)
+        self.assertNotIn("portal/billing", routes)
+        self.assertNotIn("portal/locations", routes)
         component_fixture = next(fixture for fixture in app_hooks.fixtures if fixture["dt"] == "Builder Component")
         component_names = component_fixture["filters"][0][2]
-        self.assertIn("Portal Shell Header", component_names)
-        self.assertIn("Portal Summary Stat Card", component_names)
-        self.assertIn("Portal Record List Card", component_names)
-        self.assertIn("Portal Invoice Row Card", component_names)
-        self.assertIn("Portal Agreement Preview Card", component_names)
-        self.assertIn("Portal Location Edit Card", component_names)
-        self.assertIn("Portal Empty State Block", component_names)
+        self.assertNotIn("Portal Shell Header", component_names)
+        self.assertNotIn("Portal Summary Stat Card", component_names)
+        self.assertNotIn("Portal Record List Card", component_names)
+        self.assertNotIn("Portal Invoice Row Card", component_names)
+        self.assertNotIn("Portal Agreement Preview Card", component_names)
+        self.assertNotIn("Portal Location Edit Card", component_names)
+        self.assertNotIn("Portal Empty State Block", component_names)
         patches = PATCHES_PATH.read_text(encoding="utf-8")
         self.assertIn("pikt_inc.patches.post_model_sync.ensure_customer_portal_role", patches)
+        self.assertIn("pikt_inc.patches.post_model_sync.remove_legacy_customer_portal_builder_artifacts", patches)
 
-    def test_portal_fixture_contains_authenticated_portal_pages(self):
-        portal_pages = json.loads(PORTAL_FIXTURE_PATH.read_text(encoding="utf-8"))
-        routes = {doc["route"] for doc in portal_pages}
-        self.assertEqual(routes, {"portal", "portal/agreements", "portal/billing", "portal/locations"})
-        self.assertTrue(all(doc["authenticated_access"] == 1 for doc in portal_pages))
-        self.assertTrue(all(doc["disable_indexing"] == 1 for doc in portal_pages))
-        self.assertEqual(
-            {doc["page_data_script"] for doc in portal_pages},
-            {
-                'data.update(frappe.call("pikt_inc.api.customer_portal.get_customer_portal_dashboard_data"))',
-                'data.update(frappe.call("pikt_inc.api.customer_portal.get_customer_portal_agreements_data"))',
-                'data.update(frappe.call("pikt_inc.api.customer_portal.get_customer_portal_billing_data"))',
-                'data.update(frappe.call("pikt_inc.api.customer_portal.get_customer_portal_locations_data"))',
+    def test_portal_www_templates_use_shared_shell_and_assets(self):
+        macros = PORTAL_MACROS_PATH.read_text(encoding="utf-8")
+        overview = PORTAL_OVERVIEW_TEMPLATE_PATH.read_text(encoding="utf-8")
+        agreements = PORTAL_AGREEMENTS_TEMPLATE_PATH.read_text(encoding="utf-8")
+        billing = PORTAL_BILLING_TEMPLATE_PATH.read_text(encoding="utf-8")
+        locations = PORTAL_LOCATIONS_TEMPLATE_PATH.read_text(encoding="utf-8")
+        css = PORTAL_CSS_PATH.read_text(encoding="utf-8")
+        js = PORTAL_FORMS_JS_PATH.read_text(encoding="utf-8")
+
+        self.assertIn("customer_portal_header", macros)
+        self.assertIn("customer_portal_footer", macros)
+        self.assertIn("/assets/pikt_inc/css/customer_portal.css", macros)
+        self.assertIn("portal-shell-header", css)
+        self.assertIn("data-portal-endpoint", js)
+        self.assertIn("window.location.reload()", js)
+
+        for template in (overview, agreements, billing, locations):
+            self.assertIn("customer_portal_header", template)
+            self.assertIn("customer_portal_footer", template)
+            self.assertIn("customer_portal_head", template)
+
+        self.assertIn("/assets/pikt_inc/js/customer_portal_forms.js", billing)
+        self.assertIn("/assets/pikt_inc/js/customer_portal_forms.js", locations)
+        self.assertIn("/api/method/pikt_inc.api.customer_portal.update_customer_portal_billing", billing)
+        self.assertIn("/api/method/pikt_inc.api.customer_portal.update_customer_portal_location", locations)
+        self.assertNotIn("buildings_json", locations)
+        self.assertNotIn("portal-locations-data", locations)
+
+    def test_portal_www_controllers_proxy_to_service(self):
+        context = types.SimpleNamespace()
+        with patch.object(portal_www_index, "build_context", return_value=context) as overview_helper, patch.object(
+            portal_www_index.customer_portal,
+            "get_customer_portal_dashboard_data",
+            return_value={"page_key": "overview"},
+        ) as overview_loader:
+            result = portal_www_index.get_context(context)
+
+        self.assertIs(result, context)
+        overview_helper.assert_called_once()
+        overview_loader.assert_not_called()
+
+        context = types.SimpleNamespace()
+        with patch.object(portal_www_agreements, "build_context", return_value=context) as agreements_helper:
+            result = portal_www_agreements.get_context(context)
+        self.assertIs(result, context)
+        agreements_helper.assert_called_once()
+
+        context = types.SimpleNamespace()
+        with patch.object(portal_www_billing, "build_context", return_value=context) as billing_helper:
+            result = portal_www_billing.get_context(context)
+        self.assertIs(result, context)
+        billing_helper.assert_called_once()
+
+        context = types.SimpleNamespace()
+        with patch.object(portal_www_locations, "build_context", return_value=context) as locations_helper:
+            result = portal_www_locations.get_context(context)
+        self.assertIs(result, context)
+        locations_helper.assert_called_once()
+
+    def test_portal_page_helper_shapes_shell_context(self):
+        context = types.SimpleNamespace()
+        result = portal_page_helper.build_context(
+            context,
+            page_loader=lambda: {
+                "page_title": "Billing",
+                "portal_title": "Customer Portal",
+                "portal_description": "Desc",
+                "portal_nav": [
+                    {"key": "overview", "label": "Overview", "url": "/portal", "is_active": True},
+                    {"key": "contact", "label": "Contact", "url": "/contact", "is_active": False},
+                    {"key": "logout", "label": "Log out", "url": "/logout", "is_active": False},
+                ],
+                "metatags": {"title": "Billing | Customer Portal", "description": "Secure portal"},
             },
         )
-        locations_page = next(doc for doc in portal_pages if doc["route"] == "portal/locations")
-        self.assertIn("portal-locations-data", locations_page["blocks"])
-        self.assertIn("buildings_json", locations_page["blocks"])
-        self.assertNotIn("selected{% endif %}", locations_page["blocks"])
-        self.assertNotIn("checked{% endif %}", locations_page["blocks"])
 
-    def test_portal_component_fixture_contains_expected_components(self):
-        components = json.loads(PORTAL_COMPONENT_FIXTURE_PATH.read_text(encoding="utf-8"))
-        names = {doc["component_name"] for doc in components}
-        self.assertEqual(
-            names,
-            {
-                "Portal Shell Header",
-                "Portal Summary Stat Card",
-                "Portal Record List Card",
-                "Portal Invoice Row Card",
-                "Portal Agreement Preview Card",
-                "Portal Location Edit Card",
-                "Portal Empty State Block",
-            },
-        )
-        for component in components:
-            self.assertIsInstance(json.loads(component["block"]), dict)
+        self.assertIs(result, context)
+        self.assertEqual(context.page_title, "Billing | Customer Portal")
+        self.assertEqual(context.meta_description, "Secure portal")
+        self.assertEqual(context.description, "Secure portal")
+        self.assertEqual(context.body_class, "no-web-page-sections")
+        self.assertEqual([item["key"] for item in context.primary_nav], ["overview"])
+        self.assertEqual([item["key"] for item in context.utility_nav], ["contact", "logout"])
 
     def test_api_getters_proxy_to_service(self):
         with patch.object(portal_api.customer_portal_service, "get_customer_portal_dashboard_data", return_value={"page_key": "overview"}) as dashboard, patch.object(
