@@ -12,9 +12,11 @@ install_test_frappe()
 try:
     contact_request = importlib.import_module("pikt_inc.services.contact_request")
     contact_request_api = importlib.import_module("pikt_inc.api.contact_request")
+    contact_contracts = importlib.import_module("pikt_inc.services.contracts.contact_request")
 except ModuleNotFoundError:
     contact_request = importlib.import_module("pikt_inc.pikt_inc.services.contact_request")
     contact_request_api = importlib.import_module("pikt_inc.pikt_inc.api.contact_request")
+    contact_contracts = importlib.import_module("pikt_inc.pikt_inc.services.contracts.contact_request")
 
 
 class FakeLeadDoc:
@@ -28,6 +30,36 @@ class FakeLeadDoc:
 
 
 class TestContactRequest(TestCase):
+    def test_contact_request_contract_normalizes_and_validates_email(self):
+        payload = contact_contracts.ContactRequestInput.model_validate(
+            {
+                "first_name": " Codex ",
+                "last_name": " Review ",
+                "email_id": " CODEX.REVIEW@EXAMPLE.COM ",
+                "company_name": " Codex Review LLC ",
+                "city": " Austin ",
+                "request_type": "Walkthrough request",
+                "message": " Please tell me more. ",
+            }
+        )
+
+        self.assertEqual(payload.first_name, "Codex")
+        self.assertEqual(payload.email_id, "codex.review@example.com")
+        self.assertEqual(payload.request_type.value, "Walkthrough request")
+
+    def test_contact_request_contract_rejects_missing_required_field(self):
+        with self.assertRaisesRegex(Exception, "Field required|at least 1 character"):
+            contact_contracts.ContactRequestInput.model_validate(
+                {
+                    "last_name": "Review",
+                    "email_id": "codex.review@example.com",
+                    "company_name": "Codex Review LLC",
+                    "city": "Austin",
+                    "request_type": "Walkthrough request",
+                    "message": "Please tell me more.",
+                }
+            )
+
     def test_submit_contact_request_maps_request_type_to_valid_lead_value(self):
         created_doc = None
         lead_payload = None

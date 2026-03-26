@@ -4,45 +4,92 @@
 {%- endmacro %}
 
 {% macro customer_portal_header(customer_display, portal_title, primary_nav, utility_nav) -%}
-<header class="portal-shell-header">
-  <div class="portal-shell-wrap portal-shell-header__inner">
-    <div class="portal-shell-branding">
+{% set account_label = customer_display or portal_title %}
+<aside class="portal-shell-rail" aria-label="Portal navigation">
+  <div class="portal-shell-rail__inner">
+    <div class="portal-shell-rail__brandblock">
       <a class="portal-shell-brand" href="/portal">Pikt</a>
-      <p>{{ customer_display or portal_title }}</p>
+      <p class="portal-shell-rail__eyebrow">Customer portal</p>
+      <p class="portal-shell-rail__account">{{ account_label }}</p>
     </div>
-    <div class="portal-shell-header__navs">
-      <nav class="portal-shell-nav" aria-label="Portal">
-        {% for item in primary_nav %}
-        <a class="portal-shell-nav__link {% if item.is_active %}is-active{% endif %}" href="{{ item.url }}">{{ item.label }}</a>
-        {% endfor %}
-      </nav>
-      <nav class="portal-shell-utility" aria-label="Portal actions">
+    <nav class="portal-shell-rail__nav" aria-label="Portal">
+      {% for item in primary_nav %}
+      <a class="portal-shell-rail__link {% if item.is_active %}is-active{% endif %}" href="{{ item.url }}">{{ item.label }}</a>
+      {% endfor %}
+    </nav>
+    <div class="portal-shell-rail__meta">
+      <p>Billing, agreements, and service-location details stay aligned here.</p>
+      <nav class="portal-shell-rail__utility" aria-label="Portal actions">
         {% for item in utility_nav %}
-        <a class="portal-shell-utility__link" href="{{ item.url }}">{{ item.label }}</a>
+        <a class="portal-shell-rail__utility-link" href="{{ item.url }}">{{ item.label }}</a>
         {% endfor %}
       </nav>
     </div>
+  </div>
+</aside>
+<header class="portal-shell-header">
+  <div class="portal-shell-header__inner">
+    <a class="portal-shell-mobile-brand" href="/portal" aria-label="Pikt customer portal home">
+      <span class="portal-shell-mobile-brand__mark">P</span>
+      <span class="portal-shell-mobile-brand__text">Pikt</span>
+    </a>
+    <div class="portal-shell-account" aria-label="{{ account_label }}" title="{{ account_label }}">
+      <div class="portal-shell-account__meta">
+        <span class="portal-shell-account__eyebrow">Account</span>
+        <strong>{{ account_label }}</strong>
+      </div>
+      <span class="portal-shell-account__icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" role="presentation">
+          <circle cx="12" cy="8" r="3.5"></circle>
+          <path d="M5.5 19c1.4-3 4-4.5 6.5-4.5s5.1 1.5 6.5 4.5"></path>
+        </svg>
+      </span>
+    </div>
+    <details class="portal-shell-menu">
+      <summary class="portal-shell-menu__toggle" aria-label="Open portal menu">
+        <span class="portal-shell-menu__bars" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+        </span>
+      </summary>
+      <div class="portal-shell-menu__panel">
+        <p class="portal-shell-menu__eyebrow">Customer portal</p>
+        <p class="portal-shell-menu__account">{{ account_label }}</p>
+        <nav class="portal-shell-menu__nav" aria-label="Portal">
+          {% for item in primary_nav %}
+          <a class="portal-shell-menu__link {% if item.is_active %}is-active{% endif %}" href="{{ item.url }}">{{ item.label }}</a>
+          {% endfor %}
+        </nav>
+        <nav class="portal-shell-menu__utility" aria-label="Portal actions">
+          {% for item in utility_nav %}
+          <a class="portal-shell-menu__utility-link" href="{{ item.url }}">{{ item.label }}</a>
+          {% endfor %}
+        </nav>
+      </div>
+    </details>
   </div>
 </header>
 {%- endmacro %}
 
 {% macro customer_portal_footer(primary_nav, utility_nav, portal_contact_path) -%}
 <footer class="portal-shell-footer">
-  <div class="portal-shell-wrap portal-shell-footer__inner">
+  <div class="portal-shell-footer__inner">
     <div class="portal-shell-footer__copy">
-      <h2>Secure account access for agreements, billing, and service locations.</h2>
-      <p>Use the customer portal to keep service records current without opening Desk.</p>
+      <p class="portal-shell-footer__eyebrow">Portal support</p>
+      <h2>Keep records current and ask for help when a detail changes.</h2>
+      <p>Use the portal for live account details, then reach out when billing routes or site access needs a real conversation.</p>
     </div>
     <div class="portal-shell-footer__links">
       {% for item in primary_nav %}
       <a href="{{ item.url }}">{{ item.label }}</a>
       {% endfor %}
+      <a href="{{ portal_contact_path }}">Support</a>
       {% for item in utility_nav %}
       {% if item.key == "logout" %}
       <a href="{{ item.url }}">{{ item.label }}</a>
       {% endif %}
       {% endfor %}
-      <a href="{{ portal_contact_path }}">Support</a>
     </div>
   </div>
 </footer>

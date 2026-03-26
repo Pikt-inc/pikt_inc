@@ -3,18 +3,13 @@ from __future__ import annotations
 from typing import Any
 
 import frappe
-from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
+from pydantic import ValidationError
 
+from pikt_inc.services.contracts.common import first_validation_message
+from pikt_inc.services.contracts.contact_request import ContactRequestInput
+from pikt_inc.services.contracts.contact_request import ContactRequestSubmitted
+from pikt_inc.services.contracts.contact_request import CONTACT_REQUEST_TYPE_OPTIONS
 from pikt_inc.services import public_quote as public_quote_service
-
-
-CONTACT_REQUEST_TYPE_OPTIONS = (
-    "General service question",
-    "Walkthrough request",
-    "Custom scope or out-of-area request",
-    "Current customer support",
-    "Careers or partner inquiry",
-)
 
 DEFAULT_LEAD_REQUEST_TYPE_OPTIONS = (
     "",
@@ -41,93 +36,6 @@ def clean(value: Any) -> str:
 
 def _throw(message: str):
     frappe.throw(message)
-
-
-def _first_validation_message(exc: ValidationError) -> str:
-    errors = exc.errors()
-    if not errors:
-        return "Invalid request payload."
-    return clean(errors[0].get("msg")) or "Invalid request payload."
-
-
-class ContactRequestInput(BaseModel):
-    model_config = ConfigDict(extra="ignore", frozen=True, validate_default=True)
-
-    first_name: str = ""
-    last_name: str = ""
-    email_id: str = ""
-    mobile_no: str = ""
-    company_name: str = ""
-    city: str = ""
-    request_type: str = ""
-    message: str = ""
-
-    @field_validator(
-        "first_name",
-        "last_name",
-        "email_id",
-        "mobile_no",
-        "company_name",
-        "city",
-        "request_type",
-        "message",
-        mode="before",
-    )
-    @classmethod
-    def clean_strings(cls, value: Any) -> str:
-        return clean(value)
-
-    @field_validator("first_name")
-    @classmethod
-    def validate_first_name(cls, value: str) -> str:
-        if not value:
-            raise ValueError("Enter your first name.")
-        return value
-
-    @field_validator("last_name")
-    @classmethod
-    def validate_last_name(cls, value: str) -> str:
-        if not value:
-            raise ValueError("Enter your last name.")
-        return value
-
-    @field_validator("email_id")
-    @classmethod
-    def validate_email(cls, value: str) -> str:
-        lowered = clean(value).lower()
-        if not public_quote_service.valid_email(lowered):
-            raise ValueError("Enter a valid email address.")
-        return lowered
-
-    @field_validator("company_name")
-    @classmethod
-    def validate_company_name(cls, value: str) -> str:
-        if not value:
-            raise ValueError("Enter your company name.")
-        return value
-
-    @field_validator("city")
-    @classmethod
-    def validate_city(cls, value: str) -> str:
-        if not value:
-            raise ValueError("Enter the city where the request is based.")
-        return value
-
-    @field_validator("request_type")
-    @classmethod
-    def validate_request_type(cls, value: str) -> str:
-        if not value:
-            raise ValueError("Choose the request type that fits best.")
-        if value not in CONTACT_REQUEST_TYPE_OPTIONS:
-            raise ValueError("Choose a valid request type.")
-        return value
-
-    @field_validator("message")
-    @classmethod
-    def validate_message(cls, value: str) -> str:
-        if not value:
-            raise ValueError("Tell us a little more about the request.")
-        return value
 
 
 def _lead_fieldnames() -> set[str]:
@@ -210,10 +118,14 @@ def submit_contact_request(form_dict: dict[str, Any] | None = None, **kwargs: An
     try:
         contact_request = ContactRequestInput.model_validate(payload)
     except ValidationError as exc:
-        _throw(_first_validation_message(exc))
+        _throw(first_validation_message(exc))
+
+    if not public_quote_service.valid_email(contact_request.email_id):
+        _throw("Enter a valid email address.")
 
     fieldnames = _lead_fieldnames()
-    lead_request_type = _map_request_type_for_lead(contact_request.request_type, _lead_request_type_options())
+    request_type = str(contact_request.request_type.value)
+    lead_request_type = _map_request_type_for_lead(request_type, _lead_request_type_options())
     full_name = " ".join(part for part in (contact_request.first_name, contact_request.last_name) if part).strip()
     lead_payload = {"doctype": "Lead"}
 
@@ -231,15 +143,14 @@ def submit_contact_request(form_dict: dict[str, Any] | None = None, **kwargs: An
     set_if_available("request_type", lead_request_type)
     set_if_available(
         "service_interest",
-        _service_interest_message(contact_request.request_type, lead_request_type, contact_request.message),
+        _service_interest_message(request_type, lead_request_type, contact_request.message),
     )
     set_if_available("source", "Contact Form")
 
     lead_doc = frappe.get_doc(lead_payload)
     lead_doc.insert(ignore_permissions=True)
-
-    return {
-        "status": "submitted",
-        "message": "Thanks for reaching out. We received your message and will get back to you shortly.",
-        "lead": clean(getattr(lead_doc, "name", "")),
-    }
+    return ContactRequestSubmitted(
+        status="submitted",
+        message="Thanks for reaching out. We received your message and will get back to you shortly.",
+        lead=clean(getattr(lead_doc, "name", "")),
+    ).model_dump(mode="python")

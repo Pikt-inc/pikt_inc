@@ -1,39 +1,13 @@
 from __future__ import annotations
 
-import json
-
 import frappe
 
+from ._request_payload import collect_request_payload
 from ..services import customer_portal as customer_portal_service
 
 
 def _payload(kwargs: dict) -> dict:
-    payload = dict(kwargs or {})
-    request = getattr(frappe.local, "request", None)
-    get_json = getattr(request, "get_json", None)
-    if callable(get_json):
-        try:
-            body = get_json(silent=True) or {}
-        except TypeError:
-            body = get_json() or {}
-        except Exception:
-            body = {}
-        if isinstance(body, dict):
-            payload.update(body)
-    data = getattr(frappe, "request", None)
-    request_data = getattr(data, "data", None)
-    if request_data and isinstance(request_data, (bytes, str)):
-        try:
-            decoded = request_data.decode("utf-8") if isinstance(request_data, bytes) else request_data
-            body = json.loads(decoded or "{}")
-        except Exception:
-            body = {}
-        if isinstance(body, dict):
-            payload.update(body)
-    form_dict = getattr(frappe, "form_dict", None)
-    if form_dict:
-        payload.update({key: value for key, value in dict(form_dict).items() if key not in {"cmd"}})
-    return payload
+    return collect_request_payload(kwargs)
 
 
 @frappe.whitelist()

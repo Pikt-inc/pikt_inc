@@ -54,6 +54,7 @@ try:
     app_hooks = importlib.import_module("pikt_inc.hooks")
     portal = importlib.import_module("pikt_inc.services.customer_portal")
     portal_api = importlib.import_module("pikt_inc.api.customer_portal")
+    portal_contracts = importlib.import_module("pikt_inc.services.contracts.customer_portal")
     portal_page_helper = importlib.import_module("pikt_inc.www._portal_page")
     portal_www_index = importlib.import_module("pikt_inc.www.portal.index")
     portal_www_agreements = importlib.import_module("pikt_inc.www.portal.agreements")
@@ -63,6 +64,7 @@ except ModuleNotFoundError:
     app_hooks = importlib.import_module("pikt_inc.pikt_inc.hooks")
     portal = importlib.import_module("pikt_inc.pikt_inc.services.customer_portal")
     portal_api = importlib.import_module("pikt_inc.pikt_inc.api.customer_portal")
+    portal_contracts = importlib.import_module("pikt_inc.pikt_inc.services.contracts.customer_portal")
     portal_page_helper = importlib.import_module("pikt_inc.pikt_inc.www._portal_page")
     portal_www_index = importlib.import_module("pikt_inc.pikt_inc.www.portal.index")
     portal_www_agreements = importlib.import_module("pikt_inc.pikt_inc.www.portal.agreements")
@@ -337,6 +339,29 @@ class TestCustomerPortal(TestCase):
         self.assertEqual(data["active_master"]["title"], "Portal Customer Master Agreement")
         self.assertEqual(data["latest_locations"][0]["title"], "Headquarters")
 
+    def test_portal_billing_contract_requires_address_fields(self):
+        with self.assertRaisesRegex(Exception, "Field required|at least 1 character"):
+            portal_contracts.CustomerPortalBillingInput.model_validate(
+                {
+                    "billing_contact_name": "Billing Team",
+                    "billing_email": "billing@example.com",
+                    "billing_country": "United States",
+                }
+            )
+
+    def test_portal_location_contract_accepts_alias_and_tracks_updates(self):
+        payload = portal_contracts.CustomerPortalLocationUpdateInput.model_validate(
+            {
+                "building": "BUILD-1",
+                "access_method": "Door code / keypad",
+                "access_details_confirmed": "1",
+            }
+        )
+
+        self.assertEqual(payload.building_name, "BUILD-1")
+        self.assertEqual(payload.updates()["access_method"], "Door code / keypad")
+        self.assertTrue(payload.updates()["access_details_confirmed"])
+
     def test_ambiguous_scope_returns_branded_error_page(self):
         self.dataset["contact_links"].append(
             {
@@ -382,8 +407,8 @@ class TestCustomerPortal(TestCase):
             tax_id="99-1234567",
         )
 
-        with patch.object(portal, "_require_portal_scope", return_value=scope), patch.object(
-            portal, "_portal_contact_payload", return_value={"display_name": "Pat Portal"}
+        with patch.object(portal.billing, "_require_portal_scope", return_value=scope), patch.object(
+            portal.billing, "_portal_contact_payload", return_value=types.SimpleNamespace(display_name="Pat Portal")
         ), patch.object(portal.public_quote_service, "valid_email", return_value=True), patch.object(
             portal.public_quote_service, "ensure_address", return_value="ADDR-UPDATED"
         ) as ensure_address, patch.object(
@@ -392,9 +417,7 @@ class TestCustomerPortal(TestCase):
             portal.public_quote_service, "sync_customer"
         ) as sync_customer, patch.object(
             portal.public_quote_service, "doc_db_set_values"
-        ) as doc_db_set_values, patch.object(
-            portal, "get_customer_portal_billing_data", return_value={"page_key": "billing"}
-        ):
+        ) as doc_db_set_values:
             response = portal.update_customer_portal_billing(
                 portal_contact_name="Pat Portal",
                 portal_contact_phone="512-555-0111",
@@ -435,8 +458,8 @@ class TestCustomerPortal(TestCase):
             tax_id="99-1234567",
         )
 
-        with patch.object(portal, "_require_portal_scope", return_value=scope), patch.object(
-            portal, "_portal_contact_payload", return_value={"display_name": "Pat Portal"}
+        with patch.object(portal.billing, "_require_portal_scope", return_value=scope), patch.object(
+            portal.billing, "_portal_contact_payload", return_value=types.SimpleNamespace(display_name="Pat Portal")
         ), patch.object(portal.public_quote_service, "valid_email", return_value=True), patch.object(
             portal.public_quote_service, "ensure_address", return_value="ADDR-UPDATED"
         ), patch.object(
@@ -445,9 +468,7 @@ class TestCustomerPortal(TestCase):
             portal.public_quote_service, "sync_customer"
         ), patch.object(
             portal.public_quote_service, "doc_db_set_values"
-        ) as doc_db_set_values, patch.object(
-            portal, "get_customer_portal_billing_data", return_value={"page_key": "billing"}
-        ):
+        ) as doc_db_set_values:
             portal.update_customer_portal_billing(
                 portal_contact_name="Pat Portal",
                 portal_contact_phone="512-555-0111",
@@ -496,7 +517,7 @@ class TestCustomerPortal(TestCase):
             tax_id="99-1234567",
         )
 
-        with patch.object(portal, "_require_portal_scope", return_value=scope):
+        with patch.object(portal.locations, "_require_portal_scope", return_value=scope):
             with self.assertRaisesRegex(Exception, "not available in this portal account"):
                 portal.update_customer_portal_location(building_name="BUILD-OTHER", access_notes="Test note")
 
@@ -519,8 +540,8 @@ class TestCustomerPortal(TestCase):
         )
 
         portal.frappe.local.response = {}
-        with patch.object(portal, "_require_portal_scope", return_value=scope), patch.object(
-            portal, "render_invoice_pdf", return_value=b"PDF"
+        with patch.object(portal.downloads, "_require_portal_scope", return_value=scope), patch.object(
+            portal.downloads, "render_invoice_pdf", return_value=b"PDF"
         ):
             portal.download_customer_portal_invoice("SINV-0001")
 
