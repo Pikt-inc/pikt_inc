@@ -57,12 +57,12 @@ class TestPublicQuoteSmoke(unittest.TestCase):
         mock_cleanup.assert_called_once()
 
     @patch.object(qa, "delete_public_quote_smoke_doc", side_effect=lambda doctype, name, cancel_first=False: ("deleted", name))
-    @patch.object(qa, "doc_db_set_values")
+    @patch.object(qa, "set_public_quote_smoke_backlinks")
     @patch.object(qa.frappe.db, "exists", return_value=True)
     def test_cleanup_public_quote_smoke_records_uses_dependency_order(
         self,
         _mock_exists,
-        mock_doc_db_set_values,
+        mock_set_backlinks,
         mock_delete_doc,
     ):
         artifacts = PublicQuoteSmokeArtifacts(
@@ -100,7 +100,7 @@ class TestPublicQuoteSmoke(unittest.TestCase):
             ],
         )
         self.assertEqual(len(result["deleted"]), 12)
-        self.assertEqual(mock_doc_db_set_values.call_count, 3)
+        self.assertEqual(mock_set_backlinks.call_count, 3)
 
 
 if __name__ == "__main__":

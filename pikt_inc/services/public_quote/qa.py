@@ -190,6 +190,24 @@ def delete_public_quote_smoke_doc(
     return "deleted", record_name
 
 
+def set_public_quote_smoke_backlinks(
+    doctype: str,
+    name: str,
+    values: dict[str, Any],
+) -> None:
+    record_name = clean(name)
+    if not record_name or not frappe.db.exists(doctype, record_name):
+        return
+
+    meta = frappe.get_meta(doctype)
+    available_fields = {df.fieldname for df in meta.fields}
+    filtered_values = {
+        fieldname: value for fieldname, value in (values or {}).items() if fieldname in available_fields
+    }
+    if filtered_values:
+        doc_db_set_values(doctype, record_name, filtered_values)
+
+
 def cleanup_public_quote_smoke_records(
     artifacts: PublicQuoteSmokeArtifacts | dict[str, Any] | None = None,
 ) -> dict[str, list[str] | list[dict[str, str]]]:
@@ -202,34 +220,31 @@ def cleanup_public_quote_smoke_records(
     missing: list[str] = []
     errors: list[dict[str, str]] = []
 
-    if artifact_model.sales_order and frappe.db.exists("Sales Order", artifact_model.sales_order):
-        doc_db_set_values(
-            "Sales Order",
-            artifact_model.sales_order,
-            {
-                "custom_service_agreement": "",
-                "custom_service_agreement_addendum": "",
-                "custom_building": "",
-            },
-        )
-    if artifact_model.quote and frappe.db.exists("Quotation", artifact_model.quote):
-        doc_db_set_values(
-            "Quotation",
-            artifact_model.quote,
-            {
-                "custom_accepted_sales_order": "",
-                "custom_building": "",
-            },
-        )
-    if artifact_model.opportunity and frappe.db.exists("Opportunity", artifact_model.opportunity):
-        doc_db_set_values(
-            "Opportunity",
-            artifact_model.opportunity,
-            {
-                "custom_quotation": "",
-                "custom_building": "",
-            },
-        )
+    set_public_quote_smoke_backlinks(
+        "Sales Order",
+        artifact_model.sales_order,
+        {
+            "custom_service_agreement": "",
+            "custom_service_agreement_addendum": "",
+            "custom_building": "",
+        },
+    )
+    set_public_quote_smoke_backlinks(
+        "Quotation",
+        artifact_model.quote,
+        {
+            "custom_accepted_sales_order": "",
+            "custom_building": "",
+        },
+    )
+    set_public_quote_smoke_backlinks(
+        "Opportunity",
+        artifact_model.opportunity,
+        {
+            "custom_quotation": "",
+            "custom_building": "",
+        },
+    )
 
     order = [
         ("Auto Repeat", artifact_model.auto_repeat, False),
@@ -394,6 +409,7 @@ __all__ = [
     "create_public_quote_smoke_quotation",
     "create_public_quote_smoke_artifacts",
     "delete_public_quote_smoke_doc",
+    "set_public_quote_smoke_backlinks",
     "cleanup_public_quote_smoke_records",
     "run_public_quote_smoke_test",
 ]
