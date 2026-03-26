@@ -190,6 +190,36 @@ def delete_public_quote_smoke_doc(
     return "deleted", record_name
 
 
+def raw_purge_public_quote_smoke_doc(doctype: str, name: str) -> tuple[str, str]:
+    record_name = clean(name)
+    if not record_name:
+        return "missing", ""
+    if not frappe.db.exists(doctype, record_name):
+        return "missing", record_name
+
+    meta = frappe.get_meta(doctype)
+    for df in meta.fields:
+        if df.fieldtype == "Table" and clean(df.options):
+            frappe.db.delete(df.options, {"parent": record_name, "parenttype": doctype})
+
+    aux_filters = {
+        "Version": {"ref_doctype": doctype, "docname": record_name},
+        "Comment": {"reference_doctype": doctype, "reference_name": record_name},
+        "Communication": {"reference_doctype": doctype, "reference_name": record_name},
+        "ToDo": {"reference_type": doctype, "reference_name": record_name},
+        "Workflow Action": {"reference_doctype": doctype, "reference_name": record_name},
+    }
+    for aux_doctype, filters in aux_filters.items():
+        if frappe.db.exists("DocType", aux_doctype):
+            try:
+                frappe.db.delete(aux_doctype, filters)
+            except Exception:
+                pass
+
+    frappe.db.delete(doctype, {"name": record_name})
+    return "deleted", record_name
+
+
 def set_public_quote_smoke_backlinks(
     doctype: str,
     name: str,
@@ -273,8 +303,16 @@ def cleanup_public_quote_smoke_records(
             )
         except Exception as exc:
             frappe.db.rollback()
-            errors.append({"record": f"{doctype}/{record_name}", "error": str(exc)})
-            continue
+            if doctype in {"Sales Invoice", "Sales Order", "Quotation"}:
+                try:
+                    status, resolved_name = raw_purge_public_quote_smoke_doc(doctype, record_name)
+                except Exception as raw_exc:
+                    frappe.db.rollback()
+                    errors.append({"record": f"{doctype}/{record_name}", "error": str(raw_exc)})
+                    continue
+            else:
+                errors.append({"record": f"{doctype}/{record_name}", "error": str(exc)})
+                continue
         frappe.db.commit()
         if status == "deleted":
             deleted.append(f"{doctype}/{resolved_name}")
@@ -379,7 +417,7 @@ def run_public_quote_smoke_test(**kwargs: Any) -> dict[str, Any]:
         if config.cleanup:
             cleanup_result = cleanup_public_quote_smoke_records(artifacts)
 
-        return PublicQuoteSmokeResult(
+        validated_result = PublicQuoteSmokeResult(
             status="ok",
             cleanup_performed=config.cleanup,
             artifacts=artifacts,
@@ -392,7 +430,21 @@ def run_public_quote_smoke_test(**kwargs: Any) -> dict[str, Any]:
             access=access_response,
             access_retry=access_retry_response,
             cleanup_result=cleanup_result,
-        ).model_dump()
+        )
+        return {
+            "status": validated_result.status,
+            "cleanup_performed": validated_result.cleanup_performed,
+            "artifacts": artifacts.model_dump(),
+            "validation": validation,
+            "accept": accept_response,
+            "portal_state": portal_state,
+            "agreement": agreement_response,
+            "billing": billing_response,
+            "billing_retry": billing_retry_response,
+            "access": access_response,
+            "access_retry": access_retry_response,
+            "cleanup_result": cleanup_result,
+        }
     except Exception as exc:
         if config.cleanup:
             cleanup_result = cleanup_public_quote_smoke_records(artifacts)
@@ -409,6 +461,7 @@ __all__ = [
     "create_public_quote_smoke_quotation",
     "create_public_quote_smoke_artifacts",
     "delete_public_quote_smoke_doc",
+    "raw_purge_public_quote_smoke_doc",
     "set_public_quote_smoke_backlinks",
     "cleanup_public_quote_smoke_records",
     "run_public_quote_smoke_test",

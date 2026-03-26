@@ -56,6 +56,48 @@ class TestPublicQuoteSmoke(unittest.TestCase):
         self.assertEqual(mock_access.call_count, 2)
         mock_cleanup.assert_called_once()
 
+    @patch.object(qa, "raw_purge_public_quote_smoke_doc", side_effect=lambda doctype, name: ("deleted", name))
+    @patch.object(qa, "delete_public_quote_smoke_doc")
+    @patch.object(qa, "set_public_quote_smoke_backlinks")
+    @patch.object(qa.frappe.db, "exists", return_value=True)
+    def test_cleanup_public_quote_smoke_records_falls_back_to_raw_purge_for_submitted_cycle(
+        self,
+        _mock_exists,
+        _mock_set_backlinks,
+        mock_delete_doc,
+        mock_raw_purge,
+    ):
+        mock_delete_doc.side_effect = [
+            Exception("invoice linked"),
+            Exception("sales order linked"),
+            Exception("quotation linked"),
+        ]
+        artifacts = PublicQuoteSmokeArtifacts(
+            quote="SAL-QTN-0001",
+            sales_order="SO-0001",
+            invoice="SINV-0001",
+        )
+
+        result = qa.cleanup_public_quote_smoke_records(artifacts)
+
+        self.assertEqual(
+            [call.args[:2] for call in mock_raw_purge.call_args_list],
+            [
+                ("Sales Invoice", "SINV-0001"),
+                ("Sales Order", "SO-0001"),
+                ("Quotation", "SAL-QTN-0001"),
+            ],
+        )
+        self.assertEqual(
+            result["deleted"],
+            [
+                "Sales Invoice/SINV-0001",
+                "Sales Order/SO-0001",
+                "Quotation/SAL-QTN-0001",
+            ],
+        )
+        self.assertEqual(result["errors"], [])
+
     @patch.object(qa, "delete_public_quote_smoke_doc", side_effect=lambda doctype, name, cancel_first=False: ("deleted", name))
     @patch.object(qa, "set_public_quote_smoke_backlinks")
     @patch.object(qa.frappe.db, "exists", return_value=True)
