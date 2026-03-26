@@ -46,6 +46,11 @@ class FakeSaveDoc(FakeDoc):
         return self
 
 
+class FailingInsertDoc(FakeDoc):
+    def insert(self, ignore_permissions=False):
+        raise RuntimeError("duplicate insert")
+
+
 class TestPublicQuote(unittest.TestCase):
     @patch.object(public_quote, "make_accept_token", return_value="accept-token")
     @patch.object(public_quote, "add_to_date", return_value="2026-04-30 23:59:59")
@@ -566,3 +571,29 @@ class TestPublicQuote(unittest.TestCase):
                 self.assertEqual(result["agreement_step_complete"], expected["agreement_step_complete"])
                 self.assertEqual(result["billing_step_complete"], expected["billing_step_complete"])
                 self.assertEqual(result["access_step_complete"], expected["access_step_complete"])
+
+    @patch.object(public_quote, "get_customer_row", return_value={"lead_name": "", "email_id": ""})
+    @patch.object(public_quote, "find_customer_by_email", side_effect=["", "CUST-EXISTING"])
+    @patch.object(public_quote.frappe, "get_doc", return_value=FailingInsertDoc({"doctype": "Customer"}))
+    @patch.object(public_quote.frappe.db, "set_value")
+    @patch.object(public_quote.frappe.db, "exists", return_value=True)
+    def test_ensure_customer_reuses_existing_customer_after_insert_race(
+        self,
+        _mock_exists,
+        mock_set_value,
+        _mock_get_doc,
+        _mock_find_customer,
+        _mock_get_customer_row,
+    ):
+        result = public_quote.ensure_customer(
+            {"party_name": "CRM-LEAD-TEST-0001", "contact_email": "lead@example.com"},
+            {"company_name": "Pikt Inc", "email_id": "lead@example.com"},
+        )
+
+        self.assertEqual(result, "CUST-EXISTING")
+        mock_set_value.assert_called_once_with(
+            "Customer",
+            "CUST-EXISTING",
+            {"lead_name": "CRM-LEAD-TEST-0001", "email_id": "lead@example.com"},
+            update_modified=False,
+        )

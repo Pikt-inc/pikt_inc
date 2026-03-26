@@ -41,6 +41,15 @@ class FakeSaveDoc(FakeDoc):
         return self
 
 
+class FailingInsertDoc(FakeDoc):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.flags = SimpleNamespace()
+
+    def insert(self, ignore_permissions=False):
+        raise RuntimeError("duplicate insert")
+
+
 class TestPublicQuotePortal(unittest.TestCase):
     @patch.object(public_quote, "link_quote_agreement_records")
     @patch.object(public_quote, "get_addendum_row")
@@ -573,6 +582,106 @@ class TestPublicQuotePortal(unittest.TestCase):
         self.assertEqual(building_name, "BLDG-0001")
         self.assertTrue(completed_on)
         mock_db_set_values.assert_called_once()
+
+    @patch.object(public_quote, "find_contact_for_customer", side_effect=["", "CONT-0001"])
+    @patch.object(public_quote.frappe, "get_doc", return_value=FailingInsertDoc({"doctype": "Contact"}))
+    @patch.object(public_quote, "doc_db_set_values")
+    @patch.object(public_quote.frappe.db, "exists", return_value=True)
+    def test_ensure_contact_reuses_existing_contact_after_insert_race(
+        self,
+        _mock_exists,
+        mock_doc_db_set_values,
+        _mock_get_doc,
+        _mock_find_contact,
+    ):
+        result = public_quote.ensure_contact(
+            "CUST-0001",
+            "Pikt Inc",
+            "Patten Whiting",
+            "billing@example.com",
+        )
+
+        self.assertEqual(result, "CONT-0001")
+        self.assertEqual(mock_doc_db_set_values.call_count, 1)
+        self.assertEqual(mock_doc_db_set_values.call_args[0][0], "Contact")
+        self.assertEqual(mock_doc_db_set_values.call_args[0][1], "CONT-0001")
+
+    @patch.object(public_quote, "find_address_for_customer", side_effect=["", "ADDR-0001"])
+    @patch.object(public_quote.frappe, "get_doc", return_value=FailingInsertDoc({"doctype": "Address"}))
+    @patch.object(public_quote, "doc_db_set_values")
+    @patch.object(public_quote.frappe.db, "exists", return_value=True)
+    def test_ensure_address_reuses_existing_address_after_insert_race(
+        self,
+        _mock_exists,
+        mock_doc_db_set_values,
+        _mock_get_doc,
+        _mock_find_address,
+    ):
+        result = public_quote.ensure_address(
+            "CUST-0001",
+            "Pikt Inc",
+            "123 Main",
+            "",
+            "Dallas",
+            "TX",
+            "75001",
+            "United States",
+        )
+
+        self.assertEqual(result, "ADDR-0001")
+        mock_doc_db_set_values.assert_called_once()
+        self.assertEqual(mock_doc_db_set_values.call_args[0][0], "Address")
+        self.assertEqual(mock_doc_db_set_values.call_args[0][1], "ADDR-0001")
+
+    @patch.object(public_quote, "find_matching_building", side_effect=["", "BLDG-0002"])
+    @patch.object(public_quote.frappe, "get_doc", return_value=FailingInsertDoc({"doctype": "Building"}))
+    @patch.object(public_quote, "doc_db_set_values")
+    @patch.object(public_quote.frappe.db, "exists")
+    def test_create_or_update_building_reuses_matching_building_after_insert_race(
+        self,
+        mock_exists,
+        mock_doc_db_set_values,
+        _mock_get_doc,
+        _mock_find_matching_building,
+    ):
+        def exists_side_effect(doctype, name=None):
+            if doctype == "Customer":
+                return True
+            if doctype == "Building":
+                return False
+            return False
+
+        mock_exists.side_effect = exists_side_effect
+        building_name, completed_on = public_quote.create_or_update_building(
+            {"custom_building": "", "customer": "CUST-0001", "customer_name": "Pikt Inc"},
+            "123 Main",
+            "",
+            "Dallas",
+            "TX",
+            "75001",
+            "Door code / keypad",
+            "Front",
+            "Suite 100",
+            "No",
+            "",
+            "After 6pm",
+            "Patten Whiting",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            1,
+            "SA-0001",
+            "SAA-0001",
+        )
+
+        self.assertEqual(building_name, "BLDG-0002")
+        self.assertTrue(completed_on)
+        mock_doc_db_set_values.assert_called_once()
+        self.assertEqual(mock_doc_db_set_values.call_args[0][0], "Building")
+        self.assertEqual(mock_doc_db_set_values.call_args[0][1], "BLDG-0002")
 
     def test_build_billing_setup_response_matches_contract(self):
         self.assertEqual(

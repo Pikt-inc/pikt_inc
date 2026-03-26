@@ -1382,13 +1382,51 @@ def find_customer_by_email(contact_email):
     return ""
 
 
+def find_customer_for_quote(lead_name, contact_email):
+    lead_name = clean(lead_name)
+    contact_email = clean(contact_email)
+    customer = clean(frappe.db.get_value("Customer", {"lead_name": lead_name}, "name"))
+    if customer:
+        return customer
+    return find_customer_by_email(contact_email)
+
+
+def dynamic_link_filters(parenttype, parent, link_doctype, link_name):
+    return {
+        "parenttype": clean(parenttype),
+        "parent": clean(parent),
+        "link_doctype": clean(link_doctype),
+        "link_name": clean(link_name),
+    }
+
+
+def ensure_dynamic_link(parenttype, parent, link_doctype, link_name):
+    filters = dynamic_link_filters(parenttype, parent, link_doctype, link_name)
+    if not filters.get("parent") or not filters.get("link_name"):
+        return
+    if frappe.db.exists("Dynamic Link", filters):
+        return
+    try:
+        frappe.get_doc(
+            {
+                "doctype": "Dynamic Link",
+                **filters,
+                "parentfield": "links",
+            }
+        ).insert(ignore_permissions=True)
+    except Exception:
+        if frappe.db.exists("Dynamic Link", filters):
+            return
+        raise
+
+
 def ensure_customer(quote_row, lead_row):
     lead_name = clean((quote_row or {}).get("party_name"))
     contact_email = clean((quote_row or {}).get("contact_email")) or clean((lead_row or {}).get("email_id"))
+    if lead_name and frappe.db.exists("Lead", lead_name):
+        lock_document_row("Lead", lead_name)
 
-    customer = clean(frappe.db.get_value("Customer", {"lead_name": lead_name}, "name"))
-    if not customer:
-        customer = find_customer_by_email(contact_email)
+    customer = find_customer_for_quote(lead_name, contact_email)
 
     if customer:
         updates = {}
@@ -1419,7 +1457,21 @@ def ensure_customer(quote_row, lead_row):
             "opportunity_name": clean((quote_row or {}).get("opportunity")),
         }
     )
-    customer_doc.insert(ignore_permissions=True)
+    try:
+        customer_doc.insert(ignore_permissions=True)
+    except Exception:
+        customer = find_customer_for_quote(lead_name, contact_email)
+        if customer:
+            updates = {}
+            current_customer = get_customer_row(customer)
+            if not clean(current_customer.get("lead_name")) and lead_name:
+                updates["lead_name"] = lead_name
+            if not clean(current_customer.get("email_id")) and contact_email:
+                updates["email_id"] = contact_email
+            if updates:
+                frappe.db.set_value("Customer", customer, updates, update_modified=False)
+            return customer
+        raise
     return customer_doc.name
 
 
@@ -2130,6 +2182,9 @@ def find_address_for_customer(customer_name):
 
 
 def ensure_contact(customer_name, customer_display, billing_contact_name, billing_email):
+    if customer_name and frappe.db.exists("Customer", customer_name):
+        lock_document_row("Customer", customer_name)
+
     name_parts = split_name(billing_contact_name)
     contact_name = find_contact_for_customer(customer_name, billing_email)
     if contact_name:
@@ -2146,25 +2201,7 @@ def ensure_contact(customer_name, customer_display, billing_contact_name, billin
                 "is_billing_contact": 1,
             },
         )
-        if not frappe.db.exists(
-            "Dynamic Link",
-            {
-                "parenttype": "Contact",
-                "parent": contact_name,
-                "link_doctype": "Customer",
-                "link_name": customer_name,
-            },
-        ):
-            frappe.get_doc(
-                {
-                    "doctype": "Dynamic Link",
-                    "parenttype": "Contact",
-                    "parent": contact_name,
-                    "parentfield": "links",
-                    "link_doctype": "Customer",
-                    "link_name": customer_name,
-                }
-            ).insert(ignore_permissions=True)
+        ensure_dynamic_link("Contact", contact_name, "Customer", customer_name)
         return contact_name
 
     contact_doc = frappe.get_doc(
@@ -2181,7 +2218,27 @@ def ensure_contact(customer_name, customer_display, billing_contact_name, billin
             "links": [{"link_doctype": "Customer", "link_name": customer_name}],
         }
     )
-    contact_doc.insert(ignore_permissions=True)
+    try:
+        contact_doc.insert(ignore_permissions=True)
+    except Exception:
+        contact_name = find_contact_for_customer(customer_name, billing_email)
+        if contact_name:
+            doc_db_set_values(
+                "Contact",
+                contact_name,
+                {
+                    "first_name": name_parts.get("first_name"),
+                    "last_name": name_parts.get("last_name"),
+                    "email_id": clean(billing_email).lower(),
+                    "company_name": customer_display,
+                    "status": "Open",
+                    "is_primary_contact": 1,
+                    "is_billing_contact": 1,
+                },
+            )
+            ensure_dynamic_link("Contact", contact_name, "Customer", customer_name)
+            return contact_name
+        raise
     return contact_doc.name
 
 
@@ -2195,6 +2252,9 @@ def ensure_address(
     billing_postal_code,
     billing_country,
 ):
+    if customer_name and frappe.db.exists("Customer", customer_name):
+        lock_document_row("Customer", customer_name)
+
     address_name = find_address_for_customer(customer_name)
     address_values = {
         "address_title": customer_display,
@@ -2210,25 +2270,7 @@ def ensure_address(
     }
     if address_name:
         doc_db_set_values("Address", address_name, address_values)
-        if not frappe.db.exists(
-            "Dynamic Link",
-            {
-                "parenttype": "Address",
-                "parent": address_name,
-                "link_doctype": "Customer",
-                "link_name": customer_name,
-            },
-        ):
-            frappe.get_doc(
-                {
-                    "doctype": "Dynamic Link",
-                    "parenttype": "Address",
-                    "parent": address_name,
-                    "parentfield": "links",
-                    "link_doctype": "Customer",
-                    "link_name": customer_name,
-                }
-            ).insert(ignore_permissions=True)
+        ensure_dynamic_link("Address", address_name, "Customer", customer_name)
         return address_name
 
     address_doc = frappe.get_doc(
@@ -2247,7 +2289,15 @@ def ensure_address(
             "links": [{"link_doctype": "Customer", "link_name": customer_name}],
         }
     )
-    address_doc.insert(ignore_permissions=True)
+    try:
+        address_doc.insert(ignore_permissions=True)
+    except Exception:
+        address_name = find_address_for_customer(customer_name)
+        if address_name:
+            doc_db_set_values("Address", address_name, address_values)
+            ensure_dynamic_link("Address", address_name, "Customer", customer_name)
+            return address_name
+        raise
     return address_doc.name
 
 
@@ -2872,6 +2922,8 @@ def create_or_update_building(
     customer_display = clean(sales_order_row.get("customer_name")) or customer_name
     if not customer_name:
         fail("We could not resolve the customer for this accepted quote.")
+    if frappe.db.exists("Customer", customer_name):
+        lock_document_row("Customer", customer_name)
 
     access_completed_on = now_datetime()
     building_values = {
@@ -2938,7 +2990,21 @@ def create_or_update_building(
         }
     )
     building_doc.flags.ignore_permissions = True
-    building_doc.insert(ignore_permissions=True)
+    try:
+        building_doc.insert(ignore_permissions=True)
+    except Exception:
+        matched_building = find_matching_building(
+            customer_name,
+            service_address_line_1,
+            service_address_line_2,
+            service_city,
+            service_state,
+            service_postal_code,
+        )
+        if matched_building:
+            doc_db_set_values("Building", matched_building, building_values)
+            return matched_building, access_completed_on
+        raise
     return building_doc.name, access_completed_on
 
 
