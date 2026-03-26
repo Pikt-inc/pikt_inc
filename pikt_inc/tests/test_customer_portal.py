@@ -360,8 +360,9 @@ class TestCustomerPortal(TestCase):
 
         self.assertTrue(data["access_denied"])
         self.assertEqual(data["error_message"], "Sign in to access your customer portal.")
-        self.assertEqual(portal.frappe.local.response["http_status_code"], 403)
+        self.assertEqual(portal.frappe.local.response["http_status_code"], 302)
         self.assertEqual(data["login_path"], "/login?redirect-to=/portal")
+        self.assertEqual(data["redirect_to"], "/login?redirect-to=/portal")
 
     def test_billing_update_uses_scoped_customer_helpers(self):
         scope = portal.PortalScope(
@@ -657,6 +658,29 @@ class TestCustomerPortal(TestCase):
 
         self.assertIs(result, context)
         self.assertEqual(context.http_status_code, 403)
+
+    def test_portal_page_helper_sets_redirect_response(self):
+        context = types.SimpleNamespace()
+        portal_page_helper.frappe.local.response = {}
+
+        result = portal_page_helper.build_context(
+            context,
+            page_loader=lambda: {
+                "page_title": "Overview",
+                "portal_title": "Customer Portal",
+                "portal_description": "Desc",
+                "portal_nav": [],
+                "metatags": {"title": "Customer Portal", "description": "Secure portal"},
+                "http_status_code": 302,
+                "redirect_to": "/login?redirect-to=/portal",
+            },
+        )
+
+        self.assertIs(result, context)
+        self.assertEqual(context.redirect_to, "/login?redirect-to=/portal")
+        self.assertEqual(portal_page_helper.frappe.local.response["type"], "redirect")
+        self.assertEqual(portal_page_helper.frappe.local.response["location"], "/login?redirect-to=/portal")
+        self.assertEqual(portal_page_helper.frappe.local.response["http_status_code"], 302)
 
     def test_api_getters_proxy_to_service(self):
         with patch.object(portal_api.customer_portal_service, "get_customer_portal_dashboard_data", return_value={"page_key": "overview"}) as dashboard, patch.object(

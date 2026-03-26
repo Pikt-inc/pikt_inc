@@ -180,6 +180,7 @@ def _error_page_data(
     status_code: int = 403,
     *,
     login_path: str = "",
+    redirect_to: str = "",
 ) -> dict[str, Any]:
     _set_http_status(status_code)
     data = _base_page_data(page_key)
@@ -190,6 +191,7 @@ def _error_page_data(
             "error_message": clean(message),
             "http_status_code": int(status_code),
             "login_path": clean(login_path),
+            "redirect_to": clean(redirect_to),
         }
     )
     return data
@@ -197,12 +199,14 @@ def _error_page_data(
 
 def _portal_access_error_page(page_key: str, exc: PortalAccessError) -> dict[str, Any]:
     login_path = _login_path_for_page(page_key) if _is_guest_session() else ""
+    status_code = 302 if login_path else 403
     return _error_page_data(
         page_key,
         "Portal access unavailable",
         str(exc),
-        status_code=403,
+        status_code=status_code,
         login_path=login_path,
+        redirect_to=login_path,
     )
 
 
