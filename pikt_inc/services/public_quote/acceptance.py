@@ -6,6 +6,7 @@ import frappe
 from frappe.utils import add_to_date, nowdate
 
 from .constants import DEFAULT_COMPANY, DEFAULT_COUNTRY, DEFAULT_CURRENCY, DEFAULT_PRICE_LIST, DEFAULT_WAREHOUSE
+from .exceptions import PublicQuoteWorkflowError
 from .payloads import build_accept_payload, get_existing_accept_response
 from .portal import get_public_quote_access_result
 from .queries import get_lead_row, get_quote_row, get_customer_row, load_accept_items, load_quote_taxes, find_customer_for_quote
@@ -255,6 +256,60 @@ def mark_opportunity_converted(opportunity_name):
             update_modified=False,
         )
 
+
+def ensure_acceptance_lead_row(quote_name, quote_row):
+    quote_name = clean(quote_name)
+    lead_name = clean((quote_row or {}).get("party_name"))
+    lead_row = get_lead_row(lead_name)
+    if lead_row:
+        return lead_row
+
+    if not lead_name or not frappe.db.exists("Lead", lead_name):
+        raise PublicQuoteWorkflowError(
+            "This quotation is linked to a lead that no longer exists. Please contact our team for an updated quote.",
+            log_title="Accept Public Quotation - Missing Lead",
+            internal_message="Lead record missing during public quotation acceptance.",
+            context={"quotation": quote_name, "lead": lead_name or "(blank)"},
+        )
+
+    raise PublicQuoteWorkflowError(
+        "This quotation is linked to a lead that no longer exists. Please contact our team for an updated quote.",
+        log_title="Accept Public Quotation - Missing Lead Row",
+        internal_message="Lead lookup returned no data during public quotation acceptance.",
+        context={"quotation": quote_name, "lead": lead_name},
+    )
+
+
+def sanitize_quote_building_link(quote_name, quote_row):
+    quote_name = clean(quote_name)
+    building_name = clean((quote_row or {}).get("custom_building"))
+    if not building_name or frappe.db.exists("Building", building_name):
+        return dict(quote_row or {})
+
+    frappe.db.set_value(
+        "Quotation",
+        quote_name,
+        {"custom_building": ""},
+        update_modified=False,
+    )
+
+    opportunity_name = clean((quote_row or {}).get("opportunity"))
+    if opportunity_name and frappe.db.exists("Opportunity", opportunity_name):
+        current_building = clean(
+            frappe.db.get_value("Opportunity", opportunity_name, "custom_building")
+        )
+        if current_building == building_name:
+            frappe.db.set_value(
+                "Opportunity",
+                opportunity_name,
+                {"custom_building": ""},
+                update_modified=False,
+            )
+
+    sanitized_row = dict(quote_row or {})
+    sanitized_row["custom_building"] = ""
+    return sanitized_row
+
 def accept_public_quote(quote=None, token=None):
     result = get_public_quote_access_result(quote_name=quote, token=token)
     state = clean(result.get("state"))
@@ -291,7 +346,7 @@ def accept_public_quote(quote=None, token=None):
         quote_taxes = load_quote_taxes(quote_name)
         current_target = clean((row or {}).get("quotation_to"))
         if current_target == "Lead":
-            lead_row = get_lead_row((row or {}).get("party_name"))
+            lead_row = ensure_acceptance_lead_row(quote_name, row)
             customer = ensure_customer(row, lead_row)
             customer_display = clean(frappe.db.get_value("Customer", customer, "customer_name")) or customer
             frappe.db.set_value(
@@ -316,12 +371,15 @@ def accept_public_quote(quote=None, token=None):
             quote_taxes = load_quote_taxes(quote_name)
         else:
             customer = clean((row or {}).get("party_name"))
-            if not frappe.db.exists("Customer", customer):
-                return build_accept_payload(
-                    "invalid",
-                    "This quotation is not available through the public review flow.",
+            if not customer or not frappe.db.exists("Customer", customer):
+                raise PublicQuoteWorkflowError(
+                    "This quotation is linked to a customer record that is no longer available. Please contact our team for help.",
+                    log_title="Accept Public Quotation - Missing Customer",
+                    internal_message="Customer record missing during public quotation acceptance.",
+                    context={"quotation": quote_name, "customer": customer or "(blank)"},
                 )
 
+        row = sanitize_quote_building_link(quote_name, row)
         refreshed_sales_order = clean(frappe.db.get_value("Quotation", quote_name, "custom_accepted_sales_order"))
         if refreshed_sales_order and frappe.db.exists("Sales Order", refreshed_sales_order):
             row = get_quote_row(quote_name)
@@ -354,6 +412,10 @@ def accept_public_quote(quote=None, token=None):
             items=quote_items,
             sales_order_name=sales_order.name,
         )
+    except PublicQuoteWorkflowError as exc:
+        rollback_savepoint(savepoint_name)
+        frappe.log_error(exc.log_message(), exc.log_title)
+        return build_accept_payload("invalid", exc.public_message)
     except Exception:
         rollback_savepoint(savepoint_name)
         fallback_response = get_existing_accept_response(quote_name)
@@ -371,5 +433,7 @@ __all__ = [
     "ensure_customer",
     "build_sales_order",
     "mark_opportunity_converted",
+    "ensure_acceptance_lead_row",
+    "sanitize_quote_building_link",
     "accept_public_quote",
 ]

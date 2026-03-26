@@ -611,3 +611,67 @@ class TestPublicQuote(unittest.TestCase):
             {"lead_name": "CRM-LEAD-TEST-0001", "email_id": "lead@example.com"},
             update_modified=False,
         )
+
+    @patch.object(acceptance, "build_accept_payload", side_effect=lambda *args, **kwargs: {"args": args, "kwargs": kwargs})
+    @patch.object(public_quote.frappe, "log_error")
+    @patch.object(public_quote.frappe.db, "exists", return_value=False)
+    @patch.object(
+        acceptance,
+        "get_public_quote_access_result",
+        return_value={
+            "state": "ready",
+            "message": "",
+            "row": {
+                "name": "SAL-QTN-TEST-0001",
+                "quotation_to": "Lead",
+                "party_name": "CRM-LEAD-MISSING",
+            },
+        },
+    )
+    def test_accept_public_quote_returns_specific_message_for_missing_lead(
+        self,
+        _mock_access_result,
+        _mock_exists,
+        mock_log_error,
+        _mock_build_payload,
+    ):
+        result = public_quote.accept_public_quote(
+            quote="SAL-QTN-TEST-0001",
+            token="expected-token",
+        )
+
+        self.assertEqual(result["args"][0], "invalid")
+        self.assertIn("lead that no longer exists", result["args"][1])
+        mock_log_error.assert_called_once()
+
+    @patch.object(public_quote.frappe.db, "get_value", return_value="BLDG-STALE")
+    @patch.object(public_quote.frappe.db, "set_value")
+    @patch.object(public_quote.frappe.db, "exists")
+    def test_sanitize_quote_building_link_clears_missing_building(
+        self,
+        mock_exists,
+        mock_set_value,
+        _mock_get_value,
+    ):
+        def exists_side_effect(doctype, name=None):
+            if doctype == "Building" and name == "BLDG-STALE":
+                return False
+            if doctype == "Opportunity" and name == "CRM-OPP-TEST-0001":
+                return True
+            return False
+
+        mock_exists.side_effect = exists_side_effect
+
+        result = acceptance.sanitize_quote_building_link(
+            "SAL-QTN-TEST-0001",
+            {
+                "name": "SAL-QTN-TEST-0001",
+                "custom_building": "BLDG-STALE",
+                "opportunity": "CRM-OPP-TEST-0001",
+            },
+        )
+
+        self.assertEqual(result["custom_building"], "")
+        self.assertEqual(mock_set_value.call_count, 2)
+        self.assertEqual(mock_set_value.call_args_list[0].args[0], "Quotation")
+        self.assertEqual(mock_set_value.call_args_list[1].args[0], "Opportunity")

@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any, Literal
 
 import frappe
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 def _clean(value: Any) -> str:
@@ -281,6 +281,106 @@ class AccessSetupResponse(BaseModel):
     access_completed_on: Any
 
 
+class PublicQuoteSmokeConfig(BaseModel):
+    model_config = ConfigDict(extra='forbid', frozen=True)
+
+    cleanup: bool = True
+    smoke_id: str = ''
+    prospect_name: str = ''
+    prospect_company: str = ''
+    contact_email: str = ''
+    phone: str = '5125550189'
+    building_type: str = 'Office'
+    building_size: int = 2500
+    service_frequency: str = 'Weekly'
+    service_interest: str = 'Recurring standard cleaning'
+    bathroom_count_range: str = 'Light'
+    quotation_item_code: str = ''
+    quotation_item_qty: int = 1
+    quotation_item_rate: float = 1250.0
+    billing_contact_name: str = ''
+    billing_email: str = ''
+    billing_phone: str = '5125550189'
+    billing_address_line_1: str = '500 Billing Test Way'
+    billing_address_line_2: str = 'Suite 100'
+    billing_city: str = 'Austin'
+    billing_state: str = 'TX'
+    billing_postal_code: str = '78701'
+    billing_country: str = 'United States'
+    tax_id: str = ''
+    signer_name: str = ''
+    signer_title: str = 'Operations Manager'
+    signer_email: str = ''
+    term_model: Literal['Month-to-month', 'Fixed'] = 'Month-to-month'
+    fixed_term_months: str = ''
+    start_date: str = ''
+    service_address_line_1: str = '500 Service Test Way'
+    service_address_line_2: str = 'Floor 2'
+    service_city: str = 'Austin'
+    service_state: str = 'TX'
+    service_postal_code: str = '78701'
+    access_method: str = 'Door code / keypad'
+    access_entrance: str = 'Front entrance'
+    access_entry_details: str = 'Code 1357'
+    has_alarm_system: str = 'No'
+    alarm_instructions: str = ''
+    allowed_entry_time: str = 'After 6:00 PM'
+    primary_site_contact: str = 'Site Lead - 512-555-0100'
+    lockout_emergency_contact: str = 'Lockout Line - 512-555-0101'
+    key_fob_handoff_details: str = ''
+    areas_to_avoid: str = ''
+    closing_instructions: str = 'Lock the front entrance after service.'
+    parking_elevator_notes: str = 'Use visitor parking in the south lot.'
+    first_service_notes: str = 'Confirm consumables closet location with site contact.'
+
+    @model_validator(mode='after')
+    def validate_fields(self) -> 'PublicQuoteSmokeConfig':
+        if self.building_size <= 0:
+            raise ValueError('building_size must be greater than 0')
+        if self.quotation_item_qty <= 0:
+            raise ValueError('quotation_item_qty must be greater than 0')
+        if self.quotation_item_rate <= 0:
+            raise ValueError('quotation_item_rate must be greater than 0')
+        if self.term_model == 'Fixed' and self.fixed_term_months not in {'3', '6', '12'}:
+            raise ValueError('fixed_term_months must be 3, 6, or 12 for a fixed-term smoke test')
+        return self
+
+
+class PublicQuoteSmokeArtifacts(BaseModel):
+    model_config = ConfigDict(extra='forbid', frozen=True)
+
+    lead: str = ''
+    opportunity: str = ''
+    quote: str = ''
+    token: str = ''
+    customer: str = ''
+    sales_order: str = ''
+    invoice: str = ''
+    auto_repeat: str = ''
+    building: str = ''
+    service_agreement: str = ''
+    addendum: str = ''
+    contact: str = ''
+    address: str = ''
+
+
+class PublicQuoteSmokeResult(BaseModel):
+    model_config = ConfigDict(extra='forbid', frozen=True)
+
+    status: Literal['ok']
+    cleanup_performed: bool
+    artifacts: PublicQuoteSmokeArtifacts
+    validation: dict[str, Any]
+    accept: dict[str, Any]
+    portal_state: dict[str, Any]
+    agreement: dict[str, Any]
+    billing: dict[str, Any]
+    billing_retry: dict[str, Any]
+    access: dict[str, Any]
+    access_retry: dict[str, Any]
+    cleanup_result: dict[str, list[str] | list[dict[str, str]] | str] = Field(default_factory=dict)
+
+
 __all__ = [
     'AccessSetupInput',
     'AccessSetupResponse',
@@ -290,6 +390,9 @@ __all__ = [
     'BillingSetupInput',
     'BillingSetupResponse',
     'PortalStateResponse',
+    'PublicQuoteSmokeArtifacts',
+    'PublicQuoteSmokeConfig',
+    'PublicQuoteSmokeResult',
     'QuoteModel',
     'ServiceAgreementSignatureResponse',
     'ValidateQuotePayload',

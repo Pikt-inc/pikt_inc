@@ -12,5 +12,6 @@ from .acceptance import *
 from .agreements import *
 from .billing import *
 from .access_setup import *
+from .qa import *
 
 __all__ = [name for name in globals() if not name.startswith('_')]
