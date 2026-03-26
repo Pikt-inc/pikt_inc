@@ -6,6 +6,7 @@ from urllib.parse import quote
 
 import frappe
 from frappe.utils import get_datetime, now_datetime
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 from . import public_quote as public_quote_service
 
@@ -81,6 +82,164 @@ class PortalScope:
     billing_contact_designation: str
     billing_address_name: str
     tax_id: str
+
+
+def _first_validation_message(exc: ValidationError) -> str:
+    errors = exc.errors()
+    if not errors:
+        return "Invalid request payload."
+    return clean(errors[0].get("msg")) or "Invalid request payload."
+
+
+class CustomerPortalBillingInput(BaseModel):
+    model_config = ConfigDict(extra="ignore", frozen=True, validate_default=True)
+
+    portal_contact_name: str = ""
+    portal_contact_phone: str = ""
+    portal_contact_title: str = ""
+    billing_contact_name: str = ""
+    billing_email: str = ""
+    billing_contact_phone: str = ""
+    billing_contact_title: str = ""
+    billing_address_line_1: str = ""
+    billing_address_line_2: str = ""
+    billing_city: str = ""
+    billing_state: str = ""
+    billing_postal_code: str = ""
+    billing_country: str = DEFAULT_COUNTRY
+    tax_id: str = ""
+
+    @field_validator(
+        "portal_contact_name",
+        "portal_contact_phone",
+        "portal_contact_title",
+        "billing_contact_name",
+        "billing_email",
+        "billing_contact_phone",
+        "billing_contact_title",
+        "billing_address_line_1",
+        "billing_address_line_2",
+        "billing_city",
+        "billing_state",
+        "billing_postal_code",
+        "billing_country",
+        "tax_id",
+        mode="before",
+    )
+    @classmethod
+    def clean_strings(cls, value: Any) -> str:
+        return clean(value)
+
+    @field_validator("billing_email")
+    @classmethod
+    def validate_billing_email(cls, value: str) -> str:
+        lowered = clean(value).lower()
+        if lowered and not public_quote_service.valid_email(lowered):
+            raise ValueError("Enter a valid billing email address.")
+        return lowered
+
+    @model_validator(mode="after")
+    def validate_required_address_fields(self):
+        if not (
+            self.billing_address_line_1
+            and self.billing_city
+            and self.billing_state
+            and self.billing_postal_code
+        ):
+            raise ValueError("Billing address line 1, city, state, and postal code are required.")
+        return self
+
+
+class CustomerPortalLocationUpdateInput(BaseModel):
+    model_config = ConfigDict(extra="ignore", frozen=True, validate_default=True)
+
+    building_name: str = Field(default="", validation_alias=AliasChoices("building_name", "building"))
+    site_supervisor_name: str | None = None
+    site_supervisor_phone: str | None = None
+    site_notes: str | None = None
+    primary_site_contact: str | None = None
+    lockout_emergency_contact: str | None = None
+    access_method: str | None = None
+    access_entrance: str | None = None
+    access_entry_details: str | None = None
+    access_notes: str | None = None
+    alarm_notes: str | None = None
+    has_alarm_system: str | None = None
+    alarm_instructions: str | None = None
+    allowed_entry_time: str | None = None
+    key_fob_handoff_details: str | None = None
+    areas_to_avoid: str | None = None
+    closing_instructions: str | None = None
+    parking_elevator_notes: str | None = None
+    first_service_notes: str | None = None
+    access_details_confirmed: bool | None = None
+
+    @field_validator(
+        "building_name",
+        "site_supervisor_name",
+        "site_supervisor_phone",
+        "site_notes",
+        "primary_site_contact",
+        "lockout_emergency_contact",
+        "access_method",
+        "access_entrance",
+        "access_entry_details",
+        "access_notes",
+        "alarm_notes",
+        "has_alarm_system",
+        "alarm_instructions",
+        "allowed_entry_time",
+        "key_fob_handoff_details",
+        "areas_to_avoid",
+        "closing_instructions",
+        "parking_elevator_notes",
+        "first_service_notes",
+        mode="before",
+    )
+    @classmethod
+    def clean_optional_strings(cls, value: Any) -> str | None:
+        if value is None:
+            return None
+        return clean(value)
+
+    @field_validator("access_details_confirmed", mode="before")
+    @classmethod
+    def normalize_access_details_confirmed(cls, value: Any) -> bool | None:
+        if value in (None, ""):
+            return None
+        if isinstance(value, bool):
+            return value
+        return truthy(value)
+
+    @field_validator("access_method")
+    @classmethod
+    def validate_access_method(cls, value: str | None) -> str | None:
+        if value and value not in LOCATION_ACCESS_METHOD_OPTIONS:
+            raise ValueError("Choose a valid access method.")
+        return value
+
+    @field_validator("has_alarm_system")
+    @classmethod
+    def validate_alarm_value(cls, value: str | None) -> str | None:
+        if value and value not in LOCATION_ALARM_OPTIONS:
+            raise ValueError("Choose a valid alarm system value.")
+        return value
+
+    @model_validator(mode="after")
+    def validate_shape(self):
+        if not self.building_name:
+            raise ValueError("Choose a service location to update.")
+        if not self.updates():
+            raise ValueError("No location updates were provided.")
+        return self
+
+    def updates(self) -> dict[str, Any]:
+        updates: dict[str, Any] = {}
+        for fieldname in BUILDING_EDIT_FIELDS:
+            if fieldname not in self.model_fields_set:
+                continue
+            updates[fieldname] = getattr(self, fieldname)
+        return updates
 
 
 def clean(value: Any) -> str:
@@ -719,6 +878,34 @@ def _shared_contact_updates(
     )
 
 
+def _should_split_billing_contact(
+    scope: PortalScope,
+    portal_contact_name: str,
+    portal_contact_phone: str,
+    portal_contact_title: str,
+    billing_contact_name: str,
+    billing_email: str,
+    billing_phone: str,
+    billing_title: str,
+) -> bool:
+    if clean(scope.portal_contact_name) != clean(scope.billing_contact_name):
+        return False
+    if clean(billing_email).lower() != clean(scope.portal_contact_email).lower():
+        return False
+
+    portal_signature = (
+        clean(portal_contact_name),
+        clean(portal_contact_phone),
+        clean(portal_contact_title),
+    )
+    billing_signature = (
+        clean(billing_contact_name),
+        clean(billing_phone),
+        clean(billing_title),
+    )
+    return portal_signature != billing_signature
+
+
 def _set_download_response(filename: str, content: Any, content_type: str = "application/octet-stream"):
     local = getattr(frappe, "local", None)
     if local is None:
@@ -886,39 +1073,55 @@ def get_customer_portal_locations_data() -> dict[str, Any]:
 
 def update_customer_portal_billing(**kwargs):
     scope = _require_portal_scope()
-    portal_contact_name = clean(kwargs.get("portal_contact_name")) or _portal_contact_payload(scope).get("display_name") or scope.portal_contact_name
-    portal_contact_phone = clean(kwargs.get("portal_contact_phone")) or scope.portal_contact_phone
-    portal_contact_title = clean(kwargs.get("portal_contact_title")) or scope.portal_contact_designation
+    try:
+        payload = CustomerPortalBillingInput.model_validate(kwargs)
+    except ValidationError as exc:
+        _throw(_first_validation_message(exc))
 
-    billing_contact_name = clean(kwargs.get("billing_contact_name")) or clean(kwargs.get("portal_contact_name")) or scope.customer_display
-    billing_email = clean(kwargs.get("billing_email")).lower() or scope.billing_contact_email or scope.portal_contact_email
+    portal_contact_name = payload.portal_contact_name or _portal_contact_payload(scope).get("display_name") or scope.portal_contact_name
+    portal_contact_phone = payload.portal_contact_phone or scope.portal_contact_phone
+    portal_contact_title = payload.portal_contact_title or scope.portal_contact_designation
+
+    billing_contact_name = payload.billing_contact_name or payload.portal_contact_name or scope.customer_display
+    billing_email = payload.billing_email or scope.billing_contact_email or scope.portal_contact_email
     if not public_quote_service.valid_email(billing_email):
         _throw("Enter a valid billing email address.")
 
-    billing_phone = clean(kwargs.get("billing_contact_phone")) or scope.billing_contact_phone
-    billing_title = clean(kwargs.get("billing_contact_title")) or scope.billing_contact_designation
-    address_line_1 = clean(kwargs.get("billing_address_line_1"))
-    city = clean(kwargs.get("billing_city"))
-    state = clean(kwargs.get("billing_state"))
-    postal_code = clean(kwargs.get("billing_postal_code"))
-    if not address_line_1 or not city or not state or not postal_code:
-        _throw("Billing address line 1, city, state, and postal code are required.")
+    billing_phone = payload.billing_contact_phone or scope.billing_contact_phone
+    billing_title = payload.billing_contact_title or scope.billing_contact_designation
+    address_line_1 = payload.billing_address_line_1
+    city = payload.billing_city
+    state = payload.billing_state
+    postal_code = payload.billing_postal_code
 
     address_name = public_quote_service.ensure_address(
         scope.customer_name,
         scope.customer_display,
         address_line_1,
-        clean(kwargs.get("billing_address_line_2")),
+        payload.billing_address_line_2,
         city,
         state,
         postal_code,
-        clean(kwargs.get("billing_country")) or DEFAULT_COUNTRY,
+        payload.billing_country or DEFAULT_COUNTRY,
     )
+    contact_kwargs = {}
+    if _should_split_billing_contact(
+        scope,
+        portal_contact_name,
+        portal_contact_phone,
+        portal_contact_title,
+        billing_contact_name,
+        billing_email,
+        billing_phone,
+        billing_title,
+    ):
+        contact_kwargs["exclude_contact_name"] = scope.portal_contact_name
     contact_name = public_quote_service.ensure_contact(
         scope.customer_name,
         scope.customer_display,
         billing_contact_name,
         billing_email,
+        **contact_kwargs,
     )
     public_quote_service.doc_db_set_values(
         "Contact",
@@ -930,7 +1133,7 @@ def update_customer_portal_billing(**kwargs):
         billing_email,
         contact_name,
         address_name,
-        clean(kwargs.get("tax_id")),
+        payload.tax_id,
     )
 
     if clean(scope.portal_contact_name) and clean(scope.portal_contact_name) == clean(contact_name):
@@ -962,9 +1165,12 @@ def update_customer_portal_billing(**kwargs):
 
 def update_customer_portal_location(**kwargs):
     scope = _require_portal_scope()
-    building_name = clean(kwargs.get("building") or kwargs.get("building_name"))
-    if not building_name:
-        _throw("Choose a service location to update.")
+    try:
+        payload = CustomerPortalLocationUpdateInput.model_validate(kwargs)
+    except ValidationError as exc:
+        _throw(_first_validation_message(exc))
+
+    building_name = payload.building_name
 
     building_row = frappe.db.get_value(
         "Building",
@@ -975,12 +1181,7 @@ def update_customer_portal_location(**kwargs):
     if not building_row or clean(building_row.get("customer")) != scope.customer_name:
         _throw("That service location is not available in this portal account.")
 
-    updates = {}
-    for fieldname in BUILDING_EDIT_FIELDS:
-        if fieldname in kwargs:
-            updates[fieldname] = kwargs.get(fieldname)
-    if not updates:
-        _throw("No location updates were provided.")
+    updates = payload.updates()
 
     if "access_details_confirmed" in updates:
         updates["access_details_confirmed"] = 1 if truthy(updates["access_details_confirmed"]) else 0

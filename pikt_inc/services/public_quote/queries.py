@@ -415,11 +415,12 @@ def find_customer_for_quote(lead_name, contact_email):
         return customer
     return find_customer_by_email(contact_email)
 
-def find_contact_for_customer(customer_name, billing_email):
+def find_contact_for_customer(customer_name, billing_email, exclude_contact_name=""):
     customer_name = clean(customer_name)
+    exclude_contact_name = clean(exclude_contact_name)
     customer_row = get_customer_row(customer_name)
     primary_contact = clean(customer_row.get("customer_primary_contact"))
-    if primary_contact:
+    if primary_contact and primary_contact != exclude_contact_name:
         return primary_contact
 
     billing_email = clean(billing_email).lower()
@@ -433,14 +434,16 @@ def find_contact_for_customer(customer_name, billing_email):
                and dl.parenttype = 'Contact'
                and dl.link_doctype = 'Customer'
             where dl.link_name = %s and ifnull(c.email_id, '') = %s
+              and (%s = '' or c.name != %s)
             order by c.creation asc
-            limit 1
             """,
-            (customer_name, billing_email),
+            (customer_name, billing_email, exclude_contact_name, exclude_contact_name),
             as_dict=True,
         )
-        if rows:
-            return clean(rows[0].get("name"))
+        for row in rows:
+            contact_name = clean(row.get("name"))
+            if contact_name and contact_name != exclude_contact_name:
+                return contact_name
 
     rows = frappe.db.sql(
         """
@@ -451,14 +454,16 @@ def find_contact_for_customer(customer_name, billing_email):
            and dl.parenttype = 'Contact'
            and dl.link_doctype = 'Customer'
         where dl.link_name = %s
+          and (%s = '' or c.name != %s)
         order by c.creation asc
-        limit 1
         """,
-        (customer_name,),
+        (customer_name, exclude_contact_name, exclude_contact_name),
         as_dict=True,
     )
-    if rows:
-        return clean(rows[0].get("name"))
+    for row in rows:
+        contact_name = clean(row.get("name"))
+        if contact_name and contact_name != exclude_contact_name:
+            return contact_name
     return ""
 
 def find_address_for_customer(customer_name):

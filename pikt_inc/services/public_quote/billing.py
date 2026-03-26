@@ -26,10 +26,11 @@ from .shared import (
 )
 
 
-def _find_billing_contact_match(customer_name, billing_email):
+def _find_billing_contact_match(customer_name, billing_email, exclude_contact_name=""):
     billing_email = clean(billing_email).lower()
+    exclude_contact_name = clean(exclude_contact_name)
     if billing_email:
-        matched_contact = find_contact_for_customer(customer_name, billing_email)
+        matched_contact = find_contact_for_customer(customer_name, billing_email, exclude_contact_name=exclude_contact_name)
         if matched_contact:
             matched_email = clean(frappe.db.get_value("Contact", matched_contact, "email_id")).lower()
             if matched_email == billing_email:
@@ -40,7 +41,7 @@ def _find_billing_contact_match(customer_name, billing_email):
         customer_row = {}
 
     primary_contact = clean(customer_row.get("customer_primary_contact"))
-    if primary_contact:
+    if primary_contact and primary_contact != exclude_contact_name:
         primary_email = clean(frappe.db.get_value("Contact", primary_contact, "email_id")).lower()
         if not billing_email or primary_email == billing_email:
             return primary_contact
@@ -83,12 +84,12 @@ def ensure_signed_addendum(quote_name, sales_order_name):
         fail("This service agreement addendum is no longer active.")
     return addendum_row
 
-def ensure_contact(customer_name, customer_display, billing_contact_name, billing_email):
+def ensure_contact(customer_name, customer_display, billing_contact_name, billing_email, exclude_contact_name=""):
     if customer_name and frappe.db.exists("Customer", customer_name):
         lock_document_row("Customer", customer_name)
 
     name_parts = split_name(billing_contact_name)
-    contact_name = _find_billing_contact_match(customer_name, billing_email)
+    contact_name = _find_billing_contact_match(customer_name, billing_email, exclude_contact_name=exclude_contact_name)
     if contact_name:
         doc_db_set_values(
             "Contact",
@@ -123,7 +124,7 @@ def ensure_contact(customer_name, customer_display, billing_contact_name, billin
     try:
         contact_doc.insert(ignore_permissions=True)
     except Exception:
-        contact_name = _find_billing_contact_match(customer_name, billing_email)
+        contact_name = _find_billing_contact_match(customer_name, billing_email, exclude_contact_name=exclude_contact_name)
         if contact_name:
             doc_db_set_values(
                 "Contact",

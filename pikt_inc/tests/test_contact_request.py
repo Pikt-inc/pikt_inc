@@ -28,10 +28,11 @@ class FakeLeadDoc:
 
 
 class TestContactRequest(TestCase):
-    def test_submit_contact_request_creates_lead(self):
+    def test_submit_contact_request_maps_request_type_to_valid_lead_value(self):
         created_doc = None
         lead_payload = None
-        fake_meta = type("Meta", (), {"fields": [type("DF", (), {"fieldname": field})() for field in (
+        fake_fields = []
+        for field in (
             "lead_name",
             "first_name",
             "last_name",
@@ -39,10 +40,28 @@ class TestContactRequest(TestCase):
             "mobile_no",
             "company_name",
             "city",
-            "request_type",
             "service_interest",
             "source",
-        )]})()
+        ):
+            fake_fields.append(type("DF", (), {"fieldname": field})())
+        fake_fields.append(
+            type(
+                "DF",
+                (),
+                {
+                    "fieldname": "request_type",
+                    "options": "\n".join(
+                        (
+                            "Product Enquiry",
+                            "Request for Information",
+                            "Suggestions",
+                            "Other",
+                        )
+                    ),
+                },
+            )()
+        )
+        fake_meta = type("Meta", (), {"fields": fake_fields})()
 
         def build_lead_doc(payload):
             nonlocal created_doc, lead_payload
@@ -60,15 +79,16 @@ class TestContactRequest(TestCase):
                 mobile_no="5125550100",
                 company_name="Codex Review LLC",
                 city="Austin",
-                request_type="General service question",
+                request_type="Walkthrough request",
                 message="Please tell me more about recurring service.",
             )
 
         self.assertEqual(result["status"], "submitted")
         self.assertEqual(result["lead"], "CRM-LEAD-TEST-0001")
         self.assertEqual(lead_payload["doctype"], "Lead")
-        self.assertEqual(lead_payload["request_type"], "General service question")
-        self.assertEqual(lead_payload["service_interest"], "Please tell me more about recurring service.")
+        self.assertEqual(lead_payload["request_type"], "Product Enquiry")
+        self.assertIn("Requested contact type: Walkthrough request", lead_payload["service_interest"])
+        self.assertIn("Please tell me more about recurring service.", lead_payload["service_interest"])
         self.assertTrue(created_doc.ignore_permissions)
 
     def test_submit_contact_request_rejects_invalid_email(self):

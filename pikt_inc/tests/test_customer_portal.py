@@ -417,7 +417,7 @@ class TestCustomerPortal(TestCase):
         self.assertGreaterEqual(doc_db_set_values.call_count, 2)
         self.assertEqual(response["status"], "updated")
 
-    def test_billing_update_preserves_billing_fields_for_shared_contact(self):
+    def test_billing_update_splits_shared_contact_when_roles_diverge(self):
         scope = portal.PortalScope(
             session_user="portal@example.com",
             customer_name="CUST-1",
@@ -440,8 +440,8 @@ class TestCustomerPortal(TestCase):
         ), patch.object(portal.public_quote_service, "valid_email", return_value=True), patch.object(
             portal.public_quote_service, "ensure_address", return_value="ADDR-UPDATED"
         ), patch.object(
-            portal.public_quote_service, "ensure_contact", return_value="CONTACT-1"
-        ), patch.object(
+            portal.public_quote_service, "ensure_contact", return_value="CONTACT-BILLING"
+        ) as mock_ensure_contact, patch.object(
             portal.public_quote_service, "sync_customer"
         ), patch.object(
             portal.public_quote_service, "doc_db_set_values"
@@ -464,12 +464,19 @@ class TestCustomerPortal(TestCase):
                 tax_id="12-3456789",
             )
 
+        mock_ensure_contact.assert_called_once_with(
+            "CUST-1",
+            "Portal Customer LLC",
+            "Billing Team",
+            "portal@example.com",
+            exclude_contact_name="CONTACT-1",
+        )
         final_update = doc_db_set_values.call_args_list[-1].args
         self.assertEqual(final_update[0], "Contact")
         self.assertEqual(final_update[1], "CONTACT-1")
-        self.assertEqual(final_update[2]["phone"], "512-555-0222")
-        self.assertEqual(final_update[2]["designation"], "Controller")
-        self.assertEqual(final_update[2]["address"], "ADDR-UPDATED")
+        self.assertEqual(final_update[2]["phone"], "512-555-0111")
+        self.assertEqual(final_update[2]["designation"], "Facilities Lead")
+        self.assertEqual(final_update[2]["address"], "ADDR-PORTAL")
 
     def test_location_update_rejects_out_of_scope_building(self):
         scope = portal.PortalScope(
