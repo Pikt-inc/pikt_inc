@@ -6,6 +6,24 @@ from typing import Any
 import frappe
 
 
+def _as_mapping(value):
+    if hasattr(value, "model_dump"):
+        return value.model_dump(mode="python")
+    if isinstance(value, dict):
+        return value
+    return {}
+
+
+def _as_nav_items(items):
+    normalized = []
+    for item in items or []:
+        if hasattr(item, "model_dump"):
+            normalized.append(item.model_dump(mode="python"))
+        elif isinstance(item, dict):
+            normalized.append(item)
+    return normalized
+
+
 def build_context(
     context,
     *,
@@ -19,13 +37,14 @@ def build_context(
     context.body_class = "no-web-page-sections"
     context.noindex_meta = 1
 
-    metatags = data.get("metatags") or {}
+    metatags = _as_mapping(data.get("metatags"))
+    portal_nav = _as_nav_items(data.get("portal_nav"))
     context.page_title = metatags.get("title") or data.get("page_title") or data.get("portal_title")
     context.meta_description = metatags.get("description") or data.get("portal_description") or ""
     context.description = context.meta_description
     context.http_status_code = int(data.get("http_status_code") or 200)
-    context.primary_nav = [item for item in data.get("portal_nav", []) if item.get("key") not in {"contact", "logout"}]
-    context.utility_nav = [item for item in data.get("portal_nav", []) if item.get("key") in {"contact", "logout"}]
+    context.primary_nav = [item for item in portal_nav if item.get("key") not in {"contact", "logout"}]
+    context.utility_nav = [item for item in portal_nav if item.get("key") in {"contact", "logout"}]
     context.redirect_to = data.get("redirect_to") or ""
 
     if context.redirect_to:

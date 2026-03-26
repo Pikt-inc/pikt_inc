@@ -55,6 +55,7 @@ try:
     portal = importlib.import_module("pikt_inc.services.customer_portal")
     portal_api = importlib.import_module("pikt_inc.api.customer_portal")
     portal_contracts = importlib.import_module("pikt_inc.services.contracts.customer_portal")
+    portal_payloads = importlib.import_module("pikt_inc.services.customer_portal.payloads")
     portal_page_helper = importlib.import_module("pikt_inc.www._portal_page")
     portal_www_index = importlib.import_module("pikt_inc.www.portal.index")
     portal_www_agreements = importlib.import_module("pikt_inc.www.portal.agreements")
@@ -65,6 +66,7 @@ except ModuleNotFoundError:
     portal = importlib.import_module("pikt_inc.pikt_inc.services.customer_portal")
     portal_api = importlib.import_module("pikt_inc.pikt_inc.api.customer_portal")
     portal_contracts = importlib.import_module("pikt_inc.pikt_inc.services.contracts.customer_portal")
+    portal_payloads = importlib.import_module("pikt_inc.pikt_inc.services.customer_portal.payloads")
     portal_page_helper = importlib.import_module("pikt_inc.pikt_inc.www._portal_page")
     portal_www_index = importlib.import_module("pikt_inc.pikt_inc.www.portal.index")
     portal_www_agreements = importlib.import_module("pikt_inc.pikt_inc.www.portal.agreements")
@@ -388,6 +390,19 @@ class TestCustomerPortal(TestCase):
         self.assertEqual(portal.frappe.local.response["http_status_code"], 302)
         self.assertEqual(data["login_path"], "/login?redirect-to=/portal")
         self.assertEqual(data["redirect_to"], "/login?redirect-to=/portal")
+        self.assertIsInstance(data["metatags"], dict)
+        self.assertIsInstance(data["portal_nav"][0], dict)
+
+    def test_portal_access_error_response_serializes_nested_models(self):
+        with patch.object(portal_payloads, "_is_guest_session", return_value=True):
+            data = portal_payloads._portal_access_error_response(
+                "overview",
+                portal.PortalAccessError("Sign in to access your customer portal."),
+            )
+
+        self.assertIsInstance(data["metatags"], dict)
+        self.assertEqual(data["metatags"]["title"], "Account Overview | Customer Portal")
+        self.assertTrue(all(isinstance(item, dict) for item in data["portal_nav"]))
 
     def test_billing_update_uses_scoped_customer_helpers(self):
         scope = portal.PortalScope(
@@ -709,6 +724,32 @@ class TestCustomerPortal(TestCase):
         self.assertEqual(portal_page_helper.frappe.local.response["type"], "redirect")
         self.assertEqual(portal_page_helper.frappe.local.response["location"], "/login?redirect-to=/portal")
         self.assertEqual(portal_page_helper.frappe.local.response["http_status_code"], 302)
+
+    def test_portal_page_helper_normalizes_model_like_context_values(self):
+        context = types.SimpleNamespace()
+
+        result = portal_page_helper.build_context(
+            context,
+            page_loader=lambda: {
+                "page_title": "Overview",
+                "portal_title": "Customer Portal",
+                "portal_description": "Secure portal",
+                "portal_nav": [
+                    portal_contracts.PortalNavItem(key="overview", label="Overview", url="/portal", is_active=True),
+                    portal_contracts.PortalNavItem(key="contact", label="Contact", url="/contact", is_active=False),
+                ],
+                "metatags": portal_contracts.PortalMetaTags(
+                    title="Customer Portal",
+                    description="Secure portal",
+                    canonical="https://example.test/portal",
+                ),
+            },
+        )
+
+        self.assertIs(result, context)
+        self.assertEqual(context.page_title, "Customer Portal")
+        self.assertEqual([item["key"] for item in context.primary_nav], ["overview"])
+        self.assertEqual([item["key"] for item in context.utility_nav], ["contact"])
 
     def test_api_getters_proxy_to_service(self):
         with patch.object(portal_api.customer_portal_service, "get_customer_portal_dashboard_data", return_value={"page_key": "overview"}) as dashboard, patch.object(
