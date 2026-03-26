@@ -6,6 +6,10 @@ import types
 import unittest
 from unittest.mock import MagicMock, patch
 
+from pikt_inc.tests._frappe_harness import install_test_frappe
+
+install_test_frappe()
+
 if "frappe" not in sys.modules:
     fake_frappe = types.SimpleNamespace(
         utils=types.SimpleNamespace(now=lambda: "2026-03-24 13:00:00", today=lambda: "2026-03-24"),
@@ -76,6 +80,9 @@ class FakeSaveDoc(FakeDoc):
 
 
 class TestOnboarding(unittest.TestCase):
+    def setUp(self):
+        onboarding.frappe.session.user = "manager@example.com"
+
     def test_hook_wiring_adds_onboarding_events(self):
         self.assertEqual(
             app_hooks.doc_events["Employee Onboarding Request"]["before_insert"],

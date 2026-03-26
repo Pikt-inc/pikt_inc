@@ -6,6 +6,10 @@ import types
 import unittest
 from unittest.mock import MagicMock, patch
 
+from pikt_inc.tests._frappe_harness import install_test_frappe
+
+install_test_frappe()
+
 if "frappe" not in sys.modules:
     fake_frappe = types.SimpleNamespace(
         utils=types.SimpleNamespace(now=lambda: "2026-03-24 12:00:00"),

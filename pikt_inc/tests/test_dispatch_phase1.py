@@ -9,6 +9,10 @@ import types
 import unittest
 from unittest.mock import patch
 
+from pikt_inc.tests._frappe_harness import install_test_frappe
+
+install_test_frappe()
+
 if "frappe" not in sys.modules:
     def _to_datetime(value=None):
         if value is None:

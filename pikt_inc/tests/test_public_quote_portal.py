@@ -4,6 +4,10 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from pikt_inc.tests._frappe_harness import install_test_frappe
+
+install_test_frappe()
+
 from pikt_inc.services import public_quote
 
 

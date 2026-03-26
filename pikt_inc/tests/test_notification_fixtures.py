@@ -4,6 +4,10 @@ import json
 from pathlib import Path
 import unittest
 
+from pikt_inc.tests._frappe_harness import install_test_frappe
+
+install_test_frappe()
+
 from pikt_inc import hooks as app_hooks
 
 

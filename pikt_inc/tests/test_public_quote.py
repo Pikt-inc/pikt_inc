@@ -4,6 +4,10 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+from pikt_inc.tests._frappe_harness import install_test_frappe
+
+install_test_frappe()
+
 from pikt_inc.services import public_quote
 
 
@@ -246,8 +250,14 @@ class TestPublicQuote(unittest.TestCase):
     @patch.object(public_quote, "get_customer_row", return_value={"customer_primary_contact": "CONTACT-1", "customer_primary_address": "ADDR-1", "email_id": "billing@example.com"})
     @patch.object(public_quote.frappe, "get_doc")
     def test_build_sales_order_copies_item_and_tax_linkage(self, mock_get_doc, _mock_customer_row):
-        sales_order_doc = FakeSaveDoc({"doctype": "Sales Order", "docstatus": 0})
-        mock_get_doc.return_value = sales_order_doc
+        created_docs = []
+
+        def fake_get_doc(payload):
+            doc = FakeSaveDoc({**payload, "docstatus": 0})
+            created_docs.append(doc)
+            return doc
+
+        mock_get_doc.side_effect = fake_get_doc
 
         result = public_quote.build_sales_order(
             {
@@ -295,6 +305,7 @@ class TestPublicQuote(unittest.TestCase):
             "CUST-TEST-0001",
         )
 
+        sales_order_doc = created_docs[0]
         self.assertTrue(sales_order_doc.insert_called)
         self.assertTrue(sales_order_doc.submit_called)
         self.assertEqual(result, sales_order_doc)

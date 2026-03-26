@@ -9,6 +9,10 @@ from unittest import TestCase
 from unittest.mock import patch
 import types
 
+from pikt_inc.tests._frappe_harness import install_test_frappe
+
+install_test_frappe()
+
 
 APP_ROOT = Path(__file__).resolve().parents[2]
 if str(APP_ROOT) not in sys.path:

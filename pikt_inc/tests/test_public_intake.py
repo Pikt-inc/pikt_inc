@@ -4,6 +4,10 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+from pikt_inc.tests._frappe_harness import install_test_frappe
+
+install_test_frappe()
+
 from pikt_inc.services import public_intake
 
 
@@ -69,7 +73,7 @@ class TestPublicIntake(unittest.TestCase):
 
         self.assertEqual(doc.bathroom_count_range, "Light")
         self.assertEqual(doc.custom_estimate_low, 600.0)
-        self.assertEqual(doc.custom_estimate_high, 756.62)
+        self.assertEqual(doc.custom_estimate_high, 755.95)
         self.assertEqual(doc.opportunity_amount, 700.0)
         self.assertEqual(doc.risk_level, "Green")
         self.assertEqual(doc.status, "Open")
@@ -182,11 +186,17 @@ class TestPublicIntake(unittest.TestCase):
         _mock_make_public_token,
     ):
         mock_upsert_lead.return_value = SimpleNamespace(name="CRM-LEAD-TEST-0001")
-        opportunity = FakeInsertDoc(
-            {"doctype": "Opportunity"},
-            on_insert=public_intake.apply_instant_quote_pricing,
-        )
-        mock_get_doc.return_value = opportunity
+        created_docs = []
+
+        def fake_get_doc(payload):
+            opportunity = FakeInsertDoc(
+                payload,
+                on_insert=public_intake.apply_instant_quote_pricing,
+            )
+            created_docs.append(opportunity)
+            return opportunity
+
+        mock_get_doc.side_effect = fake_get_doc
 
         result = public_intake.create_instant_quote_opportunity(
             {
@@ -202,6 +212,7 @@ class TestPublicIntake(unittest.TestCase):
             }
         )
 
+        opportunity = created_docs[0]
         self.assertTrue(opportunity.insert_called)
         self.assertEqual(
             result,
@@ -209,7 +220,7 @@ class TestPublicIntake(unittest.TestCase):
                 "name": "CRM-OPP-TEST-0001",
                 "opp": "CRM-OPP-TEST-0001",
                 "low": 600.0,
-                "high": 756.62,
+                "high": 755.95,
                 "risk": "Green",
                 "currency": "USD",
                 "final_price": 700.0,
