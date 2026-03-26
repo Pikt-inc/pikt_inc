@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import quote
 
 import frappe
 from frappe.utils import get_datetime, now_datetime
@@ -117,6 +118,15 @@ def _set_http_status(code: int):
     response["http_status_code"] = int(code)
 
 
+def _login_path_for_page(page_key: str) -> str:
+    next_path = PORTAL_PAGE_PATHS.get(page_key, PORTAL_HOME_PATH)
+    return f"/login?redirect-to={quote(next_path, safe='/')}"
+
+
+def _is_guest_session() -> bool:
+    return clean(getattr(getattr(frappe, "session", None), "user", None)) in {"", "Guest"}
+
+
 def _page_meta(page_key: str) -> dict[str, str]:
     page_title = PORTAL_PAGE_TITLES.get(page_key, PORTAL_TITLE)
     title = f"{page_title} | {PORTAL_TITLE}" if page_title != PORTAL_TITLE else PORTAL_TITLE
@@ -158,10 +168,19 @@ def _base_page_data(page_key: str) -> dict[str, Any]:
         "empty_state_title": "",
         "empty_state_copy": "",
         "customer_display": "",
+        "http_status_code": 200,
+        "login_path": "",
     }
 
 
-def _error_page_data(page_key: str, title: str, message: str, status_code: int = 403) -> dict[str, Any]:
+def _error_page_data(
+    page_key: str,
+    title: str,
+    message: str,
+    status_code: int = 403,
+    *,
+    login_path: str = "",
+) -> dict[str, Any]:
     _set_http_status(status_code)
     data = _base_page_data(page_key)
     data.update(
@@ -169,9 +188,22 @@ def _error_page_data(page_key: str, title: str, message: str, status_code: int =
             "access_denied": True,
             "error_title": clean(title) or "Portal access unavailable",
             "error_message": clean(message),
+            "http_status_code": int(status_code),
+            "login_path": clean(login_path),
         }
     )
     return data
+
+
+def _portal_access_error_page(page_key: str, exc: PortalAccessError) -> dict[str, Any]:
+    login_path = _login_path_for_page(page_key) if _is_guest_session() else ""
+    return _error_page_data(
+        page_key,
+        "Portal access unavailable",
+        str(exc),
+        status_code=403,
+        login_path=login_path,
+    )
 
 
 def _format_date(value: Any) -> str:
@@ -731,7 +763,7 @@ def get_customer_portal_dashboard_data() -> dict[str, Any]:
     try:
         scope = _resolve_portal_scope_or_error()
     except PortalAccessError as exc:
-        return _error_page_data("overview", "Portal access unavailable", str(exc))
+        return _portal_access_error_page("overview", exc)
 
     agreements, addenda = _get_agreements(scope.customer_name)
     invoices = _get_invoices(scope.customer_name)
@@ -781,7 +813,7 @@ def get_customer_portal_agreements_data() -> dict[str, Any]:
     try:
         scope = _resolve_portal_scope_or_error()
     except PortalAccessError as exc:
-        return _error_page_data("agreements", "Portal access unavailable", str(exc))
+        return _portal_access_error_page("agreements", exc)
 
     agreements, addenda = _get_agreements(scope.customer_name)
     active_master, shaped_addenda = _shape_agreement_rows(agreements, addenda)
@@ -803,7 +835,7 @@ def get_customer_portal_billing_data() -> dict[str, Any]:
     try:
         scope = _resolve_portal_scope_or_error()
     except PortalAccessError as exc:
-        return _error_page_data("billing", "Portal access unavailable", str(exc))
+        return _portal_access_error_page("billing", exc)
 
     invoices = _get_invoices(scope.customer_name)
     shaped_invoices, unpaid_total = _shape_invoice_rows(invoices)
@@ -829,7 +861,7 @@ def get_customer_portal_locations_data() -> dict[str, Any]:
     try:
         scope = _resolve_portal_scope_or_error()
     except PortalAccessError as exc:
-        return _error_page_data("locations", "Portal access unavailable", str(exc))
+        return _portal_access_error_page("locations", exc)
 
     shaped_buildings = _shape_building_rows(_get_buildings(scope.customer_name))
     data = _base_page_data("locations")

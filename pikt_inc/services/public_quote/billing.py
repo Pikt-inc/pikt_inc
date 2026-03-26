@@ -25,6 +25,28 @@ from .shared import (
     valid_email,
 )
 
+
+def _find_billing_contact_match(customer_name, billing_email):
+    billing_email = clean(billing_email).lower()
+    if billing_email:
+        matched_contact = find_contact_for_customer(customer_name, billing_email)
+        if matched_contact:
+            matched_email = clean(frappe.db.get_value("Contact", matched_contact, "email_id")).lower()
+            if matched_email == billing_email:
+                return matched_contact
+
+    customer_row = get_customer_row(customer_name)
+    if not isinstance(customer_row, dict):
+        customer_row = {}
+
+    primary_contact = clean(customer_row.get("customer_primary_contact"))
+    if primary_contact:
+        primary_email = clean(frappe.db.get_value("Contact", primary_contact, "email_id")).lower()
+        if not billing_email or primary_email == billing_email:
+            return primary_contact
+
+    return ""
+
 def dynamic_link_filters(parenttype, parent, link_doctype, link_name):
     return {
         "parenttype": clean(parenttype),
@@ -66,7 +88,7 @@ def ensure_contact(customer_name, customer_display, billing_contact_name, billin
         lock_document_row("Customer", customer_name)
 
     name_parts = split_name(billing_contact_name)
-    contact_name = find_contact_for_customer(customer_name, billing_email)
+    contact_name = _find_billing_contact_match(customer_name, billing_email)
     if contact_name:
         doc_db_set_values(
             "Contact",
@@ -101,7 +123,7 @@ def ensure_contact(customer_name, customer_display, billing_contact_name, billin
     try:
         contact_doc.insert(ignore_permissions=True)
     except Exception:
-        contact_name = find_contact_for_customer(customer_name, billing_email)
+        contact_name = _find_billing_contact_match(customer_name, billing_email)
         if contact_name:
             doc_db_set_values(
                 "Contact",

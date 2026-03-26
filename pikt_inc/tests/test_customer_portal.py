@@ -351,6 +351,17 @@ class TestCustomerPortal(TestCase):
         self.assertTrue(data["access_denied"])
         self.assertIn("multiple customers", data["error_message"])
         self.assertEqual(portal.frappe.local.response["http_status_code"], 403)
+        self.assertEqual(data["login_path"], "")
+
+    def test_guest_scope_returns_sign_in_path(self):
+        portal.frappe.session.user = "Guest"
+
+        data = portal.get_customer_portal_dashboard_data()
+
+        self.assertTrue(data["access_denied"])
+        self.assertEqual(data["error_message"], "Sign in to access your customer portal.")
+        self.assertEqual(portal.frappe.local.response["http_status_code"], 403)
+        self.assertEqual(data["login_path"], "/login?redirect-to=/portal")
 
     def test_billing_update_uses_scoped_customer_helpers(self):
         scope = portal.PortalScope(
@@ -626,8 +637,26 @@ class TestCustomerPortal(TestCase):
         self.assertEqual(context.meta_description, "Secure portal")
         self.assertEqual(context.description, "Secure portal")
         self.assertEqual(context.body_class, "no-web-page-sections")
+        self.assertEqual(context.http_status_code, 200)
         self.assertEqual([item["key"] for item in context.primary_nav], ["overview"])
         self.assertEqual([item["key"] for item in context.utility_nav], ["contact", "logout"])
+
+    def test_portal_page_helper_preserves_http_status_code(self):
+        context = types.SimpleNamespace()
+        result = portal_page_helper.build_context(
+            context,
+            page_loader=lambda: {
+                "page_title": "Billing",
+                "portal_title": "Customer Portal",
+                "portal_description": "Desc",
+                "portal_nav": [],
+                "metatags": {"title": "Billing | Customer Portal", "description": "Secure portal"},
+                "http_status_code": 403,
+            },
+        )
+
+        self.assertIs(result, context)
+        self.assertEqual(context.http_status_code, 403)
 
     def test_api_getters_proxy_to_service(self):
         with patch.object(portal_api.customer_portal_service, "get_customer_portal_dashboard_data", return_value={"page_key": "overview"}) as dashboard, patch.object(

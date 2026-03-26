@@ -20,7 +20,12 @@
         <h1>{{ error_title }}</h1>
         <p class="portal-copy">{{ error_message }}</p>
         <div class="portal-actions">
+          {% if login_path %}
+          <a class="portal-button portal-button--solid" href="{{ login_path }}">Sign in</a>
+          <a class="portal-button portal-button--ghost" href="{{ portal_contact_path }}">Contact support</a>
+          {% else %}
           <a class="portal-button portal-button--solid" href="{{ portal_contact_path }}">Contact support</a>
+          {% endif %}
         </div>
       </section>
       {% else %}

@@ -63,6 +63,7 @@ home_page = "home"
 role_home_page = {"Customer Portal User": "portal"}
 
 website_route_rules = [
+	{"from_route": "/contact", "to_route": "contact-page"},
 	{"from_route": "/quote", "to_route": "instant-quote"},
 	{"from_route": "/thank-you", "to_route": "quote-thank-you"},
 	{"from_route": "/digital-walkthrough", "to_route": "quote-digital-walkthrough"},
@@ -352,7 +353,6 @@ fixtures = [
 					"home",
 					"about",
 					"commercial-cleaning-services",
-					"contact",
 					"faq",
 					"industries",
 					"industries/industrial-flex",
@@ -383,8 +383,6 @@ fixtures = [
 				[
 					"LP About / Story Section",
 					"LP City Links Grid",
-					"LP Contact Form",
-					"LP Contact Info Card",
 					"LP CTA Band",
 					"LP FAQ Accordion",
 					"LP Feature List Section",

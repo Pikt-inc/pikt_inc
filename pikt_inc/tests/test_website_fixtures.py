@@ -14,6 +14,7 @@ from pikt_inc import hooks as app_hooks
 BUILDER_PAGE_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "builder_page.json"
 CUSTOM_FIELD_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "custom_field.json"
 CUSTOM_DOCPERM_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "custom_docperm.json"
+BUILDER_COMPONENT_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "builder_component.json"
 INSTANT_QUOTE_TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "www" / "instant-quote.html"
 INSTANT_QUOTE_CONTROLLER_PATH = Path(__file__).resolve().parents[1] / "www" / "instant_quote.py"
 SITE_SHELL_MACROS_PATH = Path(__file__).resolve().parents[1] / "templates" / "includes" / "site_shell_macros.html"
@@ -21,6 +22,8 @@ QUOTE_FUNNEL_MACROS_PATH = Path(__file__).resolve().parents[1] / "templates" / "
 BLOG_MACROS_PATH = Path(__file__).resolve().parents[1] / "templates" / "includes" / "blog_macros.html"
 BLOG_HOME_TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "www" / "blog-home.html"
 BLOG_POST_TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "www" / "blog-post.html"
+CONTACT_TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "www" / "contact-page.html"
+CONTACT_CONTROLLER_PATH = Path(__file__).resolve().parents[1] / "www" / "contact_page.py"
 QUOTE_THANK_YOU_TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "www" / "quote-thank-you.html"
 QUOTE_THANK_YOU_CONTROLLER_PATH = Path(__file__).resolve().parents[1] / "www" / "quote_thank_you.py"
 QUOTE_DIGITAL_WALKTHROUGH_TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "www" / "quote-digital-walkthrough.html"
@@ -43,6 +46,12 @@ QUOTE_CLEANUP_PATCH_PATH = (
     / "patches"
     / "post_model_sync"
     / "remove_legacy_quote_builder_pages.py"
+)
+CONTACT_CLEANUP_PATCH_PATH = (
+    Path(__file__).resolve().parents[1]
+    / "patches"
+    / "post_model_sync"
+    / "remove_legacy_contact_builder_page.py"
 )
 
 
@@ -67,6 +76,12 @@ class TestWebsiteFixtures(unittest.TestCase):
     def test_quote_route_is_app_owned(self):
         self.assertIn(
             {"from_route": "/quote", "to_route": "instant-quote"},
+            app_hooks.website_route_rules,
+        )
+
+    def test_contact_route_is_app_owned(self):
+        self.assertIn(
+            {"from_route": "/contact", "to_route": "contact-page"},
             app_hooks.website_route_rules,
         )
 
@@ -105,6 +120,11 @@ class TestWebsiteFixtures(unittest.TestCase):
     def test_instant_quote_files_exist(self):
         self.assertTrue(INSTANT_QUOTE_CONTROLLER_PATH.exists())
         self.assertTrue(INSTANT_QUOTE_TEMPLATE_PATH.exists())
+        self.assertTrue(SITE_SHELL_MACROS_PATH.exists())
+
+    def test_contact_page_files_exist(self):
+        self.assertTrue(CONTACT_CONTROLLER_PATH.exists())
+        self.assertTrue(CONTACT_TEMPLATE_PATH.exists())
         self.assertTrue(SITE_SHELL_MACROS_PATH.exists())
 
     def test_quote_funnel_files_exist(self):
@@ -179,6 +199,12 @@ class TestWebsiteFixtures(unittest.TestCase):
         fixture_routes = {page["route"] for page in builder_pages}
         self.assertTrue(quote_routes.isdisjoint(fixture_routes))
 
+    def test_contact_builder_page_is_absent_from_fixture(self):
+        builder_pages = json.loads(BUILDER_PAGE_FIXTURE_PATH.read_text(encoding="utf-8"))
+        fixture_routes = {page["route"] for page in builder_pages}
+
+        self.assertNotIn("contact", fixture_routes)
+
     def test_builder_page_export_excludes_quote_routes(self):
         builder_fixture = next(row for row in app_hooks.fixtures if row["dt"] == "Builder Page")
         exported_routes = set(builder_fixture["filters"][0][2])
@@ -193,6 +219,34 @@ class TestWebsiteFixtures(unittest.TestCase):
         }
 
         self.assertTrue(quote_routes.isdisjoint(exported_routes))
+
+    def test_builder_exports_exclude_contact_builder_artifacts(self):
+        builder_page_fixture = next(row for row in app_hooks.fixtures if row["dt"] == "Builder Page")
+        exported_routes = set(builder_page_fixture["filters"][0][2])
+        self.assertNotIn("contact", exported_routes)
+
+        builder_component_fixture = next(row for row in app_hooks.fixtures if row["dt"] == "Builder Component")
+        exported_components = set(builder_component_fixture["filters"][0][2])
+        self.assertNotIn("LP Contact Form", exported_components)
+        self.assertNotIn("LP Contact Info Card", exported_components)
+
+    def test_contact_page_template_uses_native_submission_flow(self):
+        template = CONTACT_TEMPLATE_PATH.read_text(encoding="utf-8")
+
+        self.assertIn("/api/method/pikt_inc.api.contact_request.submit_contact_request", template)
+        self.assertNotIn("/contact-request", template)
+        self.assertNotIn("<iframe", template)
+        for field_name in (
+            "first_name",
+            "last_name",
+            "email_id",
+            "mobile_no",
+            "company_name",
+            "city",
+            "request_type",
+            "message",
+        ):
+            self.assertIn(f'name="{field_name}"', template)
 
     def test_quote_funnel_frontend_contracts(self):
         thank_you_template = QUOTE_THANK_YOU_TEMPLATE_PATH.read_text(encoding="utf-8")
@@ -219,3 +273,21 @@ class TestWebsiteFixtures(unittest.TestCase):
             "pikt_inc.patches.post_model_sync.remove_legacy_quote_builder_pages",
             patches_text,
         )
+
+    def test_contact_cleanup_patch_is_registered(self):
+        patches_text = PATCHES_PATH.read_text(encoding="utf-8")
+
+        self.assertIn(
+            "pikt_inc.patches.post_model_sync.remove_legacy_contact_builder_page",
+            patches_text,
+        )
+        self.assertTrue(CONTACT_CLEANUP_PATCH_PATH.exists())
+
+    def test_contact_fixture_copy_does_not_ship_placeholder_service_area_text(self):
+        components = json.loads(BUILDER_COMPONENT_FIXTURE_PATH.read_text(encoding="utf-8"))
+        service_area_component = next(row for row in components if row["component_name"] == "LP Service Area Section")
+        block = service_area_component["block"]
+
+        self.assertNotIn("What to swap in", block)
+        self.assertNotIn("Downtown core", block)
+        self.assertNotIn("North corridor", block)

@@ -1,0 +1,296 @@
+{% extends "templates/base.html" %}
+{% from "pikt_inc/templates/includes/site_shell_macros.html" import site_shell_footer, site_shell_head, site_shell_header %}
+
+{% block navbar %}{% endblock %}
+{% block footer %}{% endblock %}
+
+{% block head_include %}
+{{ super() }}
+{{ site_shell_head() }}
+<style>
+.contact-page{background:#fff;color:#171717;min-height:100vh}
+.contact-page a{text-decoration:none}
+.contact-page a:hover{text-decoration:none}
+.contact-wrap{max-width:1200px;margin:0 auto;padding:0 20px}
+.contact-hero{padding:64px 0 28px}
+.contact-kicker{margin:0 0 14px;color:#0f5132;font-size:13px;font-weight:700;letter-spacing:.08em;line-height:1.2;text-transform:uppercase}
+.contact-hero h1{margin:0;max-width:760px;color:#171717;font-size:clamp(2.4rem,5vw,4.5rem);font-weight:700;line-height:1.03;letter-spacing:-.03em}
+.contact-copy{margin:18px 0 0;max-width:760px;color:#525252;font-size:17px;font-weight:500;line-height:1.65}
+.contact-grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:24px;padding:10px 0 64px}
+.contact-panel,.contact-form-card,.contact-card{background:#fff;border:1px solid #e7e7e7;border-radius:28px}
+.contact-panel{display:flex;flex-direction:column;gap:22px}
+.contact-card,.contact-form-card{padding:26px}
+.contact-card h2,.contact-form-card h2{margin:0;color:#171717;font-size:30px;font-weight:700;line-height:1.15}
+.contact-card-copy{margin:12px 0 0;color:#525252;font-size:16px;line-height:1.65}
+.contact-list,.contact-bullets{display:grid;gap:14px;margin-top:20px}
+.contact-list__item{display:grid;grid-template-columns:40px minmax(0,1fr);gap:14px;align-items:flex-start}
+.contact-list__badge{display:flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:999px;background:#f3f3f3;color:#171717;font-size:14px;font-weight:700}
+.contact-list h3{margin:0;color:#171717;font-size:21px;font-weight:700;line-height:1.2}
+.contact-list p,.contact-bullets li,.contact-card p{margin:8px 0 0;color:#525252;font-size:15px;line-height:1.65}
+.contact-bullets{padding-left:18px}
+.contact-bullets li+li{margin-top:8px}
+.contact-service-area{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:18px}
+.contact-service-area span{display:flex;align-items:center;justify-content:center;padding:18px 16px;border:1px solid #e7e7e7;border-radius:16px;background:#fff;color:#2f3d37;font-size:16px;font-weight:600;text-align:center}
+.contact-form{display:grid;gap:14px;margin-top:22px}
+.contact-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.contact-field{display:flex;flex-direction:column;gap:8px}
+.contact-field--full{grid-column:1 / -1}
+.contact-field label{color:#171717;font-size:14px;font-weight:700;line-height:1.2}
+.contact-field input,.contact-field select,.contact-field textarea{width:100%;padding:14px 16px;border:1px solid #d7d7d7;border-radius:16px;background:#fff;color:#171717;font:inherit;box-sizing:border-box}
+.contact-field textarea{min-height:160px;resize:vertical}
+.contact-field input:focus,.contact-field select:focus,.contact-field textarea:focus{border-color:#171717;outline:none;box-shadow:rgba(23,23,23,.08) 0 0 0 4px}
+.contact-field small{color:#737373;font-size:13px;line-height:1.5}
+.contact-actions{display:flex;flex-direction:column;gap:12px;margin-top:6px}
+.contact-submit{appearance:none;border:0;border-radius:16px;background:#171717;color:#fff;cursor:pointer;font-size:15px;font-weight:700;line-height:1.1;padding:16px 20px}
+.contact-submit:hover:not(:disabled){background:#303030}
+.contact-submit:disabled{cursor:not-allowed;opacity:.7}
+.contact-status{display:none;border-radius:18px;padding:14px 16px;font-size:14px;font-weight:600;line-height:1.6}
+.contact-status.is-visible{display:block}
+.contact-status.is-error{background:#fef2f2;border:1px solid #fecaca;color:#b91c1c}
+.contact-status.is-success{background:#ecfdf3;border:1px solid #bbf7d0;color:#166534}
+.contact-fine-print{color:#737373;font-size:13px;line-height:1.6}
+@media (max-width:980px){
+  .contact-grid{grid-template-columns:1fr}
+}
+@media (max-width:768px){
+  .contact-wrap{padding:0 16px}
+  .contact-hero{padding:48px 0 22px}
+  .contact-card,.contact-form-card{padding:20px}
+  .contact-form-grid{grid-template-columns:1fr}
+  .contact-service-area{grid-template-columns:1fr}
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="contact-page">
+  <section>
+    {{ site_shell_header() }}
+  </section>
+  <section>
+    <div class="contact-wrap">
+      <section class="contact-hero">
+        <p class="contact-kicker">Contact the team</p>
+        <h1>Tell us what you need and we will route it to the right next step.</h1>
+        <p class="contact-copy">
+          Use this form for service questions, walkthrough requests, and jobs that need more context before pricing.
+          If the request is a fit, we will follow up with the right scope review or quote path.
+        </p>
+      </section>
+      <section class="contact-grid">
+        <div class="contact-panel">
+          <article class="contact-card">
+            <h2>Coverage and response</h2>
+            <p class="contact-card-copy">
+              We review every request to confirm service fit, scope, and the right next step before anything gets scheduled.
+            </p>
+            <ul class="contact-bullets">
+              <li>Core service area: Kyle and San Marcos, TX</li>
+              <li>Best fit: recurring office, medical, retail, and facility-cleaning programs</li>
+              <li>Typical next step: pricing review, walkthrough scheduling, or a follow-up call</li>
+            </ul>
+          </article>
+          <article class="contact-card">
+            <h2>Where we currently support customers</h2>
+            <p class="contact-card-copy">
+              We focus on recurring commercial cleaning routes in Kyle and San Marcos and review nearby requests for fit before scheduling.
+            </p>
+            <div class="contact-service-area" aria-label="Current service area">
+              <span>Kyle</span>
+              <span>San Marcos</span>
+              <span>Buda</span>
+              <span>South Austin</span>
+              <span>New Braunfels</span>
+              <span>Nearby custom routes</span>
+            </div>
+          </article>
+          <article class="contact-card">
+            <h2>What happens next</h2>
+            <div class="contact-list">
+              <div class="contact-list__item">
+                <div class="contact-list__badge">1</div>
+                <div>
+                  <h3>We review the request</h3>
+                  <p>Your request is reviewed for service fit, timing, and whether it belongs in the quote or walkthrough flow.</p>
+                </div>
+              </div>
+              <div class="contact-list__item">
+                <div class="contact-list__badge">2</div>
+                <div>
+                  <h3>We route the follow-up</h3>
+                  <p>Commercial cleaning inquiries are routed to sales, while account questions and support requests go to the right team.</p>
+                </div>
+              </div>
+              <div class="contact-list__item">
+                <div class="contact-list__badge">3</div>
+                <div>
+                  <h3>We respond with next steps</h3>
+                  <p>If more information is needed, we will use the contact details you provide here to continue the conversation.</p>
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+        <article class="contact-form-card">
+          <h2>Send your request</h2>
+          <p class="contact-card-copy">
+            Use your primary contact details so the follow-up lands with the right person on your team.
+          </p>
+          <form id="contact-request-form" class="contact-form" novalidate>
+            <div class="contact-form-grid">
+              <div class="contact-field">
+                <label for="first_name">First name</label>
+                <input id="first_name" name="first_name" type="text" autocomplete="given-name" required>
+              </div>
+              <div class="contact-field">
+                <label for="last_name">Last name</label>
+                <input id="last_name" name="last_name" type="text" autocomplete="family-name" required>
+              </div>
+              <div class="contact-field">
+                <label for="email_id">Work email</label>
+                <input id="email_id" name="email_id" type="email" autocomplete="email" required>
+              </div>
+              <div class="contact-field">
+                <label for="mobile_no">Phone</label>
+                <input id="mobile_no" name="mobile_no" type="tel" autocomplete="tel">
+              </div>
+              <div class="contact-field">
+                <label for="company_name">Company</label>
+                <input id="company_name" name="company_name" type="text" autocomplete="organization" required>
+              </div>
+              <div class="contact-field">
+                <label for="city">City</label>
+                <input id="city" name="city" type="text" autocomplete="address-level2" required>
+              </div>
+              <div class="contact-field contact-field--full">
+                <label for="request_type">Request type</label>
+                <select id="request_type" name="request_type" required>
+                  <option value="">Select request type</option>
+                  {% for option in request_type_options %}
+                  <option value="{{ option }}">{{ option }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="contact-field contact-field--full">
+                <label for="message">How can we help?</label>
+                <textarea id="message" name="message" required></textarea>
+                <small>Include any site details, scheduling context, or questions that will help us route the request.</small>
+              </div>
+            </div>
+            <div class="contact-actions">
+              <button id="contact-request-submit" class="contact-submit" type="submit">Send Message</button>
+              <div id="contact-request-status" class="contact-status" aria-live="polite"></div>
+              <p class="contact-fine-print">
+                We use this form to review service fit and route the request to the right next step. It is not a live chat.
+              </p>
+            </div>
+          </form>
+        </article>
+      </section>
+    </div>
+  </section>
+  <section>
+    {{ site_shell_footer() }}
+  </section>
+</div>
+<script>
+(() => {
+  const form = document.getElementById('contact-request-form');
+  const submitButton = document.getElementById('contact-request-submit');
+  const statusBox = document.getElementById('contact-request-status');
+
+  if (!form || !submitButton || !statusBox) {
+    return;
+  }
+
+  const csrf = () => {
+    const match = document.cookie.match(/(?:^|; )csrf_token=([^;]+)/);
+    if (match) {
+      return decodeURIComponent(match[1]);
+    }
+    if (window.frappe && frappe.csrf_token) {
+      return frappe.csrf_token;
+    }
+    if (window.csrf_token) {
+      return window.csrf_token;
+    }
+    return '';
+  };
+
+  const setStatus = (type, message) => {
+    statusBox.className = 'contact-status';
+    if (!message) {
+      statusBox.textContent = '';
+      return;
+    }
+    statusBox.classList.add('is-visible');
+    statusBox.classList.add(type);
+    statusBox.textContent = message;
+  };
+
+  const extractMessage = (body) => {
+    if (body && body.message && typeof body.message === 'string') {
+      return body.message;
+    }
+    if (body && body._server_messages) {
+      try {
+        const messages = JSON.parse(body._server_messages);
+        if (Array.isArray(messages) && messages.length) {
+          return JSON.parse(messages[0]).message;
+        }
+      } catch (error) {
+        return 'Something went wrong while submitting the form.';
+      }
+    }
+    if (body && body.exc) {
+      return 'Something went wrong while submitting the form.';
+    }
+    return '';
+  };
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+
+    if (!form.reportValidity()) {
+      return;
+    }
+
+    submitButton.disabled = true;
+    setStatus('is-success', 'Submitting your request...');
+
+    const payload = Object.fromEntries(new FormData(form).entries());
+
+    try {
+      const response = await fetch('/api/method/pikt_inc.api.contact_request.submit_contact_request', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-Frappe-CSRF-Token': csrf(),
+        },
+        body: JSON.stringify(payload),
+        credentials: 'same-origin',
+      });
+
+      const body = await response.json().catch(() => ({}));
+      const result = body && typeof body === 'object' && 'message' in body && typeof body.message === 'object'
+        ? body.message
+        : body;
+
+      if (!response.ok || !result || result.status !== 'submitted') {
+        setStatus('is-error', extractMessage(body) || extractMessage(result) || 'We could not submit the request. Please try again.');
+        submitButton.disabled = false;
+        return;
+      }
+
+      form.reset();
+      setStatus('is-success', result.message || 'Thanks for reaching out. We received your message and will get back to you shortly.');
+    } catch (error) {
+      setStatus('is-error', 'We could not submit the request. Please try again.');
+    } finally {
+      submitButton.disabled = false;
+    }
+  });
+})();
+</script>
+{% endblock %}

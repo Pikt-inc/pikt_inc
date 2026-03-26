@@ -586,12 +586,14 @@ class TestPublicQuotePortal(unittest.TestCase):
 
     @patch.object(billing, "find_contact_for_customer", side_effect=["", "CONT-0001"])
     @patch.object(public_quote.frappe, "get_doc", return_value=FailingInsertDoc({"doctype": "Contact"}))
+    @patch.object(public_quote.frappe.db, "get_value", return_value="billing@example.com")
     @patch.object(billing, "doc_db_set_values")
     @patch.object(public_quote.frappe.db, "exists", return_value=True)
     def test_ensure_contact_reuses_existing_contact_after_insert_race(
         self,
         _mock_exists,
         mock_doc_db_set_values,
+        _mock_get_value,
         _mock_get_doc,
         _mock_find_contact,
     ):
@@ -606,6 +608,29 @@ class TestPublicQuotePortal(unittest.TestCase):
         self.assertEqual(mock_doc_db_set_values.call_count, 1)
         self.assertEqual(mock_doc_db_set_values.call_args[0][0], "Contact")
         self.assertEqual(mock_doc_db_set_values.call_args[0][1], "CONT-0001")
+
+    @patch.object(billing, "find_contact_for_customer", return_value="CONTACT-PORTAL")
+    @patch.object(public_quote.frappe.db, "exists", return_value=True)
+    @patch.object(public_quote.frappe.db, "get_value", side_effect=["portal@example.com", "portal@example.com"])
+    @patch.object(billing, "doc_db_set_values")
+    def test_ensure_contact_does_not_reuse_primary_contact_with_different_email(
+        self,
+        mock_doc_db_set_values,
+        _mock_get_value,
+        _mock_exists,
+        _mock_find_contact,
+    ):
+        created_doc = FakeSaveDoc({"doctype": "Contact", "name": "CONT-NEW"})
+        with patch.object(public_quote.frappe, "get_doc", return_value=created_doc):
+            result = public_quote.ensure_contact(
+                "CUST-0001",
+                "Pikt Inc",
+                "Billing Team",
+                "billing@example.com",
+            )
+
+        self.assertEqual(result, "CONT-NEW")
+        mock_doc_db_set_values.assert_not_called()
 
     @patch.object(billing, "find_address_for_customer", side_effect=["", "ADDR-0001"])
     @patch.object(public_quote.frappe, "get_doc", return_value=FailingInsertDoc({"doctype": "Address"}))
