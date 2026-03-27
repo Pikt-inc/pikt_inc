@@ -5,23 +5,25 @@ from typing import Any
 
 import frappe
 
+from pikt_inc.views.portal import PortalPageView
+
 
 def _as_mapping(value):
-    if hasattr(value, "model_dump"):
-        return value.model_dump(mode="python")
-    if isinstance(value, dict):
-        return value
-    return {}
+    """Backward-compatible no-op retained for legacy tests/imports.
+
+    :param value: Any value passed through from older helper call sites.
+    :returns: The original value unchanged.
+    """
+    return value
 
 
 def _as_nav_items(items):
-    normalized = []
-    for item in items or []:
-        if hasattr(item, "model_dump"):
-            normalized.append(item.model_dump(mode="python"))
-        elif isinstance(item, dict):
-            normalized.append(item)
-    return normalized
+    """Backward-compatible no-op retained for legacy tests/imports.
+
+    :param items: Any value passed through from older helper call sites.
+    :returns: The original value unchanged.
+    """
+    return items
 
 
 def build_context(
@@ -29,36 +31,11 @@ def build_context(
     *,
     page_loader: Callable[[], dict[str, Any]],
 ):
-    data = page_loader() or {}
-    for key, value in data.items():
-        setattr(context, key, value)
+    """Build portal-page context through the shared portal view abstraction.
 
-    context.no_cache = 1
-    context.body_class = "no-web-page-sections"
-    context.noindex_meta = 1
-
-    metatags = _as_mapping(data.get("metatags"))
-    portal_nav = _as_nav_items(data.get("portal_nav"))
-    context.page_title = metatags.get("title") or data.get("page_title") or data.get("portal_title")
-    context.meta_description = metatags.get("description") or data.get("portal_description") or ""
-    context.description = context.meta_description
-    context.http_status_code = int(data.get("http_status_code") or 200)
-    context.primary_nav = [item for item in portal_nav if item.get("key") not in {"contact", "logout"}]
-    context.utility_nav = [item for item in portal_nav if item.get("key") in {"contact", "logout"}]
-    context.redirect_to = data.get("redirect_to") or ""
-
-    if context.redirect_to:
-        flags = getattr(getattr(frappe, "local", None), "flags", None)
-        if flags is None:
-            frappe.local.flags = type("Flags", (), {})()
-            flags = frappe.local.flags
-        flags.redirect_location = context.redirect_to
-        response = getattr(getattr(frappe, "local", None), "response", None)
-        if response is None:
-            frappe.local.response = {}
-            response = frappe.local.response
-        response["type"] = "redirect"
-        response["location"] = context.redirect_to
-        response["http_status_code"] = context.http_status_code
-        raise frappe.Redirect(context.http_status_code)
-    return context
+    :param context: The mutable Frappe page context object.
+    :param page_loader: Callable that returns the portal page payload.
+    :returns: The populated page context.
+    :raises frappe.Redirect: Raised when the page payload requests a redirect.
+    """
+    return PortalPageView(page_loader=page_loader).build_context(context)

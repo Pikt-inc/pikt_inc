@@ -630,16 +630,11 @@ class TestCustomerPortal(TestCase):
 
     def test_portal_www_controllers_proxy_to_service(self):
         context = types.SimpleNamespace()
-        with patch.object(portal_www_index, "build_context", return_value=context) as overview_helper, patch.object(
-            portal_www_index.customer_portal,
-            "get_customer_portal_dashboard_data",
-            return_value={"page_key": "overview"},
-        ) as overview_loader:
+        with patch.object(portal_www_index, "build_context", return_value=context) as overview_helper:
             result = portal_www_index.get_context(context)
 
         self.assertIs(result, context)
         overview_helper.assert_called_once()
-        overview_loader.assert_not_called()
 
         context = types.SimpleNamespace()
         with patch.object(portal_www_agreements, "build_context", return_value=context) as agreements_helper:
