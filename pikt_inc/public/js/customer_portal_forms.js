@@ -6,6 +6,12 @@
   }
 
   function bindPortalMenus(){
+    document.querySelectorAll('.portal-shell-menu__backdrop').forEach(function(backdrop){
+      backdrop.addEventListener('click',function(){
+        closeOpenPortalMenus();
+      });
+    });
+
     document.addEventListener('click',function(event){
       document.querySelectorAll('.portal-shell-menu[open]').forEach(function(menu){
         if(menu.contains(event.target)){return;}

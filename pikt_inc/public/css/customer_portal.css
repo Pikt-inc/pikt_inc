@@ -289,6 +289,8 @@
   background:#fffdf8;
   box-shadow:0 12px 28px rgba(23,53,45,.07);
   cursor:pointer;
+  position:relative;
+  z-index:34;
 }
 
 .portal-shell-menu__bars{
@@ -305,6 +307,20 @@
   background:var(--portal-ink);
 }
 
+.portal-shell-menu__backdrop{
+  display:none;
+  position:fixed;
+  inset:0;
+  border:0;
+  background:rgba(17,39,31,.34);
+  cursor:pointer;
+  z-index:22;
+}
+
+.portal-shell-menu[open] .portal-shell-menu__backdrop{
+  display:block;
+}
+
 .portal-shell-menu__panel{
   position:fixed;
   top:92px;
@@ -318,6 +334,7 @@
   background:#fffdf8;
   box-shadow:0 28px 60px rgba(23,53,45,.14);
   padding:20px;
+  z-index:30;
 }
 
 .portal-shell-menu__eyebrow{color:var(--portal-muted)}

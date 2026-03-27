@@ -612,9 +612,12 @@ class TestCustomerPortal(TestCase):
         self.assertIn("customer_portal_header", macros)
         self.assertIn("customer_portal_footer", macros)
         self.assertIn("/assets/pikt_inc/css/customer_portal.css", macros)
+        self.assertIn("portal-shell-menu__backdrop", macros)
         self.assertIn("portal-shell-header", css)
+        self.assertIn(".portal-shell-menu__backdrop", css)
         self.assertIn("data-portal-endpoint", js)
         self.assertIn("closeOpenPortalMenus", js)
+        self.assertIn("portal-shell-menu__backdrop", js)
         self.assertIn("portal-shell-menu[open]", js)
         self.assertIn("window.location.reload()", js)
 
