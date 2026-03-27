@@ -1,16 +1,26 @@
 from __future__ import annotations
 
-from pikt_inc.www._quote_page import build_context
+from pikt_inc.views.pages.quote.quote_accepted import QuoteAcceptedPortalPageView
 
 
-no_cache = 1
-sitemap = 0
+VIEW_CLASS = QuoteAcceptedPortalPageView
+no_cache = VIEW_CLASS.no_cache
+sitemap = VIEW_CLASS.sitemap
+
+
+def build_context(context):
+    """Build the accepted quote portal context through the accepted page view.
+
+    :param context: The mutable Frappe page context object.
+    :returns: The populated accepted quote portal context.
+    """
+    return VIEW_CLASS().build_context(context)
 
 
 def get_context(context):
-    return build_context(
-        context,
-        title="Quote Accepted",
-        description="Accept your quote, set up billing, and confirm your service site access in one secure portal.",
-        noindex_meta=1,
-    )
+    """Build the context for the ``/quote-accepted`` route.
+
+    :param context: The mutable Frappe page context object.
+    :returns: The populated accepted quote portal context.
+    """
+    return build_context(context)

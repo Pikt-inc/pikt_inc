@@ -1,16 +1,26 @@
 from __future__ import annotations
 
-from pikt_inc.www._quote_page import build_context
+from pikt_inc.views.pages.quote.thank_you import QuoteThankYouPageView
 
 
-no_cache = 1
-sitemap = 0
+VIEW_CLASS = QuoteThankYouPageView
+no_cache = VIEW_CLASS.no_cache
+sitemap = VIEW_CLASS.sitemap
+
+
+def build_context(context):
+    """Build the quote thank-you context through the thank-you page view.
+
+    :param context: The mutable Frappe page context object.
+    :returns: The populated quote thank-you context.
+    """
+    return VIEW_CLASS().build_context(context)
 
 
 def get_context(context):
-    return build_context(
-        context,
-        title="Instant Estimate",
-        description="Instant estimate and next steps for your commercial cleaning request.",
-        noindex_meta=1,
-    )
+    """Build the context for the ``/thank-you`` route.
+
+    :param context: The mutable Frappe page context object.
+    :returns: The populated quote thank-you context.
+    """
+    return build_context(context)
