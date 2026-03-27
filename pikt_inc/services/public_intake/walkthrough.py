@@ -1,31 +1,38 @@
 from __future__ import annotations
 
 import frappe
+from pydantic import ValidationError
 from frappe.utils import now
 
+from pikt_inc.services.contracts.common import first_validation_message
+from pikt_inc.services.contracts.public_intake import WalkthroughUploadInput
+from pikt_inc.services.contracts.public_intake import WalkthroughUploadResponse
 from .constants import ALLOWED_WALKTHROUGH_EXTENSIONS, MAX_WALKTHROUGH_BYTES
 from .shared import clean, fail
 from . import tokens
 
 
 def save_opportunity_walkthrough_upload(opportunity=None, token=None, uploaded=None):
-    opportunity = clean(opportunity if opportunity is not None else frappe.form_dict.get("opportunity"))
-    token = clean(token if token is not None else frappe.form_dict.get("token"))
     uploaded = uploaded or (
         frappe.request.files.get("walkthrough_upload")
         if getattr(frappe, "request", None) and getattr(frappe.request, "files", None)
         else None
     )
-
-    if not opportunity:
-        fail("Missing estimate reference. Please return to the estimate page and try again.")
-    if not token:
-        fail("This link is missing its secure access token. Please return to the estimate page and try again.")
+    try:
+        payload = WalkthroughUploadInput.model_validate(
+            {
+                "opportunity": opportunity if opportunity is not None else frappe.form_dict.get("opportunity"),
+                "token": token if token is not None else frappe.form_dict.get("token"),
+                "uploaded": uploaded,
+            }
+        )
+    except ValidationError as exc:
+        fail(first_validation_message(exc))
+    opportunity = payload.opportunity
+    token = payload.token
+    uploaded = payload.uploaded
 
     tokens.require_valid_public_funnel_opportunity(opportunity, token)
-
-    if not uploaded:
-        fail("Please choose your walkthrough file before submitting.")
 
     file_name = clean(getattr(uploaded, "filename", "")) or "digital-walkthrough-upload"
     extension = ""
@@ -87,9 +94,9 @@ def save_opportunity_walkthrough_upload(opportunity=None, token=None, uploaded=N
             except Exception:
                 frappe.log_error(frappe.get_traceback(), "Cleanup Replaced Walkthrough File")
 
-    return {
-        "opportunity": doc.name,
-        "digital_walkthrough_file": doc.digital_walkthrough_file,
-        "digital_walkthrough_status": doc.digital_walkthrough_status,
-        "digital_walkthrough_received_on": doc.digital_walkthrough_received_on,
-    }
+    return WalkthroughUploadResponse(
+        opportunity=doc.name,
+        digital_walkthrough_file=doc.digital_walkthrough_file,
+        digital_walkthrough_status=doc.digital_walkthrough_status,
+        digital_walkthrough_received_on=clean(doc.digital_walkthrough_received_on),
+    ).model_dump(mode="python")

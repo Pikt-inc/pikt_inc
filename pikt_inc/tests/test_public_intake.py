@@ -8,6 +8,7 @@ from pikt_inc.tests._frappe_harness import install_test_frappe
 
 install_test_frappe()
 
+from pikt_inc.services.contracts import public_intake as public_intake_contracts
 from pikt_inc.services import public_intake
 
 
@@ -52,6 +53,36 @@ class FakeUploadedFile:
 
 
 class TestPublicIntake(unittest.TestCase):
+    def test_quote_request_contract_normalizes_payload(self):
+        payload = public_intake_contracts.InstantQuoteRequestInput.model_validate(
+            {
+                "prospect_name": "  Patten Whiting  ",
+                "phone": " 555-0100 ",
+                "contact_email": " PATTEN@EXAMPLE.COM ",
+                "prospect_company": " Pikt ",
+                "building_type": "Office",
+                "building_size": "1,500",
+                "service_frequency": "3x/week",
+                "service_interest": "Recurring standard cleaning",
+                "bathroom_count_range": "1-2",
+            }
+        )
+
+        self.assertEqual(payload.prospect_name, "Patten Whiting")
+        self.assertEqual(payload.contact_email, "patten@example.com")
+        self.assertEqual(payload.building_size, 1500)
+        self.assertEqual(payload.bathroom_count_range.value, "Light")
+
+    def test_walkthrough_upload_contract_requires_file(self):
+        with self.assertRaisesRegex(Exception, "Please choose your walkthrough file before submitting."):
+            public_intake_contracts.WalkthroughUploadInput.model_validate(
+                {
+                    "opportunity": "CRM-OPP-TEST-0001",
+                    "token": "valid-token",
+                    "uploaded": None,
+                }
+            )
+
     def test_normalize_bathroom_traffic_level(self):
         self.assertEqual(public_intake.normalize_bathroom_traffic_level("1-2"), "Light")
         self.assertEqual(public_intake.normalize_bathroom_traffic_level("medium"), "Medium")

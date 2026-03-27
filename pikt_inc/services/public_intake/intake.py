@@ -3,8 +3,12 @@ from __future__ import annotations
 from typing import Any, Mapping
 
 import frappe
+from pydantic import ValidationError
 from frappe.utils import add_to_date, now, now_datetime, nowdate
 
+from pikt_inc.services.contracts.common import first_validation_message
+from pikt_inc.services.contracts.public_intake import InstantQuoteRequestInput
+from pikt_inc.services.contracts.public_intake import InstantQuoteResponse
 from .constants import (
     DEFAULT_COMPANY,
     DEFAULT_COUNTRY,
@@ -14,60 +18,15 @@ from .constants import (
     DEDUPE_WINDOW_MINUTES,
     FUNNEL_TOKEN_EXPIRY_DAYS,
 )
-from .pricing import normalize_bathroom_traffic_level
 from .shared import clean, fail
 from . import tokens
 
 
 def validate_and_normalize_quote_request(form_dict: Mapping[str, Any] | None = None):
-    data = form_dict or frappe.form_dict
-    prospect_name = clean(data.get("prospect_name"))
-    phone = clean(data.get("phone"))
-    contact_email = clean(data.get("contact_email")).lower()
-    prospect_company = clean(data.get("prospect_company"))
-    building_type = clean(data.get("building_type"))
-    building_size_input = clean(data.get("building_size")).replace(",", "")
-    service_frequency = clean(data.get("service_frequency"))
-    service_interest = clean(data.get("service_interest"))
-    bathroom_count_range = normalize_bathroom_traffic_level(data.get("bathroom_count_range")) or "None"
-    allowed_bathroom_ranges = ("None", "Light", "Medium", "Heavy")
-
-    if not prospect_name:
-        fail("Full name is required")
-    if not contact_email:
-        fail("Email address is required")
-    if "@" not in contact_email or "." not in contact_email:
-        fail("Enter a valid email address")
-    if not prospect_company:
-        fail("Company name is required")
-    if not building_type:
-        fail("Building type is required")
-    if not service_frequency:
-        fail("Service frequency is required")
-    if not service_interest:
-        fail("Service interest is required")
-    if bathroom_count_range not in allowed_bathroom_ranges:
-        fail("Select a valid bathroom traffic level")
-
     try:
-        building_size_value = int(float(building_size_input or "0"))
-    except Exception:
-        fail("Building size must be a valid number")
-
-    if building_size_value <= 0:
-        fail("Building size must be greater than 0")
-
-    return {
-        "prospect_name": prospect_name,
-        "phone": phone,
-        "contact_email": contact_email,
-        "prospect_company": prospect_company,
-        "building_type": building_type,
-        "building_size_value": building_size_value,
-        "service_frequency": service_frequency,
-        "service_interest": service_interest,
-        "bathroom_count_range": bathroom_count_range,
-    }
+        return InstantQuoteRequestInput.model_validate(form_dict or frappe.form_dict)
+    except ValidationError as exc:
+        fail(first_validation_message(exc))
 
 
 def split_prospect_name(prospect_name):
@@ -82,12 +41,12 @@ def split_prospect_name(prospect_name):
 
 
 def upsert_lead_for_quote_request(request_data):
-    first_name, last_name = split_prospect_name(request_data["prospect_name"])
+    first_name, last_name = split_prospect_name(request_data.prospect_name)
     lead_rows = frappe.get_all(
         "Lead",
         filters={
-            "email_id": request_data["contact_email"],
-            "company_name": request_data["prospect_company"],
+            "email_id": request_data.contact_email,
+            "company_name": request_data.prospect_company,
             "disabled": 0,
         },
         fields=["name"],
@@ -104,14 +63,14 @@ def upsert_lead_for_quote_request(request_data):
         if not clean(lead.get("last_name")) and last_name:
             lead.last_name = last_name
             lead_changed = 1
-        if not clean(lead.get("email_id")) and request_data["contact_email"]:
-            lead.email_id = request_data["contact_email"]
+        if not clean(lead.get("email_id")) and request_data.contact_email:
+            lead.email_id = request_data.contact_email
             lead_changed = 1
-        if not clean(lead.get("phone")) and request_data["phone"]:
-            lead.phone = request_data["phone"]
+        if not clean(lead.get("phone")) and request_data.phone:
+            lead.phone = request_data.phone
             lead_changed = 1
-        if not clean(lead.get("company_name")) and request_data["prospect_company"]:
-            lead.company_name = request_data["prospect_company"]
+        if not clean(lead.get("company_name")) and request_data.prospect_company:
+            lead.company_name = request_data.prospect_company
             lead_changed = 1
         if not clean(lead.get("company")):
             lead.company = DEFAULT_COMPANY
@@ -133,9 +92,9 @@ def upsert_lead_for_quote_request(request_data):
     lead.naming_series = lead.get("naming_series") or "CRM-LEAD-.YYYY.-"
     lead.first_name = first_name
     lead.last_name = last_name
-    lead.email_id = request_data["contact_email"]
-    lead.phone = request_data["phone"]
-    lead.company_name = request_data["prospect_company"]
+    lead.email_id = request_data.contact_email
+    lead.phone = request_data.phone
+    lead.company_name = request_data.prospect_company
     lead.company = DEFAULT_COMPANY
     lead.country = DEFAULT_COUNTRY
     lead.status = "Opportunity"
@@ -146,17 +105,17 @@ def upsert_lead_for_quote_request(request_data):
 
 def build_quote_request_response(row, token, duplicate):
     opportunity_name = row.get("name")
-    return {
-        "name": opportunity_name,
-        "opp": opportunity_name,
-        "low": row.get("custom_estimate_low") or 0,
-        "high": row.get("custom_estimate_high") or 0,
-        "risk": row.get("risk_level") or "",
-        "currency": row.get("currency") or DEFAULT_CURRENCY,
-        "final_price": row.get("opportunity_amount") or 0,
-        "token": token,
-        "duplicate": duplicate,
-    }
+    return InstantQuoteResponse(
+        name=opportunity_name,
+        opp=opportunity_name,
+        low=float(row.get("custom_estimate_low") or 0),
+        high=float(row.get("custom_estimate_high") or 0),
+        risk=row.get("risk_level") or "",
+        currency=row.get("currency") or DEFAULT_CURRENCY,
+        final_price=float(row.get("opportunity_amount") or 0),
+        token=token,
+        duplicate=duplicate,
+    ).model_dump(mode="python")
 
 
 def create_instant_quote_opportunity(form_dict: Mapping[str, Any] | None = None):
@@ -166,14 +125,14 @@ def create_instant_quote_opportunity(form_dict: Mapping[str, Any] | None = None)
         "Opportunity",
         filters=[
             ["Opportunity", "creation", ">=", recent_cutoff],
-            ["Opportunity", "contact_email", "=", request_data["contact_email"]],
-            ["Opportunity", "prospect_name", "=", request_data["prospect_name"]],
-            ["Opportunity", "prospect_company", "=", request_data["prospect_company"]],
-            ["Opportunity", "building_type", "=", request_data["building_type"]],
-            ["Opportunity", "building_size", "=", str(request_data["building_size_value"])],
-            ["Opportunity", "service_frequency", "=", request_data["service_frequency"]],
-            ["Opportunity", "service_interest", "=", request_data["service_interest"]],
-            ["Opportunity", "bathroom_count_range", "=", request_data["bathroom_count_range"]],
+            ["Opportunity", "contact_email", "=", request_data.contact_email],
+            ["Opportunity", "prospect_name", "=", request_data.prospect_name],
+            ["Opportunity", "prospect_company", "=", request_data.prospect_company],
+            ["Opportunity", "building_type", "=", request_data.building_type],
+            ["Opportunity", "building_size", "=", str(request_data.building_size)],
+            ["Opportunity", "service_frequency", "=", request_data.service_frequency],
+            ["Opportunity", "service_interest", "=", request_data.service_interest],
+            ["Opportunity", "bathroom_count_range", "=", request_data.bathroom_count_range.value],
         ],
         fields=[
             "name",
@@ -220,17 +179,17 @@ def create_instant_quote_opportunity(form_dict: Mapping[str, Any] | None = None)
                 "transaction_date": nowdate(),
                 "currency": DEFAULT_CURRENCY,
                 "conversion_rate": 1,
-                "title": request_data["prospect_name"],
-                "customer_name": request_data["prospect_name"],
-                "prospect_name": request_data["prospect_name"],
-                "prospect_company": request_data["prospect_company"],
-                "building_type": request_data["building_type"],
-                "building_size": str(request_data["building_size_value"]),
-                "bathroom_count_range": request_data["bathroom_count_range"],
-                "service_frequency": request_data["service_frequency"],
-                "service_interest": request_data["service_interest"],
-                "contact_email": request_data["contact_email"],
-                "phone": request_data["phone"],
+                "title": request_data.prospect_name,
+                "customer_name": request_data.prospect_name,
+                "prospect_name": request_data.prospect_name,
+                "prospect_company": request_data.prospect_company,
+                "building_type": request_data.building_type,
+                "building_size": str(request_data.building_size),
+                "bathroom_count_range": request_data.bathroom_count_range.value,
+                "service_frequency": request_data.service_frequency,
+                "service_interest": request_data.service_interest,
+                "contact_email": request_data.contact_email,
+                "phone": request_data.phone,
                 "country": DEFAULT_COUNTRY,
                 "language": DEFAULT_LANGUAGE,
                 "no_of_employees": DEFAULT_EMPLOYEE_RANGE,

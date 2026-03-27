@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import frappe
+from pydantic import ValidationError
 from frappe.utils import add_to_date, now_datetime
 
+from pikt_inc.services.contracts.common import first_validation_message
+from pikt_inc.services.contracts.public_intake import PublicFunnelValidationInput
 from .constants import FUNNEL_TOKEN_EXPIRY_DAYS
 from .shared import clean, coerce_datetime, fail
 
@@ -88,8 +91,17 @@ def get_public_funnel_validation_message(opportunity, token, row):
 
 
 def validate_public_funnel_opportunity(opportunity=None, token=None):
-    opportunity = clean(opportunity if opportunity is not None else frappe.form_dict.get("opportunity"))
-    token = clean(token if token is not None else frappe.form_dict.get("token"))
+    try:
+        payload = PublicFunnelValidationInput.model_validate(
+            {
+                "opportunity": opportunity if opportunity is not None else frappe.form_dict.get("opportunity"),
+                "token": token if token is not None else frappe.form_dict.get("token"),
+            }
+        )
+    except ValidationError as exc:
+        fail(first_validation_message(exc))
+    opportunity = payload.opportunity
+    token = payload.token
     row = None
     if opportunity:
         row = frappe.db.get_value(
@@ -102,8 +114,12 @@ def validate_public_funnel_opportunity(opportunity=None, token=None):
 
 
 def require_valid_public_funnel_opportunity(opportunity, token):
-    opportunity = clean(opportunity)
-    token = clean(token)
+    try:
+        payload = PublicFunnelValidationInput.model_validate({"opportunity": opportunity, "token": token})
+    except ValidationError as exc:
+        fail(first_validation_message(exc))
+    opportunity = payload.opportunity
+    token = payload.token
     row = frappe.db.get_value(
         "Opportunity",
         opportunity,
