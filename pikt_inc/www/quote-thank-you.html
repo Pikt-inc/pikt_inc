@@ -248,7 +248,13 @@
     'cta-secondary'
   ];
 
+  let booted = false;
+
   const boot = () => {
+    if (booted) {
+      return;
+    }
+    booted = true;
     let attempts = 0;
     const tick = () => {
       attempts += 1;

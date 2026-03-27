@@ -1,4 +1,31 @@
 (function(){
+  function closeOpenPortalMenus(){
+    document.querySelectorAll('.portal-shell-menu[open]').forEach(function(menu){
+      menu.removeAttribute('open');
+    });
+  }
+
+  function bindPortalMenus(){
+    document.addEventListener('click',function(event){
+      document.querySelectorAll('.portal-shell-menu[open]').forEach(function(menu){
+        if(menu.contains(event.target)){return;}
+        menu.removeAttribute('open');
+      });
+    });
+
+    document.addEventListener('keydown',function(event){
+      if(event.key==='Escape'){
+        closeOpenPortalMenus();
+      }
+    });
+
+    document.querySelectorAll('.portal-shell-menu__panel a').forEach(function(link){
+      link.addEventListener('click',function(){
+        closeOpenPortalMenus();
+      });
+    });
+  }
+
   function csrf(){
     var match=document.cookie.match(/(?:^|; )csrf_token=([^;]+)/);
     if(match){return decodeURIComponent(match[1]);}
@@ -24,6 +51,7 @@
   async function submitForm(form){
     var endpoint=form.getAttribute('data-portal-endpoint');
     if(!endpoint){return;}
+    closeOpenPortalMenus();
     var formData=new FormData(form);
     var payload={};
     formData.forEach(function(value,key){payload[key]=value;});
@@ -64,6 +92,7 @@
   }
 
   document.addEventListener('DOMContentLoaded',function(){
+    bindPortalMenus();
     document.querySelectorAll('form[data-portal-endpoint]').forEach(function(form){
       form.addEventListener('submit',function(event){
         event.preventDefault();

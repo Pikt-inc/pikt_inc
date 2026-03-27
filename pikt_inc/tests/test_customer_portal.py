@@ -614,6 +614,8 @@ class TestCustomerPortal(TestCase):
         self.assertIn("/assets/pikt_inc/css/customer_portal.css", macros)
         self.assertIn("portal-shell-header", css)
         self.assertIn("data-portal-endpoint", js)
+        self.assertIn("closeOpenPortalMenus", js)
+        self.assertIn("portal-shell-menu[open]", js)
         self.assertIn("window.location.reload()", js)
 
         for template in (overview, agreements, billing, locations):

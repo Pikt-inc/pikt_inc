@@ -256,6 +256,7 @@ class TestWebsiteFixtures(unittest.TestCase):
         complete_script = QUOTE_BILLING_COMPLETE_ASSET_PATH.read_text(encoding="utf-8")
 
         self.assertIn("validate_public_funnel_opportunity", thank_you_template)
+        self.assertIn("let booted = false;", thank_you_template)
         self.assertIn("/digital-walkthrough", thank_you_template)
         self.assertIn("save_opportunity_walkthrough_upload", walkthrough_template)
         self.assertIn("validate_public_quote", review_template)
