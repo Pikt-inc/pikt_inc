@@ -1,4 +1,5 @@
 from .base import *
+from .blog import *
 from .pages import *
 from .portal import *
 from .public import *

@@ -401,22 +401,33 @@ class TestBlog(TestCase):
         context = types.SimpleNamespace(no_cache=0, body_class=None)
         blog.frappe.form_dict = {"page": "2", "category": "medical-facilities"}
 
-        with patch.object(blog_home.blog, "get_blog_index_data", return_value={"posts": []}) as get_blog_index_data:
+        with patch("pikt_inc.views.pages.blog.home.blog.get_blog_index_data", return_value={"posts": []}) as get_blog_index_data:
             result = blog_home.get_context(context)
 
-        self.assertEqual(result, {"posts": []})
+        self.assertIs(result, context)
         self.assertEqual(context.no_cache, 1)
         self.assertEqual(context.body_class, "no-web-page-sections")
+        self.assertEqual(context.posts, [])
         get_blog_index_data.assert_called_once_with(page="2", category="medical-facilities")
 
     def test_blog_post_context_delegates_to_service(self):
         context = types.SimpleNamespace(no_cache=0, body_class=None)
         blog.frappe.form_dict = {"slug": "keep-a-lobby-presentation-ready", "preview": "1"}
 
-        with patch.object(blog_post.blog, "get_blog_post_data", return_value={"post": {"slug": "keep-a-lobby-presentation-ready"}}) as get_blog_post_data:
+        with patch(
+            "pikt_inc.views.pages.blog.post.blog.get_blog_post_data",
+            return_value={
+                "page_title": "Keep a Lobby Presentation Ready",
+                "metatags": {"title": "Keep a Lobby Presentation Ready", "description": "Lobby routines."},
+                "post": {"slug": "keep-a-lobby-presentation-ready"},
+                "not_found": 0,
+                "noindex_meta": 0,
+            },
+        ) as get_blog_post_data:
             result = blog_post.get_context(context)
 
-        self.assertEqual(result["post"]["slug"], "keep-a-lobby-presentation-ready")
+        self.assertIs(result, context)
+        self.assertEqual(context.post["slug"], "keep-a-lobby-presentation-ready")
         self.assertEqual(context.no_cache, 1)
         self.assertEqual(context.body_class, "no-web-page-sections")
         get_blog_post_data.assert_called_once_with(slug="keep-a-lobby-presentation-ready", preview="1")
@@ -425,10 +436,20 @@ class TestBlog(TestCase):
         context = types.SimpleNamespace(no_cache=0, body_class=None)
         blog.frappe.form_dict = {"slug": "missing-post"}
 
-        with patch.object(blog_post.blog, "get_blog_post_data", return_value={"not_found": 1, "post": None}) as get_blog_post_data:
+        with patch(
+            "pikt_inc.views.pages.blog.post.blog.get_blog_post_data",
+            return_value={
+                "page_title": "Article Not Found",
+                "metatags": {"title": "Article Not Found", "description": "Missing."},
+                "not_found": 1,
+                "post": None,
+                "noindex_meta": 1,
+            },
+        ) as get_blog_post_data:
             result = blog_post.get_context(context)
 
-        self.assertEqual(result["not_found"], 1)
+        self.assertIs(result, context)
+        self.assertEqual(context.not_found, 1)
         self.assertEqual(context.http_status_code, 404)
         get_blog_post_data.assert_called_once_with(slug="missing-post", preview=None)
 
@@ -436,15 +457,20 @@ class TestBlog(TestCase):
         rss_context = types.SimpleNamespace(no_cache=0)
         sitemap_context = types.SimpleNamespace(no_cache=0)
 
-        with patch.object(blog_rss.blog, "get_rss_feed_data", return_value={"posts": []}) as get_rss_feed_data:
+        with patch("pikt_inc.views.pages.blog.rss.blog.get_rss_feed_data", return_value={"posts": []}) as get_rss_feed_data:
             rss_result = blog_rss.get_context(rss_context)
-        with patch.object(blog_sitemap.blog, "get_blog_sitemap_data", return_value={"links": []}) as get_blog_sitemap_data:
+        with patch(
+            "pikt_inc.views.pages.blog.sitemap.blog.get_blog_sitemap_data",
+            return_value={"links": []},
+        ) as get_blog_sitemap_data:
             sitemap_result = blog_sitemap.get_context(sitemap_context)
 
         self.assertEqual(blog_rss.base_template_path, "www/blog-rss.xml")
         self.assertEqual(blog_sitemap.base_template_path, "www/blog-sitemap.xml")
-        self.assertEqual(rss_result, {"posts": []})
-        self.assertEqual(sitemap_result, {"links": []})
+        self.assertIs(rss_result, rss_context)
+        self.assertIs(sitemap_result, sitemap_context)
+        self.assertEqual(rss_context.posts, [])
+        self.assertEqual(sitemap_context.links, [])
         self.assertEqual(rss_context.no_cache, 1)
         self.assertEqual(sitemap_context.no_cache, 1)
         get_rss_feed_data.assert_called_once_with()

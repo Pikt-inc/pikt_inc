@@ -1,3 +1,4 @@
+from .blog import *
 from .contact import *
 from .portal import *
 from .quote import *
