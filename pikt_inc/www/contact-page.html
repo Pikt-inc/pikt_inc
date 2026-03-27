@@ -19,6 +19,8 @@
 .contact-grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:24px;padding:10px 0 64px}
 .contact-panel,.contact-form-card,.contact-card{background:#fff;border:1px solid #e7e7e7;border-radius:28px}
 .contact-panel{display:flex;flex-direction:column;gap:22px}
+.contact-form-card{order:2}
+.contact-panel{order:1}
 .contact-card,.contact-form-card{padding:26px}
 .contact-card h2,.contact-form-card h2{margin:0;color:#171717;font-size:30px;font-weight:700;line-height:1.15}
 .contact-card-copy{margin:12px 0 0;color:#525252;font-size:16px;line-height:1.65}
@@ -54,10 +56,14 @@
 }
 @media (max-width:768px){
   .contact-wrap{padding:0 16px}
-  .contact-hero{padding:48px 0 22px}
+  .contact-hero{padding:40px 0 18px}
+  .contact-copy{margin-top:14px;font-size:15px;line-height:1.55}
+  .contact-grid{padding:0 0 48px}
   .contact-card,.contact-form-card{padding:20px}
   .contact-form-grid{grid-template-columns:1fr}
   .contact-service-area{grid-template-columns:1fr}
+  .contact-form-card{order:1}
+  .contact-panel{order:2}
 }
 </style>
 {% endblock %}

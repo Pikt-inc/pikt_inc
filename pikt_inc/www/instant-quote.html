@@ -19,6 +19,8 @@
 .quote-grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:24px;padding:10px 0 64px}
 .quote-panel,.quote-form-card,.quote-result,.quote-steps,.quote-trust{background:#fff;border:1px solid #e7e7e7;border-radius:28px}
 .quote-panel{display:flex;flex-direction:column;gap:22px}
+.quote-form-card{order:2}
+.quote-panel{order:1}
 .quote-form-card{padding:26px}
 .quote-form-card h2,.quote-panel h2{margin:0;color:#171717;font-size:30px;font-weight:700;line-height:1.15}
 .quote-card-copy{margin:12px 0 0;color:#525252;font-size:16px;line-height:1.65}
@@ -55,9 +57,13 @@
 }
 @media (max-width:768px){
   .quote-wrap{padding:0 16px}
-  .quote-hero{padding:48px 0 22px}
+  .quote-hero{padding:40px 0 18px}
+  .quote-copy{margin-top:14px;font-size:15px;line-height:1.55}
+  .quote-grid{padding:0 0 48px}
   .quote-form-card,.quote-steps,.quote-trust,.quote-result{padding:20px}
   .quote-form-grid{grid-template-columns:1fr}
+  .quote-form-card{order:1}
+  .quote-panel{order:2}
 }
 </style>
 {% endblock %}
