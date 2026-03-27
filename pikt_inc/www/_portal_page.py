@@ -48,6 +48,11 @@ def build_context(
     context.redirect_to = data.get("redirect_to") or ""
 
     if context.redirect_to:
+        flags = getattr(getattr(frappe, "local", None), "flags", None)
+        if flags is None:
+            frappe.local.flags = type("Flags", (), {})()
+            flags = frappe.local.flags
+        flags.redirect_location = context.redirect_to
         response = getattr(getattr(frappe, "local", None), "response", None)
         if response is None:
             frappe.local.response = {}
@@ -55,4 +60,5 @@ def build_context(
         response["type"] = "redirect"
         response["location"] = context.redirect_to
         response["http_status_code"] = context.http_status_code
+        raise frappe.Redirect(context.http_status_code)
     return context

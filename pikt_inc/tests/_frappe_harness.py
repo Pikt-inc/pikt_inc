@@ -112,6 +112,12 @@ def _whitelist(**_kwargs):
     return decorator
 
 
+class _Redirect(Exception):
+    def __init__(self, http_status_code=302):
+        super().__init__(http_status_code)
+        self.http_status_code = http_status_code
+
+
 def _parse_json(data):
     if isinstance(data, str):
         return json.loads(data)
@@ -157,6 +163,7 @@ def _reset_object_attrs(target, defaults):
 
 def _new_local():
     return SimpleNamespace(
+        flags=SimpleNamespace(redirect_location=""),
         response={},
         request=SimpleNamespace(get_json=lambda silent=True: None),
         request_ip="127.0.0.1",
@@ -260,6 +267,7 @@ def install_test_frappe():
     _reset_object_attrs(db_namespace, db_defaults)
 
     defaults = {
+        "Redirect": _Redirect,
         "attach_print": lambda *args, **kwargs: b"",
         "clear_cache": lambda: None,
         "delete_doc": lambda *args, **kwargs: None,
@@ -287,9 +295,18 @@ def install_test_frappe():
     _HARNESS_STATE["frappe_defaults"] = defaults
 
     _reset_object_attrs(frappe_module, defaults)
-    _reset_object_attrs(local_namespace, {"response": {}, "request": SimpleNamespace(get_json=lambda silent=True: None), "request_ip": "127.0.0.1"})
+    _reset_object_attrs(
+        local_namespace,
+        {
+            "flags": SimpleNamespace(redirect_location=""),
+            "response": {},
+            "request": SimpleNamespace(get_json=lambda silent=True: None),
+            "request_ip": "127.0.0.1",
+        },
+    )
     _reset_object_attrs(request_namespace, {"headers": {}, "environ": {}, "data": None})
     _reset_object_attrs(session_namespace, {"user": "Guest"})
+    frappe_module.flags = local_namespace.flags
 
     sys.modules["frappe.utils"] = utils_module
     sys.modules["frappe.utils.pdf"] = pdf_module

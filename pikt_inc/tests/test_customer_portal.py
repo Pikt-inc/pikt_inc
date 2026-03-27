@@ -705,25 +705,27 @@ class TestCustomerPortal(TestCase):
     def test_portal_page_helper_sets_redirect_response(self):
         context = types.SimpleNamespace()
         portal_page_helper.frappe.local.response = {}
+        portal_page_helper.frappe.local.flags = types.SimpleNamespace(redirect_location="")
 
-        result = portal_page_helper.build_context(
-            context,
-            page_loader=lambda: {
-                "page_title": "Overview",
-                "portal_title": "Customer Portal",
-                "portal_description": "Desc",
-                "portal_nav": [],
-                "metatags": {"title": "Customer Portal", "description": "Secure portal"},
-                "http_status_code": 302,
-                "redirect_to": "/login?redirect-to=/portal",
-            },
-        )
+        with self.assertRaises(portal_page_helper.frappe.Redirect) as exc:
+            portal_page_helper.build_context(
+                context,
+                page_loader=lambda: {
+                    "page_title": "Overview",
+                    "portal_title": "Customer Portal",
+                    "portal_description": "Desc",
+                    "portal_nav": [],
+                    "metatags": {"title": "Customer Portal", "description": "Secure portal"},
+                    "http_status_code": 302,
+                    "redirect_to": "/login?redirect-to=/portal",
+                },
+            )
 
-        self.assertIs(result, context)
-        self.assertEqual(context.redirect_to, "/login?redirect-to=/portal")
+        self.assertEqual(exc.exception.http_status_code, 302)
         self.assertEqual(portal_page_helper.frappe.local.response["type"], "redirect")
         self.assertEqual(portal_page_helper.frappe.local.response["location"], "/login?redirect-to=/portal")
         self.assertEqual(portal_page_helper.frappe.local.response["http_status_code"], 302)
+        self.assertEqual(portal_page_helper.frappe.local.flags.redirect_location, "/login?redirect-to=/portal")
 
     def test_portal_page_helper_normalizes_model_like_context_values(self):
         context = types.SimpleNamespace()
