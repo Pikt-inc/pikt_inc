@@ -272,7 +272,10 @@
 
 .portal-shell-menu{
   display:none;
-  position:relative;
+  position:absolute;
+  top:34px;
+  right:34px;
+  z-index:40;
 }
 
 .portal-shell-menu summary{list-style:none}

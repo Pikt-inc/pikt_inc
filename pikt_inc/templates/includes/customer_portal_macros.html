@@ -45,31 +45,31 @@
         </svg>
       </span>
     </div>
-    <details class="portal-shell-menu">
-      <summary class="portal-shell-menu__toggle" aria-label="Open portal menu">
-        <span class="portal-shell-menu__bars" aria-hidden="true">
-          <span></span>
-          <span></span>
-          <span></span>
-        </span>
-      </summary>
-      <button class="portal-shell-menu__backdrop" type="button" aria-label="Close portal menu"></button>
-      <div class="portal-shell-menu__panel">
-        <p class="portal-shell-menu__eyebrow">Customer portal</p>
-        <p class="portal-shell-menu__account">{{ account_label }}</p>
-        <nav class="portal-shell-menu__nav" aria-label="Portal">
-          {% for item in primary_nav %}
-          <a class="portal-shell-menu__link {% if item.is_active %}is-active{% endif %}" href="{{ item.url }}">{{ item.label }}</a>
-          {% endfor %}
-        </nav>
-        <nav class="portal-shell-menu__utility" aria-label="Portal actions">
-          {% for item in utility_nav %}
-          <a class="portal-shell-menu__utility-link" href="{{ item.url }}">{{ item.label }}</a>
-          {% endfor %}
-        </nav>
-      </div>
-    </details>
   </div>
+  <details class="portal-shell-menu">
+    <summary class="portal-shell-menu__toggle" aria-label="Open portal menu">
+      <span class="portal-shell-menu__bars" aria-hidden="true">
+        <span></span>
+        <span></span>
+        <span></span>
+      </span>
+    </summary>
+    <button class="portal-shell-menu__backdrop" type="button" aria-label="Close portal menu"></button>
+    <div class="portal-shell-menu__panel">
+      <p class="portal-shell-menu__eyebrow">Customer portal</p>
+      <p class="portal-shell-menu__account">{{ account_label }}</p>
+      <nav class="portal-shell-menu__nav" aria-label="Portal">
+        {% for item in primary_nav %}
+        <a class="portal-shell-menu__link {% if item.is_active %}is-active{% endif %}" href="{{ item.url }}">{{ item.label }}</a>
+        {% endfor %}
+      </nav>
+      <nav class="portal-shell-menu__utility" aria-label="Portal actions">
+        {% for item in utility_nav %}
+        <a class="portal-shell-menu__utility-link" href="{{ item.url }}">{{ item.label }}</a>
+        {% endfor %}
+      </nav>
+    </div>
+  </details>
 </header>
 {%- endmacro %}
 
