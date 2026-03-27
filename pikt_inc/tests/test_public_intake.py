@@ -113,9 +113,9 @@ class TestPublicIntake(unittest.TestCase):
 
         self.assertEqual(result, {"valid": 1, "opportunity": "CRM-OPP-TEST-0001"})
 
-    @patch.object(public_intake, "ensure_public_token", return_value="renewed-token")
-    @patch.object(public_intake, "add_to_date", return_value="2026-03-22 00:00:00")
-    @patch.object(public_intake, "now", return_value="2026-03-22 00:00:00")
+    @patch.object(public_intake.tokens, "ensure_public_token", return_value="renewed-token")
+    @patch.object(public_intake.intake, "add_to_date", return_value="2026-03-22 00:00:00")
+    @patch.object(public_intake.intake, "now", return_value="2026-03-22 00:00:00")
     @patch.object(public_intake.frappe, "get_all")
     def test_create_instant_quote_opportunity_reuses_recent_duplicate(
         self,
@@ -166,12 +166,12 @@ class TestPublicIntake(unittest.TestCase):
             },
         )
 
-    @patch.object(public_intake, "make_public_token", return_value="new-token")
-    @patch.object(public_intake, "add_to_date", side_effect=["2026-03-22 00:00:00", "2099-01-01 00:00:00"])
-    @patch.object(public_intake, "now_datetime", return_value="2026-03-22 00:00:00")
-    @patch.object(public_intake, "nowdate", return_value="2026-03-22")
-    @patch.object(public_intake, "now", return_value="2026-03-22 00:00:00")
-    @patch.object(public_intake, "upsert_lead_for_quote_request")
+    @patch.object(public_intake.tokens, "make_public_token", return_value="new-token")
+    @patch.object(public_intake.intake, "add_to_date", side_effect=["2026-03-22 00:00:00", "2099-01-01 00:00:00"])
+    @patch.object(public_intake.intake, "now_datetime", return_value="2026-03-22 00:00:00")
+    @patch.object(public_intake.intake, "nowdate", return_value="2026-03-22")
+    @patch.object(public_intake.intake, "now", return_value="2026-03-22 00:00:00")
+    @patch.object(public_intake.intake, "upsert_lead_for_quote_request")
     @patch.object(public_intake.frappe, "get_all", return_value=[])
     @patch.object(public_intake.frappe, "get_doc")
     def test_create_instant_quote_opportunity_creates_new_record(
@@ -229,8 +229,8 @@ class TestPublicIntake(unittest.TestCase):
             },
         )
 
-    @patch.object(public_intake, "now", return_value="2026-03-22 00:00:00")
-    @patch.object(public_intake, "require_valid_public_funnel_opportunity")
+    @patch.object(public_intake.walkthrough, "now", return_value="2026-03-22 00:00:00")
+    @patch.object(public_intake.tokens, "require_valid_public_funnel_opportunity")
     @patch.object(public_intake.frappe, "get_all")
     @patch.object(public_intake.frappe, "get_doc")
     def test_save_opportunity_walkthrough_upload_updates_opportunity(

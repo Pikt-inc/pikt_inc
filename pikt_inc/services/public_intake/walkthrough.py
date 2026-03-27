@@ -1,0 +1,95 @@
+from __future__ import annotations
+
+import frappe
+from frappe.utils import now
+
+from .constants import ALLOWED_WALKTHROUGH_EXTENSIONS, MAX_WALKTHROUGH_BYTES
+from .shared import clean, fail
+from . import tokens
+
+
+def save_opportunity_walkthrough_upload(opportunity=None, token=None, uploaded=None):
+    opportunity = clean(opportunity if opportunity is not None else frappe.form_dict.get("opportunity"))
+    token = clean(token if token is not None else frappe.form_dict.get("token"))
+    uploaded = uploaded or (
+        frappe.request.files.get("walkthrough_upload")
+        if getattr(frappe, "request", None) and getattr(frappe.request, "files", None)
+        else None
+    )
+
+    if not opportunity:
+        fail("Missing estimate reference. Please return to the estimate page and try again.")
+    if not token:
+        fail("This link is missing its secure access token. Please return to the estimate page and try again.")
+
+    tokens.require_valid_public_funnel_opportunity(opportunity, token)
+
+    if not uploaded:
+        fail("Please choose your walkthrough file before submitting.")
+
+    file_name = clean(getattr(uploaded, "filename", "")) or "digital-walkthrough-upload"
+    extension = ""
+    if "." in file_name:
+        extension = file_name.rsplit(".", 1)[1].lower().strip()
+
+    if not extension or extension not in ALLOWED_WALKTHROUGH_EXTENSIONS:
+        fail("We could not read that file. Please upload a standard image, video, or document under 100 MB.")
+
+    content = uploaded.read()
+    if not content:
+        fail("Uploaded file was empty. Please choose the file again.")
+    if len(content) > MAX_WALKTHROUGH_BYTES:
+        fail("That file is larger than the 100 MB upload limit. Please choose a smaller file.")
+
+    existing_files = frappe.get_all(
+        "File",
+        filters={
+            "attached_to_doctype": "Opportunity",
+            "attached_to_name": opportunity,
+            "attached_to_field": "digital_walkthrough_file",
+        },
+        fields=["name", "file_url"],
+    )
+
+    try:
+        file_doc = frappe.get_doc(
+            {
+                "doctype": "File",
+                "file_name": file_name,
+                "is_private": 1,
+                "attached_to_doctype": "Opportunity",
+                "attached_to_name": opportunity,
+                "attached_to_field": "digital_walkthrough_file",
+                "content": content,
+            }
+        )
+        file_doc.save(ignore_permissions=True)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "Save Opportunity Walkthrough Upload")
+        fail("We could not read that file. Please upload a standard image, video, or document under 100 MB.")
+
+    try:
+        doc = frappe.get_doc("Opportunity", opportunity)
+        doc.digital_walkthrough_file = file_doc.file_url
+        doc.digital_walkthrough_status = "Submitted"
+        doc.digital_walkthrough_received_on = now()
+        doc.latest_digital_walkthrough = ""
+        doc.save(ignore_permissions=True)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "Save Opportunity Walkthrough Upload - Opportunity Update")
+        fail("We could not attach the walkthrough to your estimate. Please try again.")
+
+    for existing in existing_files:
+        if existing.get("name") and existing.get("name") != file_doc.name:
+            try:
+                old_file = frappe.get_doc("File", existing.get("name"))
+                old_file.delete(ignore_permissions=True)
+            except Exception:
+                frappe.log_error(frappe.get_traceback(), "Cleanup Replaced Walkthrough File")
+
+    return {
+        "opportunity": doc.name,
+        "digital_walkthrough_file": doc.digital_walkthrough_file,
+        "digital_walkthrough_status": doc.digital_walkthrough_status,
+        "digital_walkthrough_received_on": doc.digital_walkthrough_received_on,
+    }
