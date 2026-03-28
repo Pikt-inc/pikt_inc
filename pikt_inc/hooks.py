@@ -129,8 +129,8 @@ website_redirects = [
 # after_app_install = "pikt_inc.utils.after_app_install"
 
 after_sync = [
-	"pikt_inc.migrate.ensure_building_custom_docperms",
 	"pikt_inc.migrate.ensure_customer_desk_records",
+	"pikt_inc.migrate.ensure_building_custom_docperms",
 ]
 
 # Integration Cleanup
@@ -526,8 +526,8 @@ override_whitelisted_methods = {
 # after_request = ["pikt_inc.utils.after_request"]
 
 after_migrate = [
-	"pikt_inc.migrate.ensure_building_custom_docperms",
 	"pikt_inc.migrate.ensure_customer_desk_records",
+	"pikt_inc.migrate.ensure_building_custom_docperms",
 ]
 
 # Job Events

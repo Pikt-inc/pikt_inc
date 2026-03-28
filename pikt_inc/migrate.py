@@ -390,6 +390,7 @@ def _ensure_custom_docperms(doctype_name: str, desired_rows: tuple[dict, ...]) -
 
 
 def ensure_building_custom_docperms() -> None:
+	ensure_customer_desk_role()
 	_ensure_custom_docperms(
 		"Building",
 		_BUILDING_CUSTOM_DOCPERMS + _CUSTOMER_DESK_BUILDING_DOCPERMS,

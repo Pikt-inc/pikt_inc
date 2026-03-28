@@ -239,6 +239,14 @@ class TestWebsiteFixtures(unittest.TestCase):
         self.assertIn("pikt_inc.migrate.ensure_customer_desk_records", app_hooks.after_sync)
         self.assertIn("pikt_inc.migrate.ensure_building_custom_docperms", app_hooks.after_migrate)
         self.assertIn("pikt_inc.migrate.ensure_customer_desk_records", app_hooks.after_migrate)
+        self.assertLess(
+            app_hooks.after_sync.index("pikt_inc.migrate.ensure_customer_desk_records"),
+            app_hooks.after_sync.index("pikt_inc.migrate.ensure_building_custom_docperms"),
+        )
+        self.assertLess(
+            app_hooks.after_migrate.index("pikt_inc.migrate.ensure_customer_desk_records"),
+            app_hooks.after_migrate.index("pikt_inc.migrate.ensure_building_custom_docperms"),
+        )
 
     def test_customer_desk_assets_and_hooks_are_repo_owned(self):
         for path in (

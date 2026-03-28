@@ -245,6 +245,14 @@ class TestCustomerDesk(unittest.TestCase):
         mock_titles.assert_called_once_with()
         mock_docperms.assert_called_once_with()
 
+    @patch.object(migrate, "_ensure_custom_docperms")
+    @patch.object(migrate, "ensure_customer_desk_role")
+    def test_ensure_building_custom_docperms_ensures_role_first(self, mock_role, mock_docperms):
+        migrate.ensure_building_custom_docperms()
+
+        mock_role.assert_called_once_with()
+        mock_docperms.assert_called_once()
+
 
 if __name__ == "__main__":
     unittest.main()
