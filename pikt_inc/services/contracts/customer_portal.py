@@ -151,6 +151,7 @@ class PortalLocationFields(ResponseModel):
 class PortalLocationRow(ResponseModel):
     name: str
     title: str
+    detail_url: str
     full_address: str
     active_label: str
     active: bool
@@ -211,6 +212,7 @@ class PortalBillingUpdateResponse(PortalBillingResponse):
 
 class PortalLocationsResponse(PortalPageResponse):
     buildings: list[PortalLocationRow] = Field(default_factory=list)
+    selected_building: PortalLocationRow | None = None
     location_form_options: PortalLocationFormOptions
 
 

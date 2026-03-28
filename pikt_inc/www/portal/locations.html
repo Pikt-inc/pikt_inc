@@ -33,13 +33,82 @@
       {% else %}
       <section class="portal-hero">
         <p class="portal-note">Locations</p>
-        <h1>Service location details</h1>
-        <p class="portal-copy">Update access instructions, site contacts, and operational notes so your cleaning team arrives with the right information.</p>
+        {% if selected_building %}
+        <h1>{{ selected_building.title }}</h1>
+        <p class="portal-copy">Review and update access instructions, site contacts, and operational notes for this service location.</p>
+        {% else %}
+        <h1>Service locations</h1>
+        <p class="portal-copy">Review all locations linked to your account, then open a location to update access instructions, site contacts, and operational notes.</p>
+        {% endif %}
       </section>
       {% if buildings %}
+      {% if selected_building %}
+      <section class="portal-card portal-card--document portal-card--location">
+        <div class="portal-section-head">
+          <div>
+            <p class="portal-kicker">Location</p>
+            <h2>{{ selected_building.title }}</h2>
+            <p class="portal-muted">{{ selected_building.full_address }}</p>
+          </div>
+          <a class="portal-button portal-button--ghost" href="/portal/locations">Back to all locations</a>
+        </div>
+        <div class="portal-inline-summary">
+          <span>{{ selected_building.active_label }}</span>
+          {% if selected_building.modified_label %}<span>Updated {{ selected_building.modified_label }}</span>{% endif %}
+        </div>
+        <form class="portal-form" data-portal-endpoint="/api/method/pikt_inc.api.customer_portal.update_customer_portal_location">
+          <input type="hidden" name="building_name" value="{{ selected_building.name }}">
+          <div class="portal-form__grid">
+            <label class="portal-field"><span>Primary site contact</span><input type="text" name="primary_site_contact" value="{{ selected_building.fields.primary_site_contact or '' }}"></label>
+            <label class="portal-field"><span>Site supervisor</span><input type="text" name="site_supervisor_name" value="{{ selected_building.fields.site_supervisor_name or '' }}"></label>
+            <label class="portal-field"><span>Supervisor phone</span><input type="text" name="site_supervisor_phone" value="{{ selected_building.fields.site_supervisor_phone or '' }}"></label>
+            <label class="portal-field"><span>Lockout emergency contact</span><input type="text" name="lockout_emergency_contact" value="{{ selected_building.fields.lockout_emergency_contact or '' }}"></label>
+            <label class="portal-field">
+              <span>Access method</span>
+              <select name="access_method">
+                <option value="">Select...</option>
+                {% for option in location_form_options.access_methods %}
+                <option value="{{ option }}"{% if selected_building.fields.access_method == option %} selected{% endif %}>{{ option }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label class="portal-field"><span>Entrance</span><input type="text" name="access_entrance" value="{{ selected_building.fields.access_entrance or '' }}"></label>
+            <label class="portal-field"><span>Allowed entry window</span><input type="text" name="allowed_entry_time" value="{{ selected_building.fields.allowed_entry_time or '' }}"></label>
+            <label class="portal-field">
+              <span>Alarm system</span>
+              <select name="has_alarm_system">
+                <option value="">Select...</option>
+                {% for option in location_form_options.alarm_system %}
+                <option value="{{ option }}"{% if selected_building.fields.has_alarm_system == option %} selected{% endif %}>{{ option }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label class="portal-field"><span>Site notes</span><textarea name="site_notes">{{ selected_building.fields.site_notes or '' }}</textarea></label>
+            <label class="portal-field"><span>Access notes</span><textarea name="access_notes">{{ selected_building.fields.access_notes or '' }}</textarea></label>
+            <label class="portal-field"><span>Entry details</span><textarea name="access_entry_details">{{ selected_building.fields.access_entry_details or '' }}</textarea></label>
+            <label class="portal-field"><span>Alarm notes</span><textarea name="alarm_notes">{{ selected_building.fields.alarm_notes or '' }}</textarea></label>
+            <label class="portal-field"><span>Alarm instructions</span><textarea name="alarm_instructions">{{ selected_building.fields.alarm_instructions or '' }}</textarea></label>
+            <label class="portal-field"><span>Key / fob handoff</span><textarea name="key_fob_handoff_details">{{ selected_building.fields.key_fob_handoff_details or '' }}</textarea></label>
+            <label class="portal-field"><span>Areas to avoid</span><textarea name="areas_to_avoid">{{ selected_building.fields.areas_to_avoid or '' }}</textarea></label>
+            <label class="portal-field"><span>Closing instructions</span><textarea name="closing_instructions">{{ selected_building.fields.closing_instructions or '' }}</textarea></label>
+            <label class="portal-field"><span>Parking / elevator notes</span><textarea name="parking_elevator_notes">{{ selected_building.fields.parking_elevator_notes or '' }}</textarea></label>
+            <label class="portal-field"><span>First service notes</span><textarea name="first_service_notes">{{ selected_building.fields.first_service_notes or '' }}</textarea></label>
+          </div>
+          <label class="portal-checkbox">
+            <input type="hidden" name="access_details_confirmed" value="0">
+            <input type="checkbox" name="access_details_confirmed" value="1"{% if selected_building.fields.access_details_confirmed %} checked{% endif %}>
+            <span>I confirm these access details are accurate for the cleaning team.</span>
+          </label>
+          <div class="portal-actions">
+            <button class="portal-button portal-button--solid" type="submit">Save location details</button>
+          </div>
+          <div class="portal-message" data-portal-message></div>
+        </form>
+      </section>
+      {% else %}
       <section class="portal-stack">
         {% for building in buildings %}
-        <section class="portal-card portal-card--document portal-card--location">
+        <a class="portal-card portal-card--document portal-card--location portal-card--link" href="{{ building.detail_url }}">
           <div class="portal-section-head">
             <div>
               <p class="portal-kicker">Location</p>
@@ -48,57 +117,14 @@
             </div>
             <span class="portal-pill">{{ building.active_label }}</span>
           </div>
-          <form class="portal-form" data-portal-endpoint="/api/method/pikt_inc.api.customer_portal.update_customer_portal_location">
-            <input type="hidden" name="building_name" value="{{ building.name }}">
-            <div class="portal-form__grid">
-              <label class="portal-field"><span>Primary site contact</span><input type="text" name="primary_site_contact" value="{{ building.fields.primary_site_contact or '' }}"></label>
-              <label class="portal-field"><span>Site supervisor</span><input type="text" name="site_supervisor_name" value="{{ building.fields.site_supervisor_name or '' }}"></label>
-              <label class="portal-field"><span>Supervisor phone</span><input type="text" name="site_supervisor_phone" value="{{ building.fields.site_supervisor_phone or '' }}"></label>
-              <label class="portal-field"><span>Lockout emergency contact</span><input type="text" name="lockout_emergency_contact" value="{{ building.fields.lockout_emergency_contact or '' }}"></label>
-              <label class="portal-field">
-                <span>Access method</span>
-                <select name="access_method">
-                  <option value="">Select...</option>
-                  {% for option in location_form_options.access_methods %}
-                  <option value="{{ option }}"{% if building.fields.access_method == option %} selected{% endif %}>{{ option }}</option>
-                  {% endfor %}
-                </select>
-              </label>
-              <label class="portal-field"><span>Entrance</span><input type="text" name="access_entrance" value="{{ building.fields.access_entrance or '' }}"></label>
-              <label class="portal-field"><span>Allowed entry window</span><input type="text" name="allowed_entry_time" value="{{ building.fields.allowed_entry_time or '' }}"></label>
-              <label class="portal-field">
-                <span>Alarm system</span>
-                <select name="has_alarm_system">
-                  <option value="">Select...</option>
-                  {% for option in location_form_options.alarm_system %}
-                  <option value="{{ option }}"{% if building.fields.has_alarm_system == option %} selected{% endif %}>{{ option }}</option>
-                  {% endfor %}
-                </select>
-              </label>
-              <label class="portal-field"><span>Site notes</span><textarea name="site_notes">{{ building.fields.site_notes or '' }}</textarea></label>
-              <label class="portal-field"><span>Access notes</span><textarea name="access_notes">{{ building.fields.access_notes or '' }}</textarea></label>
-              <label class="portal-field"><span>Entry details</span><textarea name="access_entry_details">{{ building.fields.access_entry_details or '' }}</textarea></label>
-              <label class="portal-field"><span>Alarm notes</span><textarea name="alarm_notes">{{ building.fields.alarm_notes or '' }}</textarea></label>
-              <label class="portal-field"><span>Alarm instructions</span><textarea name="alarm_instructions">{{ building.fields.alarm_instructions or '' }}</textarea></label>
-              <label class="portal-field"><span>Key / fob handoff</span><textarea name="key_fob_handoff_details">{{ building.fields.key_fob_handoff_details or '' }}</textarea></label>
-              <label class="portal-field"><span>Areas to avoid</span><textarea name="areas_to_avoid">{{ building.fields.areas_to_avoid or '' }}</textarea></label>
-              <label class="portal-field"><span>Closing instructions</span><textarea name="closing_instructions">{{ building.fields.closing_instructions or '' }}</textarea></label>
-              <label class="portal-field"><span>Parking / elevator notes</span><textarea name="parking_elevator_notes">{{ building.fields.parking_elevator_notes or '' }}</textarea></label>
-              <label class="portal-field"><span>First service notes</span><textarea name="first_service_notes">{{ building.fields.first_service_notes or '' }}</textarea></label>
-            </div>
-            <label class="portal-checkbox">
-              <input type="hidden" name="access_details_confirmed" value="0">
-              <input type="checkbox" name="access_details_confirmed" value="1"{% if building.fields.access_details_confirmed %} checked{% endif %}>
-              <span>I confirm these access details are accurate for the cleaning team.</span>
-            </label>
-            <div class="portal-actions">
-              <button class="portal-button portal-button--solid" type="submit">Save location details</button>
-            </div>
-            <div class="portal-message" data-portal-message></div>
-          </form>
-        </section>
+          <div class="portal-link-row">
+            <span class="portal-muted">{% if building.modified_label %}Updated {{ building.modified_label }}{% else %}Open to review access details{% endif %}</span>
+            <span class="portal-text-link">Review location</span>
+          </div>
+        </a>
         {% endfor %}
       </section>
+      {% endif %}
       {% else %}
       <section class="portal-empty">
         <h2>{{ empty_state_title }}</h2>

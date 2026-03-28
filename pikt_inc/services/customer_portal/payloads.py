@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import quote
 
 from ..contracts.customer_portal import (
     DEFAULT_COUNTRY,
@@ -174,6 +175,7 @@ def _shape_building_rows(buildings: list[dict[str, Any]]) -> list[PortalLocation
             PortalLocationRow(
                 name=clean(row.get("name")),
                 title=clean(row.get("building_name")) or clean(row.get("name")),
+                detail_url=f"{PORTAL_PAGE_PATHS['locations']}?building={quote(clean(row.get('name')))}",
                 full_address=full_address,
                 active_label="Active" if truthy(row.get("active")) else "Inactive",
                 active=truthy(row.get("active")),
@@ -327,12 +329,21 @@ def _build_billing_response(scope: PortalScope, invoices: list[dict[str, Any]]) 
     return PortalBillingResponse(**data)
 
 
-def _build_locations_response(scope: PortalScope, buildings: list[dict[str, Any]]) -> PortalLocationsResponse:
+def _build_locations_response(
+    scope: PortalScope,
+    buildings: list[dict[str, Any]],
+    *,
+    selected_building_name: str = "",
+) -> PortalLocationsResponse:
+    shaped_buildings = _shape_building_rows(buildings)
+    selected_name = clean(selected_building_name)
+    selected_building = next((row for row in shaped_buildings if row.name == selected_name), None)
     data = _base_page_kwargs("locations")
     data.update(
         {
             "customer_display": scope.customer_display,
-            "buildings": _shape_building_rows(buildings),
+            "buildings": shaped_buildings,
+            "selected_building": selected_building,
             "location_form_options": PortalLocationFormOptions(
                 access_methods=list(LOCATION_ACCESS_METHOD_OPTIONS),
                 alarm_system=list(LOCATION_ALARM_OPTIONS),

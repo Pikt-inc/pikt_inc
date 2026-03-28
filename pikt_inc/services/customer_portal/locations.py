@@ -13,12 +13,27 @@ from .scope import PortalAccessError, _require_portal_scope, _resolve_portal_sco
 from .shared import _throw, clean
 
 
+def _requested_building_name() -> str:
+    form_dict = getattr(frappe, "form_dict", {}) or {}
+    if hasattr(form_dict, "get"):
+        return clean(form_dict.get("building") or form_dict.get("building_name"))
+    return ""
+
+
 def get_customer_portal_locations_data() -> dict:
     try:
         scope = _resolve_portal_scope_or_error()
     except PortalAccessError as exc:
         return _portal_access_error_response("locations", exc)
-    return _build_locations_response(scope, _get_buildings(scope.customer_name)).model_dump(mode="python")
+    buildings = _get_buildings(scope.customer_name)
+    requested_building = _requested_building_name()
+    if requested_building and not any(clean(row.get("name")) == requested_building for row in buildings):
+        requested_building = ""
+    return _build_locations_response(
+        scope,
+        buildings,
+        selected_building_name=requested_building,
+    ).model_dump(mode="python")
 
 
 def update_customer_portal_location(**kwargs):
@@ -44,7 +59,11 @@ def update_customer_portal_location(**kwargs):
             updates["access_details_completed_on"] = now_datetime()
 
     public_quote_service.doc_db_set_values("Building", payload.building_name, updates)
-    response = _build_locations_response(scope, _get_buildings(scope.customer_name))
+    response = _build_locations_response(
+        scope,
+        _get_buildings(scope.customer_name),
+        selected_building_name=payload.building_name,
+    )
     return PortalLocationsUpdateResponse(
         **response.model_dump(mode="python"),
         status="updated",

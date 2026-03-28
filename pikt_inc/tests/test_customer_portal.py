@@ -324,6 +324,7 @@ class TestCustomerPortal(TestCase):
         )
         portal.frappe.session.user = "portal@example.com"
         portal.frappe.local.response = {}
+        portal.frappe.form_dict = {}
         portal.frappe.utils.get_url = lambda path="": f"https://example.test{path}"
         portal.frappe.utils.get_datetime = lambda value: value if isinstance(value, datetime) else datetime.fromisoformat(str(value))
         portal.now_datetime = lambda: datetime(2026, 3, 25, 12, 0, 0)
@@ -343,6 +344,23 @@ class TestCustomerPortal(TestCase):
         self.assertEqual(data["latest_invoices"][0]["download_url"], "/api/method/pikt_inc.api.customer_portal.download_customer_portal_invoice?invoice=SINV-0001")
         self.assertEqual(data["active_master"]["title"], "Portal Customer Master Agreement")
         self.assertEqual(data["latest_locations"][0]["title"], "Headquarters")
+
+    def test_locations_page_defaults_to_list_view(self):
+        data = portal.get_customer_portal_locations_data()
+
+        self.assertFalse(data["access_denied"])
+        self.assertEqual(data["buildings"][0]["title"], "Headquarters")
+        self.assertEqual(data["buildings"][0]["detail_url"], "/portal/locations?building=BUILD-1")
+        self.assertIsNone(data["selected_building"])
+
+    def test_locations_page_can_select_a_single_building_for_editing(self):
+        portal.frappe.form_dict = {"building": "BUILD-1"}
+
+        data = portal.get_customer_portal_locations_data()
+
+        self.assertFalse(data["access_denied"])
+        self.assertEqual(data["selected_building"]["name"], "BUILD-1")
+        self.assertEqual(data["selected_building"]["title"], "Headquarters")
 
     def test_portal_billing_contract_requires_address_fields(self):
         with self.assertRaisesRegex(Exception, "Field required|at least 1 character"):
