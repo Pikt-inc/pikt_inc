@@ -36,7 +36,7 @@
         <p class="portal-copy">Review the current master agreement, signed quote addenda, and stored rendered snapshots for your records.</p>
       </section>
       {% if active_master %}
-      <section class="portal-card">
+      <section class="portal-card portal-card--document">
         <div class="portal-section-head">
           <div>
             <p class="portal-kicker">Master agreement</p>
@@ -65,7 +65,7 @@
         {% if addenda %}
         <div class="portal-stack">
           {% for addendum in addenda %}
-          <article class="portal-card">
+          <article class="portal-card portal-card--document">
             <div class="portal-section-head">
               <div>
                 <strong>{{ addendum.title }}</strong>

@@ -18,7 +18,9 @@
 .site-shell-mobile summary::-webkit-details-marker{display:none}
 .site-shell-mobile-panel{display:flex;flex-direction:column;gap:2px;width:320px;max-width:calc(100vw - 32px);margin-top:8px;padding:8px;background:#fff;border:1px solid #e7e7e7;border-radius:16px;box-shadow:rgba(0,0,0,0.08) 0 8px 24px 0;position:absolute;right:0;top:100%;z-index:60}
 .site-shell-mobile-panel a{border-radius:10px;padding:14px;text-decoration:none}
+.site-shell-mobile-panel a.is-active{background:#171717;color:#fff}
 .site-shell-mobile-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:8px;width:100%}
+.site-shell-mobile-actions.is-single{grid-template-columns:1fr}
 .site-shell-mobile-quote,.site-shell-mobile-login{display:flex;align-items:center;justify-content:center;border-radius:14px;padding:14px;text-decoration:none}
 .site-shell-mobile-quote{background:#171717;color:#fff}
 .site-shell-mobile-login{background:#f3f3f3;color:#171717}
@@ -47,7 +49,38 @@
 {% if noindex_meta %}<meta name="robots" content="noindex, nofollow">{% endif %}
 {%- endmacro %}
 
+{% macro site_shell_mobile_menu(nav_items, action_items=(), summary_label='Menu', summary_aria_label='Open menu', panel_label='Primary') -%}
+<details class="site-shell-mobile">
+  <summary aria-label="{{ summary_aria_label }}">&#9776; {{ summary_label }}</summary>
+  <div class="site-shell-mobile-panel" aria-label="{{ panel_label }}">
+    {% for item in nav_items %}
+    <a{% if item.is_active %} class="is-active"{% endif %} href="{{ item.url }}">{{ item.label }}</a>
+    {% endfor %}
+    {% if action_items %}
+    <div class="site-shell-mobile-actions{% if action_items|length == 1 %} is-single{% endif %}">
+      {% for item in action_items %}
+      {% set action_class = item.class_name or ('site-shell-mobile-login' if item.variant == 'secondary' or item.key == 'logout' else 'site-shell-mobile-quote') %}
+      <a class="{{ action_class }}" href="{{ item.url }}">{{ item.label }}</a>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+</details>
+{%- endmacro %}
+
 {% macro site_shell_header() -%}
+{% set site_shell_nav_items = [
+  {"label": "Home", "url": "/"},
+  {"label": "Services", "url": "/services"},
+  {"label": "Industries", "url": "/industries"},
+  {"label": "Service Area", "url": "/service-area"},
+  {"label": "About", "url": "/about"},
+  {"label": "Contact", "url": "/contact"}
+] %}
+{% set site_shell_action_items = [
+  {"label": "Get a Quote", "url": "/quote", "variant": "primary"},
+  {"label": "Login", "url": "/login", "variant": "secondary"}
+] %}
 <header class="site-shell-nav">
   <div class="site-shell-wrap">
     <div class="site-shell-nav__inner">
@@ -68,21 +101,7 @@
           <a class="site-shell-login" href="/login">Login</a>
         </div>
       </div>
-      <details class="site-shell-mobile">
-        <summary>&#9776; Menu</summary>
-        <div class="site-shell-mobile-panel">
-          <a href="/">Home</a>
-          <a href="/services">Services</a>
-          <a href="/industries">Industries</a>
-          <a href="/service-area">Service Area</a>
-          <a href="/about">About</a>
-          <a href="/contact">Contact</a>
-          <div class="site-shell-mobile-actions">
-            <a class="site-shell-mobile-quote" href="/quote">Get a Quote</a>
-            <a class="site-shell-mobile-login" href="/login">Login</a>
-          </div>
-        </div>
-      </details>
+      {{ site_shell_mobile_menu(site_shell_nav_items, site_shell_action_items, summary_label='Menu', summary_aria_label='Open site menu', panel_label='Primary') }}
     </div>
   </div>
 </header>

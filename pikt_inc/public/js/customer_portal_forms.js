@@ -1,6 +1,6 @@
 (function(){
   function closeOpenPortalMenus(){
-    document.querySelectorAll('.portal-shell-menu[open]').forEach(function(menu){
+    document.querySelectorAll('.portal-shell-menu[open], [data-portal-mobile-nav] .site-shell-mobile[open]').forEach(function(menu){
       menu.removeAttribute('open');
     });
   }
@@ -13,7 +13,7 @@
     });
 
     document.addEventListener('click',function(event){
-      document.querySelectorAll('.portal-shell-menu[open]').forEach(function(menu){
+      document.querySelectorAll('.portal-shell-menu[open], [data-portal-mobile-nav] .site-shell-mobile[open]').forEach(function(menu){
         if(menu.contains(event.target)){return;}
         menu.removeAttribute('open');
       });
@@ -25,7 +25,7 @@
       }
     });
 
-    document.querySelectorAll('.portal-shell-menu__panel a').forEach(function(link){
+    document.querySelectorAll('.portal-shell-menu__panel a, [data-portal-mobile-nav] .site-shell-mobile-panel a').forEach(function(link){
       link.addEventListener('click',function(){
         closeOpenPortalMenus();
       });
