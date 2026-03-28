@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import frappe
-from frappe.utils import now_datetime
 from pydantic import ValidationError
 
-from .. import public_quote as public_quote_service
-from ..contracts.common import first_validation_message, truthy
+from .. import customer_desk, public_quote as public_quote_service
+from ..contracts.common import first_validation_message
 from ..contracts.customer_portal import CustomerPortalLocationUpdateInput, PortalLocationsUpdateResponse
 from .payloads import _build_locations_response, _portal_access_error_response
 from .queries import _get_buildings
@@ -54,9 +53,14 @@ def update_customer_portal_location(**kwargs):
 
     updates = payload.updates()
     if "access_details_confirmed" in updates:
-        updates["access_details_confirmed"] = 1 if truthy(updates["access_details_confirmed"]) else 0
-        if updates["access_details_confirmed"] and not building_row.get("access_details_completed_on"):
-            updates["access_details_completed_on"] = now_datetime()
+        normalized_confirmed, completed_on = customer_desk.normalize_access_details_confirmation(
+            updates["access_details_confirmed"],
+            existing_completed_on=building_row.get("access_details_completed_on"),
+            current_completed_on=updates.get("access_details_completed_on"),
+        )
+        updates["access_details_confirmed"] = normalized_confirmed
+        if completed_on and not updates.get("access_details_completed_on"):
+            updates["access_details_completed_on"] = completed_on
 
     public_quote_service.doc_db_set_values("Building", payload.building_name, updates)
     response = _build_locations_response(
