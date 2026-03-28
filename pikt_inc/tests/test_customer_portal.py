@@ -336,6 +336,9 @@ class TestCustomerPortal(TestCase):
 
         self.assertFalse(data["access_denied"])
         self.assertEqual(data["customer_display"], "Portal Customer LLC")
+        self.assertEqual(data["summary_cards"][0]["label"], "Agreement status")
+        self.assertEqual(data["summary_cards"][0]["value"], "Active")
+        self.assertEqual(data["summary_cards"][0]["meta"], "Signed Mar 01, 2026 09:00 AM")
         self.assertEqual(data["summary_cards"][1]["value"], "1")
         self.assertEqual(data["latest_invoices"][0]["download_url"], "/api/method/pikt_inc.api.customer_portal.download_customer_portal_invoice?invoice=SINV-0001")
         self.assertEqual(data["active_master"]["title"], "Portal Customer Master Agreement")

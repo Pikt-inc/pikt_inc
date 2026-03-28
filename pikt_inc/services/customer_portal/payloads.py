@@ -258,9 +258,13 @@ def _build_dashboard_response(scope: PortalScope, agreements: list[dict[str, Any
             "customer_display": scope.customer_display,
             "summary_cards": [
             PortalSummaryCard(
-                label="Active agreement",
-                value=(active_master.title if active_master else ("Ready" if shaped_addenda else "Not yet available")),
-                meta=(active_master.status if active_master else (shaped_addenda[0].status if shaped_addenda else "Pending")),
+                label="Agreement status",
+                value=("Active" if active_master else "Pending"),
+                meta=(
+                    f"Signed {active_master.signed_on_label}"
+                    if active_master and active_master.signed_on_label
+                    else ("Master agreement on file" if active_master else "No active master agreement")
+                ),
             ),
             PortalSummaryCard(
                 label="Unpaid invoices",

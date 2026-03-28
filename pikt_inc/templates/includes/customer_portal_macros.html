@@ -18,7 +18,7 @@
       {% endfor %}
     </nav>
     <div class="portal-shell-rail__meta">
-      <p>Billing, agreements, and service-location details stay aligned here.</p>
+      <p>Use the portal for live account details, then reach out when billing or site-access details need a real conversation.</p>
       <nav class="portal-shell-rail__utility" aria-label="Portal actions">
         {% for item in utility_nav %}
         <a class="portal-shell-rail__utility-link" href="{{ item.url }}">{{ item.label }}</a>
@@ -82,9 +82,7 @@
       <p>Use the portal for live account details, then reach out when billing routes or site access needs a real conversation.</p>
     </div>
     <div class="portal-shell-footer__links">
-      {% for item in primary_nav %}
-      <a href="{{ item.url }}">{{ item.label }}</a>
-      {% endfor %}
+      <a href="/portal">Overview</a>
       <a href="{{ portal_contact_path }}">Support</a>
       {% for item in utility_nav %}
       {% if item.key == "logout" %}
