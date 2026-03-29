@@ -54,6 +54,7 @@
         </div>
         <div class="portal-inline-summary">
           <span>{{ selected_building.active_label }}</span>
+          {% if selected_building.agreement_status_label %}<span>{{ selected_building.agreement_status_label }}</span>{% endif %}
           {% if selected_building.modified_label %}<span>Updated {{ selected_building.modified_label }}</span>{% endif %}
         </div>
         <form class="portal-form" data-portal-endpoint="/api/method/pikt_inc.api.customer_portal.update_customer_portal_location">
@@ -116,6 +117,9 @@
               <p class="portal-muted">{{ building.full_address }}</p>
             </div>
             <span class="portal-pill">{{ building.active_label }}</span>
+          </div>
+          <div class="portal-inline-summary">
+            <span>{{ building.agreement_status_label }}</span>
           </div>
           <div class="portal-link-row">
             <span class="portal-muted">{% if building.modified_label %}Updated {{ building.modified_label }}{% else %}Open to review access details{% endif %}</span>

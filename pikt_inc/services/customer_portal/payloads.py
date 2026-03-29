@@ -24,7 +24,7 @@ from ..contracts.customer_portal import (
     PortalRecentActivityItem,
     PortalSummaryCard,
 )
-from .constants import BUILDING_EDIT_FIELDS, PORTAL_DESCRIPTION, PORTAL_PAGE_PATHS, PORTAL_PAGE_TITLES, PORTAL_SUPPORT_PATH, PORTAL_TITLE
+from .constants import BUILDING_EDIT_FIELDS, PORTAL_DESCRIPTION, PORTAL_NAV_KEYS, PORTAL_PAGE_PATHS, PORTAL_PAGE_TITLES, PORTAL_SUPPORT_PATH, PORTAL_TITLE
 from .formatters import _as_number, _format_currency, _format_date, _format_datetime
 from .queries import _load_address_row, _load_contact_row
 from .scope import PortalAccessError, PortalScope, _is_guest_session
@@ -43,7 +43,8 @@ def _page_meta(page_key: str) -> PortalMetaTags:
 
 def _portal_nav(active_key: str) -> list[PortalNavItem]:
     items = []
-    for key, label in PORTAL_PAGE_TITLES.items():
+    for key in PORTAL_NAV_KEYS:
+        label = PORTAL_PAGE_TITLES[key]
         items.append(
             PortalNavItem(
                 key=key,
@@ -57,13 +58,13 @@ def _portal_nav(active_key: str) -> list[PortalNavItem]:
     return items
 
 
-def _base_page_kwargs(page_key: str) -> dict[str, Any]:
+def _base_page_kwargs(page_key: str, *, nav_active_key: str | None = None) -> dict[str, Any]:
     return {
         "page_key": page_key,
         "page_title": PORTAL_PAGE_TITLES.get(page_key, PORTAL_TITLE),
         "portal_title": PORTAL_TITLE,
         "portal_description": PORTAL_DESCRIPTION,
-        "portal_nav": [item.model_dump(mode="python") for item in _portal_nav(page_key)],
+        "portal_nav": [item.model_dump(mode="python") for item in _portal_nav(nav_active_key or page_key)],
         "portal_contact_path": PORTAL_SUPPORT_PATH,
         "metatags": _page_meta(page_key).model_dump(mode="python"),
         "access_denied": False,
@@ -78,12 +79,12 @@ def _base_page_kwargs(page_key: str) -> dict[str, Any]:
     }
 
 
-def _portal_access_error_response(page_key: str, exc: PortalAccessError) -> dict[str, Any]:
+def _portal_access_error_response(page_key: str, exc: PortalAccessError, *, nav_active_key: str | None = None) -> dict[str, Any]:
     login_path = _login_path_for_page(page_key) if _is_guest_session() else ""
     status_code = 302 if login_path else 403
     _set_http_status(status_code)
     return {
-        **_base_page_kwargs(page_key),
+        **_base_page_kwargs(page_key, nav_active_key=nav_active_key),
         "access_denied": True,
         "error_title": "Portal access unavailable",
         "error_message": clean(str(exc)),
@@ -93,8 +94,30 @@ def _portal_access_error_response(page_key: str, exc: PortalAccessError) -> dict
     }
 
 
-def _shape_agreement_rows(agreements: list[dict[str, Any]], addenda: list[dict[str, Any]]) -> tuple[PortalAgreementMaster | None, list[PortalAgreementAddendum]]:
+def _full_building_address(row: dict[str, Any]) -> str:
+    address_bits = [clean(row.get("address_line_1")), clean(row.get("address_line_2"))]
+    city_line = ", ".join(bit for bit in (clean(row.get("city")), clean(row.get("state"))) if bit)
+    postal = clean(row.get("postal_code"))
+    if city_line and postal:
+        city_line = f"{city_line} {postal}"
+    return ", ".join(part for part in [", ".join(bit for bit in address_bits if bit), city_line] if part)
+
+
+def _location_agreement_status_label(row: dict[str, Any]) -> str:
+    if clean(row.get("custom_service_agreement_addendum")):
+        return "Location exhibit on file"
+    if clean(row.get("custom_service_agreement")):
+        return "Master agreement on file"
+    return "No agreement on file"
+
+
+def _shape_agreement_rows(
+    agreements: list[dict[str, Any]],
+    addenda: list[dict[str, Any]],
+    buildings: list[dict[str, Any]],
+) -> tuple[PortalAgreementMaster | None, list[PortalAgreementAddendum]]:
     active_master = None
+    building_lookup = {clean(row.get("name")): row for row in buildings if clean(row.get("name"))}
     if agreements:
         preferred = next((row for row in agreements if clean(row.get("status")) == "Active"), agreements[0])
         active_master = PortalAgreementMaster(
@@ -112,10 +135,15 @@ def _shape_agreement_rows(agreements: list[dict[str, Any]], addenda: list[dict[s
     shaped_addenda: list[PortalAgreementAddendum] = []
     for row in addenda:
         status = clean(row.get("status"))
+        building_name = clean(row.get("building"))
+        building_row = building_lookup.get(building_name, {})
+        location_title = clean(building_row.get("building_name")) or building_name or clean(row.get("addendum_name")) or clean(row.get("name"))
         shaped_addenda.append(
             PortalAgreementAddendum(
                 name=clean(row.get("name")),
-                title=clean(row.get("addendum_name")) or clean(row.get("name")),
+                title=location_title,
+                document_title=clean(row.get("addendum_name")) or clean(row.get("name")),
+                location_address=_full_building_address(building_row),
                 status=status,
                 term_model=clean(row.get("term_model")) or "Month-to-month",
                 fixed_term_months=clean(row.get("fixed_term_months")),
@@ -128,12 +156,13 @@ def _shape_agreement_rows(agreements: list[dict[str, Any]], addenda: list[dict[s
                 quotation=clean(row.get("quotation")),
                 sales_order=clean(row.get("sales_order")),
                 invoice=clean(row.get("initial_invoice")),
-                building=clean(row.get("building")),
+                building=location_title,
                 download_url=_agreement_download_url(addendum_name=clean(row.get("name"))),
                 preview_html=clean(row.get("rendered_html_snapshot")),
                 is_active=status == "Active",
             )
         )
+    shaped_addenda.sort(key=lambda row: (not row.is_active, clean(row.title).lower(), clean(row.document_title).lower()))
     return active_master, shaped_addenda
 
 
@@ -165,12 +194,7 @@ def _shape_invoice_rows(invoices: list[dict[str, Any]]) -> tuple[list[PortalInvo
 def _shape_building_rows(buildings: list[dict[str, Any]]) -> list[PortalLocationRow]:
     shaped: list[PortalLocationRow] = []
     for row in buildings:
-        address_bits = [clean(row.get("address_line_1")), clean(row.get("address_line_2"))]
-        city_line = ", ".join(bit for bit in (clean(row.get("city")), clean(row.get("state"))) if bit)
-        postal = clean(row.get("postal_code"))
-        if city_line and postal:
-            city_line = f"{city_line} {postal}"
-        full_address = ", ".join(part for part in [", ".join(bit for bit in address_bits if bit), city_line] if part)
+        full_address = _full_building_address(row)
         shaped.append(
             PortalLocationRow(
                 name=clean(row.get("name")),
@@ -178,6 +202,7 @@ def _shape_building_rows(buildings: list[dict[str, Any]]) -> list[PortalLocation
                 detail_url=f"{PORTAL_PAGE_PATHS['locations']}?building={quote(clean(row.get('name')))}",
                 full_address=full_address,
                 active_label="Active" if truthy(row.get("active")) else "Inactive",
+                agreement_status_label=_location_agreement_status_label(row),
                 active=truthy(row.get("active")),
                 modified_label=_format_datetime(row.get("modified")),
                 fields=PortalLocationFields(**{fieldname: row.get(fieldname) for fieldname in BUILDING_EDIT_FIELDS}),
@@ -188,11 +213,13 @@ def _shape_building_rows(buildings: list[dict[str, Any]]) -> list[PortalLocation
 
 def _build_recent_activity(addenda: list[dict[str, Any]], invoices: list[dict[str, Any]], buildings: list[dict[str, Any]]) -> list[PortalRecentActivityItem]:
     activity: list[PortalRecentActivityItem] = []
+    building_lookup = {clean(row.get("name")): row for row in buildings if clean(row.get("name"))}
     for row in addenda[:3]:
+        building_row = building_lookup.get(clean(row.get("building")), {})
         activity.append(
             PortalRecentActivityItem(
-                label=clean(row.get("addendum_name")) or clean(row.get("name")),
-                meta=clean(row.get("status")) or "Agreement",
+                label=clean(building_row.get("building_name")) or clean(row.get("building")) or clean(row.get("addendum_name")) or clean(row.get("name")),
+                meta=f"Location exhibit {clean(row.get('status')).lower() or 'updated'}",
                 timestamp=_format_datetime(row.get("modified") or row.get("signed_on")),
             )
         )
@@ -251,7 +278,7 @@ def _billing_address_payload(scope: PortalScope) -> PortalBillingAddress:
 
 
 def _build_dashboard_response(scope: PortalScope, agreements: list[dict[str, Any]], addenda: list[dict[str, Any]], invoices: list[dict[str, Any]], buildings: list[dict[str, Any]]) -> PortalDashboardResponse:
-    active_master, shaped_addenda = _shape_agreement_rows(agreements, addenda)
+    active_master, shaped_addenda = _shape_agreement_rows(agreements, addenda, buildings)
     shaped_invoices, unpaid_total = _shape_invoice_rows(invoices)
     shaped_buildings = _shape_building_rows(buildings)
     data = _base_page_kwargs("overview")
@@ -295,8 +322,13 @@ def _build_dashboard_response(scope: PortalScope, agreements: list[dict[str, Any
     return PortalDashboardResponse(**data)
 
 
-def _build_agreements_response(scope: PortalScope, agreements: list[dict[str, Any]], addenda: list[dict[str, Any]]) -> PortalAgreementsResponse:
-    active_master, shaped_addenda = _shape_agreement_rows(agreements, addenda)
+def _build_agreements_response(
+    scope: PortalScope,
+    agreements: list[dict[str, Any]],
+    addenda: list[dict[str, Any]],
+    buildings: list[dict[str, Any]],
+) -> PortalAgreementsResponse:
+    active_master, shaped_addenda = _shape_agreement_rows(agreements, addenda, buildings)
     data = _base_page_kwargs("agreements")
     data.update(
         {
@@ -304,15 +336,21 @@ def _build_agreements_response(scope: PortalScope, agreements: list[dict[str, An
             "active_master": active_master,
             "addenda": shaped_addenda,
             "empty_state_title": "No agreements are available yet.",
-            "empty_state_copy": "Signed service agreements and quote addenda will appear here once your account is active.",
+            "empty_state_copy": "Your master services agreement and location exhibits will appear here once your account is active.",
         }
     )
     return PortalAgreementsResponse(**data)
 
 
-def _build_billing_response(scope: PortalScope, invoices: list[dict[str, Any]]) -> PortalBillingResponse:
+def _build_billing_response(
+    scope: PortalScope,
+    invoices: list[dict[str, Any]],
+    *,
+    page_key: str = "billing",
+    nav_active_key: str | None = None,
+) -> PortalBillingResponse:
     shaped_invoices, unpaid_total = _shape_invoice_rows(invoices)
-    data = _base_page_kwargs("billing")
+    data = _base_page_kwargs(page_key, nav_active_key=nav_active_key)
     data.update(
         {
             "customer_display": scope.customer_display,

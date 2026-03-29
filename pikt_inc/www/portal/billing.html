@@ -7,7 +7,6 @@
 {% block head_include %}
 {{ super() }}
 {{ customer_portal_head(noindex_meta) }}
-<script src="/assets/pikt_inc/js/customer_portal_forms.js" defer></script>
 {% endblock %}
 
 {% block content %}
@@ -33,8 +32,8 @@
       {% else %}
       <section class="portal-hero">
         <p class="portal-note">Billing</p>
-        <h1>Billing contacts and invoice activity</h1>
-        <p class="portal-copy">Keep billing recipients current, confirm invoice routing details, and download active invoices from one place.</p>
+        <h1>Invoice activity</h1>
+        <p class="portal-copy">Review future and past invoices here, then update billing contacts and remittance details on the billing information page.</p>
       </section>
       <section class="portal-card portal-card--summary">
         <div class="portal-section-head">
@@ -42,6 +41,7 @@
             <p class="portal-kicker">Current setup</p>
             <h2>Billing summary</h2>
           </div>
+          <a class="portal-button portal-button--ghost" href="/portal/billing-info">Update billing details</a>
         </div>
         <div class="portal-inline-summary">
           <span>Billing contact {{ billing_contact.display_name or customer_display }}</span>
@@ -53,81 +53,8 @@
       <section class="portal-card">
         <div class="portal-section-head">
           <div>
-            <p class="portal-kicker">Update contacts</p>
-            <h2>Billing and portal contact details</h2>
-          </div>
-        </div>
-        <form class="portal-form" data-portal-endpoint="/api/method/pikt_inc.api.customer_portal.update_customer_portal_billing">
-          <div class="portal-form__grid">
-            <label class="portal-field">
-              <span>Portal contact name</span>
-              <input type="text" name="portal_contact_name" value="{{ portal_contact.display_name or customer_display }}">
-            </label>
-            <label class="portal-field">
-              <span>Portal contact phone</span>
-              <input type="text" name="portal_contact_phone" value="{{ portal_contact.phone }}">
-            </label>
-            <label class="portal-field">
-              <span>Portal contact title</span>
-              <input type="text" name="portal_contact_title" value="{{ portal_contact.designation }}">
-            </label>
-            <div></div>
-            <label class="portal-field">
-              <span>Billing contact name</span>
-              <input type="text" name="billing_contact_name" value="{{ billing_contact.display_name or customer_display }}" required>
-            </label>
-            <label class="portal-field">
-              <span>Billing email</span>
-              <input type="email" name="billing_email" value="{{ billing_contact.email }}" required>
-            </label>
-            <label class="portal-field">
-              <span>Billing contact phone</span>
-              <input type="text" name="billing_contact_phone" value="{{ billing_contact.phone }}">
-            </label>
-            <label class="portal-field">
-              <span>Billing contact title</span>
-              <input type="text" name="billing_contact_title" value="{{ billing_contact.designation }}">
-            </label>
-            <label class="portal-field">
-              <span>Billing address line 1</span>
-              <input type="text" name="billing_address_line_1" value="{{ billing_address.address_line_1 }}" required>
-            </label>
-            <label class="portal-field">
-              <span>Billing address line 2</span>
-              <input type="text" name="billing_address_line_2" value="{{ billing_address.address_line_2 }}">
-            </label>
-            <label class="portal-field">
-              <span>City</span>
-              <input type="text" name="billing_city" value="{{ billing_address.city }}" required>
-            </label>
-            <label class="portal-field">
-              <span>State</span>
-              <input type="text" name="billing_state" value="{{ billing_address.state }}" required>
-            </label>
-            <label class="portal-field">
-              <span>Postal code</span>
-              <input type="text" name="billing_postal_code" value="{{ billing_address.postal_code }}" required>
-            </label>
-            <label class="portal-field">
-              <span>Country</span>
-              <input type="text" name="billing_country" value="{{ billing_address.country }}" required>
-            </label>
-            <label class="portal-field">
-              <span>Tax ID</span>
-              <input type="text" name="tax_id" value="{{ tax_id }}">
-            </label>
-          </div>
-          <div class="portal-actions">
-            <button class="portal-button portal-button--solid" type="submit">Save billing details</button>
-          </div>
-          <div class="portal-message" data-portal-message></div>
-        </form>
-      </section>
-      <section class="portal-card">
-        <div class="portal-section-head">
-          <div>
             <p class="portal-kicker">Invoices</p>
-            <h2>Current invoices</h2>
+            <h2>Future and past invoices</h2>
           </div>
         </div>
         {% if invoices %}

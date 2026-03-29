@@ -21,6 +21,20 @@ def get_customer_portal_billing_data() -> dict:
     return _build_billing_response(scope, invoices).model_dump(mode="python")
 
 
+def get_customer_portal_billing_info_data() -> dict:
+    try:
+        scope = _resolve_portal_scope_or_error()
+    except PortalAccessError as exc:
+        return _portal_access_error_response("billing_info", exc, nav_active_key="billing")
+    invoices = _get_invoices(scope.customer_name)
+    return _build_billing_response(
+        scope,
+        invoices,
+        page_key="billing_info",
+        nav_active_key="billing",
+    ).model_dump(mode="python")
+
+
 def update_customer_portal_billing(**kwargs):
     scope = _require_portal_scope()
     try:

@@ -1,5 +1,6 @@
 from .agreements import *
 from .billing import *
+from .billing_info import *
 from .locations import *
 from .overview import *
 

@@ -15,6 +15,7 @@ class PortalPageKey(str, Enum):
     OVERVIEW = "overview"
     AGREEMENTS = "agreements"
     BILLING = "billing"
+    BILLING_INFO = "billing_info"
     LOCATIONS = "locations"
 
 
@@ -94,6 +95,8 @@ class PortalAgreementMaster(ResponseModel):
 class PortalAgreementAddendum(ResponseModel):
     name: str
     title: str
+    document_title: str
+    location_address: str
     status: str
     term_model: str
     fixed_term_months: str
@@ -154,6 +157,7 @@ class PortalLocationRow(ResponseModel):
     detail_url: str
     full_address: str
     active_label: str
+    agreement_status_label: str
     active: bool
     modified_label: str
     fields: PortalLocationFields

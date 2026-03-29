@@ -32,14 +32,14 @@
       {% else %}
       <section class="portal-hero">
         <p class="portal-note">Agreements</p>
-        <h1>Contracts and signed addenda</h1>
-        <p class="portal-copy">Review the current master agreement, signed quote addenda, and stored rendered snapshots for your records.</p>
+        <h1>Service agreements</h1>
+        <p class="portal-copy">Review your master services agreement and each location exhibit on file for your account.</p>
       </section>
       {% if active_master %}
       <section class="portal-card portal-card--document">
         <div class="portal-section-head">
           <div>
-            <p class="portal-kicker">Master agreement</p>
+            <p class="portal-kicker">Master services agreement</p>
             <h2>{{ active_master.title }}</h2>
           </div>
           <a class="portal-button portal-button--ghost" href="{{ active_master.download_url }}">Download snapshot</a>
@@ -50,7 +50,7 @@
           {% if active_master.signed_on_label %}<span>Signed {{ active_master.signed_on_label }}</span>{% endif %}
         </div>
         <details class="portal-divider">
-          <summary class="portal-text-link">Preview rendered agreement</summary>
+          <summary class="portal-text-link">Preview master agreement</summary>
           <div class="portal-richtext">{{ active_master.preview_html | safe }}</div>
         </details>
       </section>
@@ -58,8 +58,8 @@
       <section class="portal-card">
         <div class="portal-section-head">
           <div>
-            <p class="portal-kicker">Quote addenda</p>
-            <h2>Signed service addenda</h2>
+            <p class="portal-kicker">Location exhibits</p>
+            <h2>Service locations on agreement</h2>
           </div>
         </div>
         {% if addenda %}
@@ -69,18 +69,21 @@
             <div class="portal-section-head">
               <div>
                 <strong>{{ addendum.title }}</strong>
-                <p class="portal-muted">{{ addendum.status }} • {{ addendum.term_model }}{% if addendum.start_date_label %} • Starts {{ addendum.start_date_label }}{% endif %}{% if addendum.end_date_label %} • Ends {{ addendum.end_date_label }}{% endif %}</p>
+                {% if addendum.location_address %}<p class="portal-muted">{{ addendum.location_address }}</p>{% endif %}
+                <p class="portal-muted">Service exhibit • {{ addendum.status }} • {{ addendum.term_model }}{% if addendum.start_date_label %} • Starts {{ addendum.start_date_label }}{% endif %}{% if addendum.end_date_label %} • Ends {{ addendum.end_date_label }}{% endif %}</p>
               </div>
               <a class="portal-button portal-button--ghost" href="{{ addendum.download_url }}">Download snapshot</a>
             </div>
             <div class="portal-inline-summary">
-              {% if addendum.invoice %}<span>Invoice {{ addendum.invoice }}</span>{% endif %}
-              {% if addendum.building %}<span>Location {{ addendum.building }}</span>{% endif %}
+              {% if addendum.signed_on_label %}<span>Signed {{ addendum.signed_on_label }}</span>{% endif %}
               {% if addendum.billing_completed_on_label %}<span>Billing {{ addendum.billing_completed_on_label }}</span>{% endif %}
               {% if addendum.access_completed_on_label %}<span>Access {{ addendum.access_completed_on_label }}</span>{% endif %}
             </div>
             <details class="portal-divider">
-              <summary class="portal-text-link">Preview rendered addendum</summary>
+              <summary class="portal-text-link">Preview location exhibit</summary>
+              {% if addendum.document_title and addendum.document_title != addendum.title %}
+              <p class="portal-muted">Legal document: {{ addendum.document_title }}</p>
+              {% endif %}
               <div class="portal-richtext">{{ addendum.preview_html | safe }}</div>
             </details>
           </article>

@@ -15,14 +15,17 @@ PORTAL_PAGE_TITLES = {
     "overview": "Account Overview",
     "agreements": "Agreements",
     "billing": "Billing",
+    "billing_info": "Billing Information",
     "locations": "Locations",
 }
 PORTAL_PAGE_PATHS = {
     "overview": PORTAL_HOME_PATH,
     "agreements": "/portal/agreements",
     "billing": "/portal/billing",
+    "billing_info": "/portal/billing-info",
     "locations": "/portal/locations",
 }
+PORTAL_NAV_KEYS = ("overview", "agreements", "billing", "locations")
 BUILDING_EDIT_FIELDS = (
     "site_supervisor_name",
     "site_supervisor_phone",

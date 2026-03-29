@@ -60,6 +60,7 @@ try:
     portal_www_index = importlib.import_module("pikt_inc.www.portal.index")
     portal_www_agreements = importlib.import_module("pikt_inc.www.portal.agreements")
     portal_www_billing = importlib.import_module("pikt_inc.www.portal.billing")
+    portal_www_billing_info = importlib.import_module("pikt_inc.www.portal.billing_info")
     portal_www_locations = importlib.import_module("pikt_inc.www.portal.locations")
 except ModuleNotFoundError:
     app_hooks = importlib.import_module("pikt_inc.pikt_inc.hooks")
@@ -71,6 +72,7 @@ except ModuleNotFoundError:
     portal_www_index = importlib.import_module("pikt_inc.pikt_inc.www.portal.index")
     portal_www_agreements = importlib.import_module("pikt_inc.pikt_inc.www.portal.agreements")
     portal_www_billing = importlib.import_module("pikt_inc.pikt_inc.www.portal.billing")
+    portal_www_billing_info = importlib.import_module("pikt_inc.pikt_inc.www.portal.billing_info")
     portal_www_locations = importlib.import_module("pikt_inc.pikt_inc.www.portal.locations")
 
 
@@ -81,6 +83,7 @@ PORTAL_FORMS_JS_PATH = Path(__file__).resolve().parents[1] / "public" / "js" / "
 PORTAL_OVERVIEW_TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "www" / "portal" / "index.html"
 PORTAL_AGREEMENTS_TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "www" / "portal" / "agreements.html"
 PORTAL_BILLING_TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "www" / "portal" / "billing.html"
+PORTAL_BILLING_INFO_TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "www" / "portal" / "billing-info.html"
 PORTAL_LOCATIONS_TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "www" / "portal" / "locations.html"
 
 
@@ -344,6 +347,16 @@ class TestCustomerPortal(TestCase):
         self.assertEqual(data["latest_invoices"][0]["download_url"], "/api/method/pikt_inc.api.customer_portal.download_customer_portal_invoice?invoice=SINV-0001")
         self.assertEqual(data["active_master"]["title"], "Portal Customer Master Agreement")
         self.assertEqual(data["latest_locations"][0]["title"], "Headquarters")
+        self.assertEqual(data["latest_locations"][0]["agreement_status_label"], "Location exhibit on file")
+
+    def test_agreements_page_shapes_addenda_around_location_identity(self):
+        data = portal.get_customer_portal_agreements_data()
+
+        self.assertFalse(data["access_denied"])
+        self.assertEqual(data["active_master"]["title"], "Portal Customer Master Agreement")
+        self.assertEqual(data["addenda"][0]["title"], "Headquarters")
+        self.assertEqual(data["addenda"][0]["document_title"], "Portal Addendum")
+        self.assertEqual(data["addenda"][0]["location_address"], "123 Market St, Suite 300, Austin, TX 78701")
 
     def test_locations_page_defaults_to_list_view(self):
         data = portal.get_customer_portal_locations_data()
@@ -351,6 +364,7 @@ class TestCustomerPortal(TestCase):
         self.assertFalse(data["access_denied"])
         self.assertEqual(data["buildings"][0]["title"], "Headquarters")
         self.assertEqual(data["buildings"][0]["detail_url"], "/portal/locations?building=BUILD-1")
+        self.assertEqual(data["buildings"][0]["agreement_status_label"], "Location exhibit on file")
         self.assertIsNone(data["selected_building"])
 
     def test_locations_page_can_select_a_single_building_for_editing(self):
@@ -607,6 +621,7 @@ class TestCustomerPortal(TestCase):
         self.assertNotIn("portal", routes)
         self.assertNotIn("portal/agreements", routes)
         self.assertNotIn("portal/billing", routes)
+        self.assertNotIn("portal/billing-info", routes)
         self.assertNotIn("portal/locations", routes)
         component_fixture = next(fixture for fixture in app_hooks.fixtures if fixture["dt"] == "Builder Component")
         component_names = component_fixture["filters"][0][2]
@@ -626,6 +641,7 @@ class TestCustomerPortal(TestCase):
         overview = PORTAL_OVERVIEW_TEMPLATE_PATH.read_text(encoding="utf-8")
         agreements = PORTAL_AGREEMENTS_TEMPLATE_PATH.read_text(encoding="utf-8")
         billing = PORTAL_BILLING_TEMPLATE_PATH.read_text(encoding="utf-8")
+        billing_info = PORTAL_BILLING_INFO_TEMPLATE_PATH.read_text(encoding="utf-8")
         locations = PORTAL_LOCATIONS_TEMPLATE_PATH.read_text(encoding="utf-8")
         css = PORTAL_CSS_PATH.read_text(encoding="utf-8")
         js = PORTAL_FORMS_JS_PATH.read_text(encoding="utf-8")
@@ -645,14 +661,15 @@ class TestCustomerPortal(TestCase):
         self.assertIn("site-shell-mobile[open]", js)
         self.assertIn("window.location.reload()", js)
 
-        for template in (overview, agreements, billing, locations):
+        for template in (overview, agreements, billing, billing_info, locations):
             self.assertIn("customer_portal_header", template)
             self.assertIn("customer_portal_footer", template)
             self.assertIn("customer_portal_head", template)
 
-        self.assertIn("/assets/pikt_inc/js/customer_portal_forms.js", billing)
+        self.assertIn("/assets/pikt_inc/js/customer_portal_forms.js", billing_info)
         self.assertIn("/assets/pikt_inc/js/customer_portal_forms.js", locations)
-        self.assertIn("/api/method/pikt_inc.api.customer_portal.update_customer_portal_billing", billing)
+        self.assertIn("/api/method/pikt_inc.api.customer_portal.update_customer_portal_billing", billing_info)
+        self.assertNotIn("/api/method/pikt_inc.api.customer_portal.update_customer_portal_billing", billing)
         self.assertIn("/api/method/pikt_inc.api.customer_portal.update_customer_portal_location", locations)
         self.assertNotIn("buildings_json", locations)
         self.assertNotIn("portal-locations-data", locations)
@@ -676,6 +693,12 @@ class TestCustomerPortal(TestCase):
             result = portal_www_billing.get_context(context)
         self.assertIs(result, context)
         billing_helper.assert_called_once()
+
+        context = types.SimpleNamespace()
+        with patch.object(portal_www_billing_info, "build_context", return_value=context) as billing_info_helper:
+            result = portal_www_billing_info.get_context(context)
+        self.assertIs(result, context)
+        billing_info_helper.assert_called_once()
 
         context = types.SimpleNamespace()
         with patch.object(portal_www_locations, "build_context", return_value=context) as locations_helper:
