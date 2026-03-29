@@ -31,13 +31,13 @@
 .portal-shell{
   display:grid;
   grid-template-columns:260px minmax(0,1fr);
-  grid-template-rows:auto 1fr auto;
+  grid-template-rows:minmax(0,1fr) auto;
   min-height:100vh;
 }
 
 .portal-shell-rail{
   grid-column:1;
-  grid-row:1 / 4;
+  grid-row:1 / 3;
   position:sticky;
   top:0;
   align-self:start;
@@ -355,7 +355,7 @@
 
 .portal-shell-main{
   grid-column:2;
-  grid-row:2;
+  grid-row:1;
 }
 
 .portal-shell-main__inner{
@@ -753,7 +753,7 @@
 
 .portal-shell-footer{
   grid-column:2;
-  grid-row:3;
+  grid-row:2;
   padding:0 28px 28px;
 }
 
@@ -819,6 +819,9 @@
   .portal-shell-header,
   .portal-shell-main,
   .portal-shell-footer{grid-column:1}
+
+  .portal-shell-main{grid-row:2}
+  .portal-shell-footer{grid-row:3}
 
   .portal-shell-header{
     display:block;
