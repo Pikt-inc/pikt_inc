@@ -76,7 +76,9 @@ class TestCustomerDesk(unittest.TestCase):
                 "roles": [
                     SimpleNamespace(role="Customer Desk User"),
                     SimpleNamespace(role="Customer Portal User"),
+                    SimpleNamespace(role="Customer"),
                 ],
+                "user_type": "Website User",
                 "module_profile": None,
                 "default_workspace": None,
                 "default_app": None,
@@ -88,8 +90,9 @@ class TestCustomerDesk(unittest.TestCase):
         self.assertEqual(result, {"status": "customer_desk_profile_applied", "workspace_applied": 1})
         self.assertEqual(
             [row.role for row in doc.roles],
-            ["Customer Desk User", "Customer Portal User", "Desk User"],
+            ["Customer Desk User", "Customer Portal User", "Customer", "Desk User"],
         )
+        self.assertEqual(doc.user_type, "System User")
         self.assertEqual(doc.module_profile, "Customer Desk")
         self.assertEqual(doc.default_workspace, "Customer Workspace")
         self.assertEqual(doc.default_app, "erpnext")
@@ -102,6 +105,7 @@ class TestCustomerDesk(unittest.TestCase):
                     SimpleNamespace(role="Customer Desk User"),
                     SimpleNamespace(role="Sales User"),
                 ],
+                "user_type": "System User",
                 "module_profile": "Customer Desk",
                 "default_workspace": "Customer Workspace",
                 "default_app": "erpnext",
@@ -111,9 +115,42 @@ class TestCustomerDesk(unittest.TestCase):
         result = customer_desk.apply_customer_desk_module_profile(doc)
 
         self.assertEqual(result, {"status": "customer_desk_profile_cleared"})
+        self.assertEqual(doc.user_type, "System User")
         self.assertIsNone(doc.module_profile)
         self.assertIsNone(doc.default_workspace)
         self.assertIsNone(doc.default_app)
+
+    @patch.object(customer_desk.frappe.db, "exists", return_value=True)
+    def test_apply_customer_desk_module_profile_reverts_portal_only_user_to_website_user(self, _mock_exists):
+        doc = FakeDoc(
+            {
+                "roles": [
+                    SimpleNamespace(role="Customer Portal User"),
+                    SimpleNamespace(role="Customer"),
+                    SimpleNamespace(role="Desk User"),
+                ],
+                "user_type": "System User",
+                "module_profile": "Customer Desk",
+                "default_workspace": "Customer Workspace",
+                "default_app": "erpnext",
+            }
+        )
+
+        result = customer_desk.apply_customer_desk_module_profile(doc)
+
+        self.assertEqual(result, {"status": "customer_desk_profile_cleared"})
+        self.assertEqual(doc.user_type, "Website User")
+        self.assertIsNone(doc.module_profile)
+        self.assertIsNone(doc.default_workspace)
+        self.assertIsNone(doc.default_app)
+
+    @patch.object(
+        customer_desk.frappe,
+        "get_roles",
+        return_value=["All", "Customer", "Customer Desk User", "Customer Portal User", "Desk User", "Guest"],
+    )
+    def test_is_customer_desk_user_allows_expected_resolved_roles(self, _mock_roles):
+        self.assertTrue(customer_desk.is_customer_desk_user("portal@example.com"))
 
     @patch.object(customer_desk, "_get_portal_contact_links")
     def test_resolve_customer_name_requires_exactly_one_customer(self, mock_links):

@@ -11,13 +11,19 @@ from .public_quote.shared import make_unique_name, truthy
 
 CUSTOMER_DESK_ROLE = "Customer Desk User"
 CUSTOMER_PORTAL_ROLE = "Customer Portal User"
+CUSTOMER_ROLE = "Customer"
 DESK_ROLE = "Desk User"
+SYSTEM_USER = "System User"
+WEBSITE_USER = "Website User"
 CUSTOMER_DESK_PROFILE = "Customer Desk"
 CUSTOMER_WORKSPACE = "Customer Workspace"
 CUSTOMER_DESK_APP = "erpnext"
 CUSTOMER_DESK_HOME = "app/customer-workspace"
 CUSTOMER_DESK_MODULE = "Pikt Inc"
 CUSTOMER_DESK_ALLOWED_COMPANION_ROLES = {
+    "All",
+    "Guest",
+    CUSTOMER_ROLE,
     CUSTOMER_DESK_ROLE,
     CUSTOMER_PORTAL_ROLE,
     DESK_ROLE,
@@ -107,6 +113,7 @@ def apply_customer_desk_module_profile(doc: Any) -> dict[str, Any]:
     workspace_exists = bool(frappe.db.exists("Workspace", CUSTOMER_WORKSPACE))
 
     if CUSTOMER_DESK_ROLE in role_names and not non_customer_roles:
+        doc.user_type = SYSTEM_USER
         doc.module_profile = CUSTOMER_DESK_PROFILE
         if workspace_exists:
             doc.default_workspace = CUSTOMER_WORKSPACE
@@ -119,11 +126,14 @@ def apply_customer_desk_module_profile(doc: Any) -> dict[str, Any]:
         }
 
     if clean(getattr(doc, "module_profile", None)) == CUSTOMER_DESK_PROFILE:
+        remaining_portal_roles = role_names - {"All", "Guest"}
         doc.module_profile = None
         if clean(getattr(doc, "default_workspace", None)) == CUSTOMER_WORKSPACE:
             doc.default_workspace = None
         if clean(getattr(doc, "default_app", None)) == CUSTOMER_DESK_APP:
             doc.default_app = None
+        if remaining_portal_roles and not bool(remaining_portal_roles - {CUSTOMER_ROLE, CUSTOMER_PORTAL_ROLE, DESK_ROLE}):
+            doc.user_type = WEBSITE_USER
         return {"status": "customer_desk_profile_cleared"}
 
     return {"status": "noop"}
