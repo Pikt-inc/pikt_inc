@@ -27,6 +27,9 @@ class FakeDoc(dict):
     def append(self, fieldname, value):
         self.setdefault(fieldname, []).append(SimpleNamespace(**value))
 
+    def set(self, fieldname, value):
+        self[fieldname] = value
+
     def is_new(self):
         return bool(self.get("_is_new"))
 
@@ -260,6 +263,43 @@ class TestCustomerDesk(unittest.TestCase):
         self.assertTrue(role_doc.save_called)
         self.assertEqual(role_doc.desk_access, 1)
         self.assertEqual(role_doc.home_page, "app/customer-workspace")
+
+    @patch.object(migrate, "_workspace_content", return_value="[]")
+    @patch.object(migrate.frappe.db, "exists", return_value=True)
+    @patch.object(migrate.frappe, "get_doc")
+    def test_ensure_customer_desk_workspace_updates_public_and_roles(
+        self,
+        mock_get_doc,
+        _mock_exists,
+        _mock_content,
+    ):
+        workspace_doc = FakeSaveDoc(
+            {
+                "label": "Customer Workspace",
+                "title": "Customer Workspace",
+                "module": "Pikt Inc",
+                "app": "pikt_inc",
+                "type": "Workspace",
+                "icon": "users",
+                "public": 0,
+                "is_hidden": 0,
+                "hide_custom": 1,
+                "content": "[]",
+                "shortcuts": [dict(row) for row in customer_desk.CUSTOMER_DESK_WORKSPACE_SHORTCUTS],
+                "roles": [{"role": "Customer Desk User"}],
+            }
+        )
+        mock_get_doc.return_value = workspace_doc
+
+        migrate.ensure_customer_desk_workspace()
+
+        self.assertTrue(workspace_doc.save_called)
+        self.assertEqual(workspace_doc.module, customer_desk.CUSTOMER_DESK_MODULE)
+        self.assertEqual(workspace_doc.public, 1)
+        self.assertEqual(
+            sorted(row["role"] for row in workspace_doc.roles),
+            sorted(customer_desk.CUSTOMER_DESK_WORKSPACE_ROLES),
+        )
 
     @patch.object(migrate, "ensure_customer_desk_custom_docperms")
     @patch.object(migrate, "ensure_customer_desk_title_fields")

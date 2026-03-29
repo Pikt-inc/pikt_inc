@@ -468,7 +468,7 @@ def ensure_customer_desk_module_profile() -> None:
 def ensure_customer_desk_workspace() -> None:
 	desired_shortcuts = [dict(row) for row in customer_desk.CUSTOMER_DESK_WORKSPACE_SHORTCUTS]
 	desired_content = _workspace_content()
-	desired_roles = [{"role": customer_desk.CUSTOMER_DESK_ROLE}]
+	desired_roles = [{"role": role_name} for role_name in customer_desk.CUSTOMER_DESK_WORKSPACE_ROLES]
 
 	base_values = {
 		"label": customer_desk.CUSTOMER_WORKSPACE,
@@ -477,7 +477,7 @@ def ensure_customer_desk_workspace() -> None:
 		"app": "pikt_inc",
 		"type": "Workspace",
 		"icon": "users",
-		"public": 0,
+		"public": 1,
 		"is_hidden": 0,
 		"hide_custom": 1,
 		"content": desired_content,
@@ -523,7 +523,7 @@ def ensure_customer_desk_workspace() -> None:
 		for row in (getattr(doc, "roles", None) or [])
 		if customer_desk.clean(getattr(row, "role", None) if not isinstance(row, dict) else row.get("role"))
 	)
-	if current_roles != [customer_desk.CUSTOMER_DESK_ROLE]:
+	if current_roles != sorted(customer_desk.CUSTOMER_DESK_WORKSPACE_ROLES):
 		doc.set("roles", desired_roles)
 		changed = True
 

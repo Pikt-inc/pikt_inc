@@ -13,13 +13,14 @@ CUSTOMER_DESK_ROLE = "Customer Desk User"
 CUSTOMER_PORTAL_ROLE = "Customer Portal User"
 CUSTOMER_ROLE = "Customer"
 DESK_ROLE = "Desk User"
+SYSTEM_MANAGER_ROLE = "System Manager"
 SYSTEM_USER = "System User"
 WEBSITE_USER = "Website User"
 CUSTOMER_DESK_PROFILE = "Customer Desk"
 CUSTOMER_WORKSPACE = "Customer Workspace"
 CUSTOMER_DESK_APP = "erpnext"
 CUSTOMER_DESK_HOME = "app/customer-workspace"
-CUSTOMER_DESK_MODULE = "Pikt Inc"
+CUSTOMER_DESK_MODULE = "Custom"
 CUSTOMER_DESK_ALLOWED_COMPANION_ROLES = {
     "All",
     "Guest",
@@ -55,6 +56,10 @@ CUSTOMER_DESK_WORKSPACE_SHORTCUTS = (
         "doc_view": "List",
         "color": "Orange",
     },
+)
+CUSTOMER_DESK_WORKSPACE_ROLES = (
+    CUSTOMER_DESK_ROLE,
+    SYSTEM_MANAGER_ROLE,
 )
 
 
