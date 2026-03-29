@@ -176,6 +176,7 @@
 .portal-shell-header{
   grid-column:2;
   grid-row:1;
+  display:none;
   position:sticky;
   top:0;
   z-index:12;
@@ -819,7 +820,10 @@
   .portal-shell-main,
   .portal-shell-footer{grid-column:1}
 
-  .portal-shell-header{padding:0}
+  .portal-shell-header{
+    display:block;
+    padding:0;
+  }
 
   .portal-shell-header__inner{
     max-width:none;
