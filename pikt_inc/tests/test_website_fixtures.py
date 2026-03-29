@@ -42,12 +42,6 @@ QUOTE_BILLING_COMPLETE_TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "ww
 QUOTE_BILLING_COMPLETE_CONTROLLER_PATH = Path(__file__).resolve().parents[1] / "www" / "quote_billing_complete.py"
 QUOTE_BILLING_COMPLETE_ASSET_PATH = Path(__file__).resolve().parents[1] / "public" / "js" / "quote_billing_complete.js"
 QUOTE_BILLING_COMPLETE_CSS_PATH = Path(__file__).resolve().parents[1] / "public" / "css" / "quote_billing_complete.css"
-CUSTOMER_DESK_BUILDING_FORM_JS_PATH = Path(__file__).resolve().parents[1] / "public" / "js" / "customer_desk_building_form.js"
-CUSTOMER_DESK_BUILDING_LIST_JS_PATH = Path(__file__).resolve().parents[1] / "public" / "js" / "customer_desk_building_list.js"
-CUSTOMER_DESK_AGREEMENT_FORM_JS_PATH = Path(__file__).resolve().parents[1] / "public" / "js" / "customer_desk_service_agreement_form.js"
-CUSTOMER_DESK_AGREEMENT_LIST_JS_PATH = Path(__file__).resolve().parents[1] / "public" / "js" / "customer_desk_service_agreement_list.js"
-CUSTOMER_DESK_ADDENDUM_FORM_JS_PATH = Path(__file__).resolve().parents[1] / "public" / "js" / "customer_desk_service_agreement_addendum_form.js"
-CUSTOMER_DESK_ADDENDUM_LIST_JS_PATH = Path(__file__).resolve().parents[1] / "public" / "js" / "customer_desk_service_agreement_addendum_list.js"
 PATCHES_PATH = Path(__file__).resolve().parents[1] / "patches.txt"
 QUOTE_CLEANUP_PATCH_PATH = (
     Path(__file__).resolve().parents[1]
@@ -236,45 +230,7 @@ class TestWebsiteFixtures(unittest.TestCase):
 
         self.assertNotIn(("Building", "Accounts Manager"), {(row["parent"], row["role"]) for row in custom_docperms})
         self.assertIn("pikt_inc.migrate.ensure_building_custom_docperms", app_hooks.after_sync)
-        self.assertIn("pikt_inc.migrate.ensure_customer_desk_records", app_hooks.after_sync)
         self.assertIn("pikt_inc.migrate.ensure_building_custom_docperms", app_hooks.after_migrate)
-        self.assertIn("pikt_inc.migrate.ensure_customer_desk_records", app_hooks.after_migrate)
-        self.assertLess(
-            app_hooks.after_sync.index("pikt_inc.migrate.ensure_customer_desk_records"),
-            app_hooks.after_sync.index("pikt_inc.migrate.ensure_building_custom_docperms"),
-        )
-        self.assertLess(
-            app_hooks.after_migrate.index("pikt_inc.migrate.ensure_customer_desk_records"),
-            app_hooks.after_migrate.index("pikt_inc.migrate.ensure_building_custom_docperms"),
-        )
-
-    def test_customer_desk_assets_and_hooks_are_repo_owned(self):
-        for path in (
-            CUSTOMER_DESK_BUILDING_FORM_JS_PATH,
-            CUSTOMER_DESK_BUILDING_LIST_JS_PATH,
-            CUSTOMER_DESK_AGREEMENT_FORM_JS_PATH,
-            CUSTOMER_DESK_AGREEMENT_LIST_JS_PATH,
-            CUSTOMER_DESK_ADDENDUM_FORM_JS_PATH,
-            CUSTOMER_DESK_ADDENDUM_LIST_JS_PATH,
-        ):
-            with self.subTest(path=path.name):
-                self.assertTrue(path.exists())
-
-        self.assertEqual(app_hooks.doctype_js["Building"], "public/js/customer_desk_building_form.js")
-        self.assertEqual(app_hooks.doctype_js["Service Agreement"], "public/js/customer_desk_service_agreement_form.js")
-        self.assertEqual(
-            app_hooks.doctype_js["Service Agreement Addendum"],
-            "public/js/customer_desk_service_agreement_addendum_form.js",
-        )
-        self.assertEqual(app_hooks.doctype_list_js["Building"], "public/js/customer_desk_building_list.js")
-        self.assertEqual(
-            app_hooks.doctype_list_js["Service Agreement"],
-            "public/js/customer_desk_service_agreement_list.js",
-        )
-        self.assertEqual(
-            app_hooks.doctype_list_js["Service Agreement Addendum"],
-            "public/js/customer_desk_service_agreement_addendum_list.js",
-        )
 
     def test_quote_builder_pages_are_absent_from_fixture(self):
         builder_pages = json.loads(BUILDER_PAGE_FIXTURE_PATH.read_text(encoding="utf-8"))

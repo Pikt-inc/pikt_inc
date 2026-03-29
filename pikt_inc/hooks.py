@@ -47,16 +47,6 @@ app_license = "mit"
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
-doctype_js = {
-	"Building": "public/js/customer_desk_building_form.js",
-	"Service Agreement": "public/js/customer_desk_service_agreement_form.js",
-	"Service Agreement Addendum": "public/js/customer_desk_service_agreement_addendum_form.js",
-}
-doctype_list_js = {
-	"Building": "public/js/customer_desk_building_list.js",
-	"Service Agreement": "public/js/customer_desk_service_agreement_list.js",
-	"Service Agreement Addendum": "public/js/customer_desk_service_agreement_addendum_list.js",
-}
 
 # Svg Icons
 # ------------------
@@ -128,10 +118,7 @@ website_redirects = [
 # before_app_install = "pikt_inc.utils.before_app_install"
 # after_app_install = "pikt_inc.utils.after_app_install"
 
-after_sync = [
-	"pikt_inc.migrate.ensure_customer_desk_records",
-	"pikt_inc.migrate.ensure_building_custom_docperms",
-]
+after_sync = ["pikt_inc.migrate.ensure_building_custom_docperms"]
 
 # Integration Cleanup
 # -------------------
@@ -151,18 +138,6 @@ after_sync = [
 # -----------
 # Permissions evaluated in scripted ways
 
-permission_query_conditions = {
-	"Building": "pikt_inc.permissions.customer_desk.get_building_permission_query_conditions",
-	"Service Agreement": "pikt_inc.permissions.customer_desk.get_service_agreement_permission_query_conditions",
-	"Service Agreement Addendum": "pikt_inc.permissions.customer_desk.get_service_agreement_addendum_permission_query_conditions",
-}
-
-has_permission = {
-	"Building": "pikt_inc.permissions.customer_desk.has_building_permission",
-	"Service Agreement": "pikt_inc.permissions.customer_desk.has_service_agreement_permission",
-	"Service Agreement Addendum": "pikt_inc.permissions.customer_desk.has_service_agreement_addendum_permission",
-}
-
 # Document Events
 # ---------------
 # Hook on document methods and events
@@ -180,8 +155,6 @@ doc_events = {
 		"on_update": "pikt_inc.events.recurring_service_rule.on_update",
 	},
 	"Building": {
-		"before_insert": "pikt_inc.events.building.before_insert",
-		"before_save": "pikt_inc.events.building.before_save",
 		"after_insert": "pikt_inc.events.building.after_insert",
 		"on_update": "pikt_inc.events.building.on_update",
 	},
@@ -525,10 +498,7 @@ override_whitelisted_methods = {
 # before_request = ["pikt_inc.utils.before_request"]
 # after_request = ["pikt_inc.utils.after_request"]
 
-after_migrate = [
-	"pikt_inc.migrate.ensure_customer_desk_records",
-	"pikt_inc.migrate.ensure_building_custom_docperms",
-]
+after_migrate = ["pikt_inc.migrate.ensure_building_custom_docperms"]
 
 # Job Events
 # ----------
