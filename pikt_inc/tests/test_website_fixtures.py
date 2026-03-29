@@ -17,6 +17,7 @@ BUILDING_CUSTOM_FIELD_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixt
 CUSTOM_FIELD_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "custom_field.json"
 CUSTOM_DOCPERM_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "custom_docperm.json"
 BUILDER_COMPONENT_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "builder_component.json"
+WEB_FORM_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "web_form.json"
 INSTANT_QUOTE_TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "www" / "instant-quote.html"
 INSTANT_QUOTE_CONTROLLER_PATH = Path(__file__).resolve().parents[1] / "www" / "instant_quote.py"
 SITE_SHELL_MACROS_PATH = Path(__file__).resolve().parents[1] / "templates" / "includes" / "site_shell_macros.html"
@@ -172,6 +173,67 @@ class TestWebsiteFixtures(unittest.TestCase):
         self.assertIn("DocType", fixture_doctypes)
         self.assertIn("Custom Field", fixture_doctypes)
         self.assertIn("Custom DocPerm", fixture_doctypes)
+
+    def test_master_service_agreement_web_form_fixture_is_exported(self):
+        web_form_fixture = next(row for row in app_hooks.fixtures if row["dt"] == "Web Form")
+
+        self.assertEqual(
+            web_form_fixture["filters"],
+            [["name", "in", ["master-service-agreement", "service-agreement-addendum"]]],
+        )
+
+    def test_master_service_agreement_web_form_fixture_file_exists_and_targets_service_agreement(self):
+        web_forms = json.loads(WEB_FORM_FIXTURE_PATH.read_text(encoding="utf-8"))
+        web_form = next(doc for doc in web_forms if doc["name"] == "master-service-agreement")
+
+        self.assertEqual(web_form["doctype"], "Web Form")
+        self.assertEqual(web_form["title"], "Master Service Agreement")
+        self.assertEqual(web_form["route"], "master-service-agreement-form")
+        self.assertEqual(web_form["doc_type"], "Service Agreement")
+        self.assertEqual(web_form["published"], 0)
+        self.assertEqual(web_form["login_required"], 1)
+        self.assertEqual(web_form["allow_edit"], 1)
+        self.assertEqual(web_form["allow_incomplete"], 1)
+
+        fieldnames = {row.get("fieldname") for row in web_form["web_form_fields"] if row.get("fieldname")}
+        self.assertIn("agreement_name", fieldnames)
+        self.assertIn("customer", fieldnames)
+        self.assertIn("template", fieldnames)
+        self.assertIn("template_version", fieldnames)
+        self.assertIn("rendered_html_snapshot", fieldnames)
+        self.assertIn("signed_by_name", fieldnames)
+        self.assertIn("signed_by_title", fieldnames)
+        self.assertIn("signed_by_email", fieldnames)
+
+    def test_service_agreement_addendum_web_form_fixture_file_exists_and_targets_addendum(self):
+        web_forms = json.loads(WEB_FORM_FIXTURE_PATH.read_text(encoding="utf-8"))
+        web_form = next(doc for doc in web_forms if doc["name"] == "service-agreement-addendum")
+
+        self.assertEqual(web_form["doctype"], "Web Form")
+        self.assertEqual(web_form["title"], "Service Agreement Addendum")
+        self.assertEqual(web_form["route"], "service-agreement-addendum-form")
+        self.assertEqual(web_form["doc_type"], "Service Agreement Addendum")
+        self.assertEqual(web_form["published"], 0)
+        self.assertEqual(web_form["login_required"], 1)
+        self.assertEqual(web_form["allow_edit"], 1)
+        self.assertEqual(web_form["allow_incomplete"], 1)
+
+        fieldnames = {row.get("fieldname") for row in web_form["web_form_fields"] if row.get("fieldname")}
+        self.assertIn("addendum_name", fieldnames)
+        self.assertIn("service_agreement", fieldnames)
+        self.assertIn("customer", fieldnames)
+        self.assertIn("quotation", fieldnames)
+        self.assertIn("sales_order", fieldnames)
+        self.assertIn("term_model", fieldnames)
+        self.assertIn("fixed_term_months", fieldnames)
+        self.assertIn("start_date", fieldnames)
+        self.assertIn("end_date", fieldnames)
+        self.assertIn("template", fieldnames)
+        self.assertIn("template_version", fieldnames)
+        self.assertIn("rendered_html_snapshot", fieldnames)
+        self.assertIn("signed_by_name", fieldnames)
+        self.assertIn("signed_by_title", fieldnames)
+        self.assertIn("signed_by_email", fieldnames)
 
     def test_quote_schema_fixture_files_contain_funnel_records(self):
         custom_fields = json.loads(CUSTOM_FIELD_FIXTURE_PATH.read_text(encoding="utf-8"))

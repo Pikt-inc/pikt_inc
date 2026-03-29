@@ -1,0 +1,232 @@
+<mxfile host="app.diagrams.net" modified="2026-03-29T20:30:00.000Z" agent="Codex" version="24.7.17">
+  <diagram id="funnel-to-quote" name="Funnel To Quote Ready">
+    <mxGraphModel dx="1800" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="3200" pageHeight="1800" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title-1" value="Current funnel flow: click to quote-ready" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=22;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="10" width="520" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="lane1-customer" value="Customer / Website" style="swimlane;html=1;startSize=30;horizontal=0;rounded=0;fillColor=#f8f9fa;strokeColor=#d0d7de;fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="50" width="2520" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="lane1-system" value="Frappe Automation / Records" style="swimlane;html=1;startSize=30;horizontal=0;rounded=0;fillColor=#f8f9fa;strokeColor=#d0d7de;fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="240" width="2520" height="210" as="geometry" />
+        </mxCell>
+        <mxCell id="lane1-internal" value="Internal Team" style="swimlane;html=1;startSize=30;horizontal=0;rounded=0;fillColor=#f8f9fa;strokeColor=#d0d7de;fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="470" width="2520" height="170" as="geometry" />
+        </mxCell>
+
+        <mxCell id="f1" value="Funnel click&#xa;/pricing or quote CTA" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="lane1-customer">
+          <mxGeometry x="40" y="52" width="170" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="f2" value="Public instant quote form&#xa;/instant-quote" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="lane1-customer">
+          <mxGeometry x="250" y="52" width="200" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="f3" value="Thank-you + instant estimate&#xa;/quote-thank-you" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="lane1-customer">
+          <mxGeometry x="700" y="52" width="210" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="f4" value="Typical next step: upload&#xa;digital walkthrough&#xa;/quote-digital-walkthrough" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="lane1-customer">
+          <mxGeometry x="1000" y="42" width="230" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="f5" value="Quote-ready email&#xa;secure link to /quote-accepted" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="lane1-customer">
+          <mxGeometry x="2200" y="42" width="240" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="s1" value="API: create_instant_quote_opportunity&#xa;validates request&#xa;upserts Lead&#xa;creates Opportunity" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="lane1-system">
+          <mxGeometry x="250" y="50" width="240" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="s2" value="Opportunity priced on insert&#xa;public_funnel_token set&#xa;digital_walkthrough_status = Not Requested" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="lane1-system">
+          <mxGeometry x="530" y="50" width="270" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="s3" value="API: save_opportunity_walkthrough_upload&#xa;stores File on Opportunity" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="lane1-system">
+          <mxGeometry x="1000" y="60" width="250" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="s4" value="Opportunity updated&#xa;digital_walkthrough_file saved&#xa;status = Submitted" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="lane1-system">
+          <mxGeometry x="1290" y="50" width="240" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="s5" value="Digital Walkthrough Submission sync&#xa;and notification handoff" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="lane1-system">
+          <mxGeometry x="1570" y="60" width="230" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="s6" value="Quotation submitted&#xa;before_submit =&gt; accept token + expiry&#xa;after_insert =&gt; opportunity marked reviewed" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="lane1-system">
+          <mxGeometry x="1880" y="40" width="300" height="110" as="geometry" />
+        </mxCell>
+
+        <mxCell id="i1" value="Reviewer notification +&#xa;Digital Walkthrough Review workspace" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;" vertex="1" parent="lane1-internal">
+          <mxGeometry x="1570" y="42" width="230" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="i2" value="Internal review&#xa;walkthrough + opportunity" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;" vertex="1" parent="lane1-internal">
+          <mxGeometry x="1840" y="42" width="210" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="i3" value="Manual quote prep / approval&#xa;create and submit Quotation" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;" vertex="1" parent="lane1-internal">
+          <mxGeometry x="2090" y="32" width="260" height="90" as="geometry" />
+        </mxCell>
+
+        <mxCell id="note1" value="Notes&#xa;- Implemented record state: Opportunity walkthrough status moves Not Requested -&gt; Submitted -&gt; Reviewed.&#xa;- Quote preparation and approval are internal/manual today.&#xa;- Tokenized quote email is triggered from submitted Quotation records." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="40" y="670" width="900" height="90" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;strokeWidth=2;strokeColor=#4b5563;" edge="1" parent="1" source="f1" target="f2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;strokeWidth=2;strokeColor=#4b5563;" edge="1" parent="1" source="f2" target="s1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;strokeWidth=2;strokeColor=#4b5563;" edge="1" parent="1" source="s1" target="s2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;strokeWidth=2;strokeColor=#4b5563;" edge="1" parent="1" source="s2" target="f3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" value="typical next step" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;dashed=1;strokeWidth=2;strokeColor=#4b5563;" edge="1" parent="1" source="f3" target="f4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;strokeWidth=2;strokeColor=#4b5563;" edge="1" parent="1" source="f4" target="s3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;strokeWidth=2;strokeColor=#4b5563;" edge="1" parent="1" source="s3" target="s4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;strokeWidth=2;strokeColor=#4b5563;" edge="1" parent="1" source="s4" target="s5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;strokeWidth=2;strokeColor=#4b5563;" edge="1" parent="1" source="s5" target="i1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;strokeWidth=2;strokeColor=#4b5563;" edge="1" parent="1" source="i1" target="i2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e11" value="manual" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;dashed=1;strokeWidth=2;strokeColor=#4b5563;" edge="1" parent="1" source="i2" target="i3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e12" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;strokeWidth=2;strokeColor=#4b5563;" edge="1" parent="1" source="i3" target="s6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e13" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;strokeWidth=2;strokeColor=#4b5563;" edge="1" parent="1" source="s6" target="f5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="quote-accepted-to-portal" name="Quote Accepted To Portal">
+    <mxGraphModel dx="1800" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="3600" pageHeight="1800" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title-2" value="Current quote-accepted flow: customer setup to live portal" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=22;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="10" width="650" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="lane2-customer" value="Customer" style="swimlane;html=1;startSize=30;horizontal=0;rounded=0;fillColor=#f8f9fa;strokeColor=#d0d7de;fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="50" width="3340" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="lane2-system" value="Frappe Automation / ERP Records" style="swimlane;html=1;startSize=30;horizontal=0;rounded=0;fillColor=#f8f9fa;strokeColor=#d0d7de;fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="240" width="3340" height="240" as="geometry" />
+        </mxCell>
+        <mxCell id="lane2-live" value="Resulting Customer Account / Portal" style="swimlane;html=1;startSize=30;horizontal=0;rounded=0;fillColor=#f8f9fa;strokeColor=#d0d7de;fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="500" width="3340" height="180" as="geometry" />
+        </mxCell>
+
+        <mxCell id="q1" value="Open secure quote link&#xa;/quote-accepted?quote=...&amp;token=..." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="lane2-customer">
+          <mxGeometry x="40" y="42" width="240" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="q2" value="Accept quote" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="lane2-customer">
+          <mxGeometry x="380" y="52" width="180" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="q3" value="Complete agreement signature" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="lane2-customer">
+          <mxGeometry x="980" y="52" width="220" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="q4" value="Complete billing setup" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="lane2-customer">
+          <mxGeometry x="1710" y="52" width="210" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="q5" value="Complete location / access setup" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="lane2-customer">
+          <mxGeometry x="2490" y="52" width="240" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="r1" value="validate_public_quote +&#xa;load_public_quote_portal_state&#xa;checks token, expiry, docstatus" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="lane2-system">
+          <mxGeometry x="40" y="50" width="280" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="r2" value="accept_public_quote&#xa;ensure/create Customer&#xa;create + submit Sales Order&#xa;Opportunity = Converted" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="lane2-system">
+          <mxGeometry x="380" y="40" width="280" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="r3" value="complete_public_service_agreement_signature&#xa;reuse active Master Services Agreement&#xa;or create one if none exists" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="lane2-system">
+          <mxGeometry x="760" y="40" width="300" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="r4" value="Create Service Agreement Addendum&#xa;linked to quote + sales order&#xa;status = Pending Billing" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="lane2-system">
+          <mxGeometry x="1110" y="50" width="280" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="r5" value="complete_public_quote_billing_setup_v2&#xa;create/update Contact + Address&#xa;create/reuse Sales Invoice&#xa;create Auto Repeat" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="lane2-system">
+          <mxGeometry x="1560" y="30" width="320" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="r6" value="Addendum status&#xa;Pending Site Access" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="lane2-system">
+          <mxGeometry x="1930" y="60" width="190" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="r7" value="complete_public_quote_access_setup_v2&#xa;create/update Building&#xa;link quote, sales order, invoice,&#xa;service agreement, addendum" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="lane2-system">
+          <mxGeometry x="2310" y="30" width="330" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="r8" value="Addendum status&#xa;Active" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="lane2-system">
+          <mxGeometry x="2690" y="60" width="150" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="p1" value="Portal agreement model&#xa;1 Master Services Agreement per customer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;" vertex="1" parent="lane2-live">
+          <mxGeometry x="900" y="42" width="290" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="p2" value="1 Location Exhibit / Addendum&#xa;per building" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;" vertex="1" parent="lane2-live">
+          <mxGeometry x="1240" y="42" width="220" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="p3" value="Customer portal available&#xa;/portal&#xa;Overview, Agreements, Billing, Locations" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;" vertex="1" parent="lane2-live">
+          <mxGeometry x="2850" y="32" width="320" height="90" as="geometry" />
+        </mxCell>
+
+        <mxCell id="note2" value="Notes&#xa;- Agreement flow is already implemented around a reused or newly created master agreement plus a quote-linked addendum.&#xa;- Billing must complete before access setup.&#xa;- Access setup is where the Building record is created or updated and linked back to the commercial records." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="40" y="710" width="1050" height="90" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e21" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;strokeWidth=2;strokeColor=#4b5563;" edge="1" parent="1" source="q1" target="r1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e22" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;strokeWidth=2;strokeColor=#4b5563;" edge="1" parent="1" source="r1" target="q2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e23" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;strokeWidth=2;strokeColor=#4b5563;" edge="1" parent="1" source="q2" target="r2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e24" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;strokeWidth=2;strokeColor=#4b5563;" edge="1" parent="1" source="r2" target="q3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e25" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;strokeWidth=2;strokeColor=#4b5563;" edge="1" parent="1" source="q3" target="r3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e26" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;strokeWidth=2;strokeColor=#4b5563;" edge="1" parent="1" source="r3" target="r4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e27" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;strokeWidth=2;strokeColor=#4b5563;" edge="1" parent="1" source="r4" target="q4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e28" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;strokeWidth=2;strokeColor=#4b5563;" edge="1" parent="1" source="q4" target="r5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e29" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;strokeWidth=2;strokeColor=#4b5563;" edge="1" parent="1" source="r5" target="r6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e30" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;strokeWidth=2;strokeColor=#4b5563;" edge="1" parent="1" source="r6" target="q5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e31" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;strokeWidth=2;strokeColor=#4b5563;" edge="1" parent="1" source="q5" target="r7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e32" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;strokeWidth=2;strokeColor=#4b5563;" edge="1" parent="1" source="r7" target="r8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e33" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;strokeWidth=2;strokeColor=#4b5563;" edge="1" parent="1" source="r8" target="p3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e34" value="portal presentation" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=open;dashed=1;strokeWidth=2;strokeColor=#4b5563;" edge="1" parent="1" source="r3" target="p1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e35" value="portal presentation" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=open;dashed=1;strokeWidth=2;strokeColor=#4b5563;" edge="1" parent="1" source="r7" target="p2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

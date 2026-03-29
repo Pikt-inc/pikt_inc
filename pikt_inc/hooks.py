@@ -448,6 +448,10 @@ fixtures = [
 		"dt": "Workspace",
 		"filters": [["name", "in", ["Marketing Blog"]]],
 	},
+	{
+		"dt": "Web Form",
+		"filters": [["name", "in", ["master-service-agreement", "service-agreement-addendum"]]],
+	},
 ]
 
 # Extend DocType Class
