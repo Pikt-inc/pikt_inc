@@ -23,7 +23,6 @@
       {% endfor %}
     </nav>
     <div class="portal-shell-rail__meta">
-      <p>Use the portal for live account details, then reach out when billing or site-access details need a real conversation.</p>
       <nav class="portal-shell-rail__utility" aria-label="Portal actions">
         {% for item in utility_nav %}
         <a class="portal-shell-rail__utility-link" href="{{ item.url }}">{{ item.label }}</a>
@@ -45,22 +44,4 @@
 {%- endmacro %}
 
 {% macro customer_portal_footer(primary_nav, utility_nav, portal_contact_path) -%}
-<footer class="portal-shell-footer">
-  <div class="portal-shell-footer__inner">
-    <div class="portal-shell-footer__copy">
-      <p class="portal-shell-footer__eyebrow">Portal support</p>
-      <h2>Keep records current and ask for help when a detail changes.</h2>
-      <p>Use the portal for live account details, then reach out when billing routes or site access needs a real conversation.</p>
-    </div>
-    <div class="portal-shell-footer__links">
-      <a href="/portal">Overview</a>
-      <a href="{{ portal_contact_path }}">Support</a>
-      {% for item in utility_nav %}
-      {% if item.key == "logout" %}
-      <a href="{{ item.url }}">{{ item.label }}</a>
-      {% endif %}
-      {% endfor %}
-    </div>
-  </div>
-</footer>
 {%- endmacro %}
