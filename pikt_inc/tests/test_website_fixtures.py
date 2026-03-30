@@ -59,6 +59,12 @@ CONTACT_CLEANUP_PATCH_PATH = (
     / "post_model_sync"
     / "remove_legacy_contact_builder_page.py"
 )
+CONTACT_WEB_FORM_CLEANUP_PATCH_PATH = (
+    Path(__file__).resolve().parents[1]
+    / "patches"
+    / "post_model_sync"
+    / "remove_legacy_contact_request_web_form.py"
+)
 
 
 class TestWebsiteFixtures(unittest.TestCase):
@@ -182,7 +188,7 @@ class TestWebsiteFixtures(unittest.TestCase):
 
         self.assertEqual(
             web_form_fixture["filters"],
-            [["name", "in", ["master-service-agreement", "service-agreement-addendum", "contact-request-form"]]],
+            [["name", "in", ["master-service-agreement", "service-agreement-addendum"]]],
         )
 
     def test_master_service_agreement_web_form_fixture_file_exists_and_targets_service_agreement(self):
@@ -238,47 +244,14 @@ class TestWebsiteFixtures(unittest.TestCase):
         self.assertIn("signed_by_title", fieldnames)
         self.assertIn("signed_by_email", fieldnames)
 
-    def test_contact_request_web_form_fixture_file_exists_and_targets_request_doctype(self):
+    def test_web_form_fixture_file_contains_only_agreement_forms(self):
         web_forms = json.loads(WEB_FORM_FIXTURE_PATH.read_text(encoding="utf-8"))
-        web_form = next(doc for doc in web_forms if doc["name"] == "contact-request-form")
 
-        self.assertEqual(web_form["doctype"], "Web Form")
-        self.assertEqual(web_form["title"], "Contact Request")
-        self.assertEqual(web_form["route"], "contact-request-form")
-        self.assertEqual(web_form["doc_type"], "Contact Request")
-        self.assertEqual(web_form["published"], 1)
-        self.assertEqual(web_form["anonymous"], 1)
-        self.assertEqual(web_form["login_required"], 0)
-        self.assertEqual(web_form["allow_edit"], 0)
-        self.assertEqual(web_form["allow_multiple"], 1)
-        self.assertEqual(web_form["allow_incomplete"], 0)
-        self.assertIsNotNone(web_form["custom_css"])
-        self.assertIsNotNone(web_form["client_script"])
-        self.assertIn("body[data-pikt-embedded='1']", web_form["custom_css"])
-        self.assertIn(".btn-primary.submit-btn", web_form["custom_css"])
-        self.assertIn(".discard-btn,.web-form-actions .discard-btn,.web-form-footer .discard-btn{display:none !important;}", web_form["custom_css"])
-        self.assertIn("textarea.form-control", web_form["custom_css"])
-        self.assertIn("window.parent.postMessage", web_form["client_script"])
-        self.assertIn("postToParent('success'", web_form["client_script"])
-        self.assertIn("pikt-contact-request-form", web_form["client_script"])
-        self.assertIn("frappe.web_form.after_load", web_form["client_script"])
-        self.assertNotIn("window.top.location.assign", web_form["client_script"])
-        self.assertIn("handle_success", web_form["client_script"])
-
-        fieldnames = [row.get("fieldname") for row in web_form["web_form_fields"] if row.get("fieldname")]
         self.assertEqual(
-            fieldnames,
-            [
-                "first_name",
-                "last_name",
-                "email_id",
-                "mobile_no",
-                "company_name",
-                "city",
-                "request_type",
-                "message",
-            ],
+            {doc["name"] for doc in web_forms},
+            {"master-service-agreement", "service-agreement-addendum"},
         )
+
     def test_quote_schema_fixture_files_contain_funnel_records(self):
         custom_fields = json.loads(CUSTOM_FIELD_FIXTURE_PATH.read_text(encoding="utf-8"))
         custom_docperms = json.loads(CUSTOM_DOCPERM_FIXTURE_PATH.read_text(encoding="utf-8"))
@@ -410,17 +383,21 @@ class TestWebsiteFixtures(unittest.TestCase):
         exported_components = set(builder_component_fixture["filters"][0][2])
         self.assertNotIn("LP Contact Form", exported_components)
         self.assertNotIn("LP Contact Info Card", exported_components)
+        self.assertNotIn("LP Quote Form", exported_components)
+        self.assertNotIn("LP Quote Result Section", exported_components)
+        self.assertNotIn("LP Walkthrough Received", exported_components)
 
-    def test_contact_page_template_uses_native_submission_flow(self):
+    def test_contact_page_template_uses_custom_submission_flow(self):
         template = CONTACT_TEMPLATE_PATH.read_text(encoding="utf-8")
 
-        self.assertIn('<iframe', template)
-        self.assertIn('/contact-request-form/new?embedded=1', template)
-        self.assertIn("pikt-contact-request-form", template)
-        self.assertIn("event.source !== iframe.contentWindow", template)
+        self.assertIn('<form id="contact-request-form"', template)
+        self.assertIn('/api/method/pikt_inc.api.contact_request.submit_contact_request', template)
+        self.assertIn("request_type_options", template)
         self.assertIn("contact-request-success", template)
-        self.assertNotIn('/api/method/pikt_inc.api.contact_request.submit_contact_request', template)
-        self.assertNotIn("fetch('/api/method/pikt_inc.api.contact_request.submit_contact_request'", template)
+        self.assertNotIn('<iframe', template)
+        self.assertNotIn('embedded=1', template)
+        self.assertNotIn("pikt-contact-request-form", template)
+        self.assertNotIn("event.source !== iframe.contentWindow", template)
         for field_name in (
             "first_name",
             "last_name",
@@ -431,7 +408,7 @@ class TestWebsiteFixtures(unittest.TestCase):
             "request_type",
             "message",
         ):
-            self.assertNotIn(f'name="{field_name}"', template)
+            self.assertIn(f'name="{field_name}"', template)
 
     def test_contact_notification_fixture_targets_contact_request(self):
         notifications = json.loads((Path(__file__).resolve().parents[1] / "fixtures" / "notification.json").read_text(encoding="utf-8"))
@@ -477,11 +454,24 @@ class TestWebsiteFixtures(unittest.TestCase):
         )
         self.assertTrue(CONTACT_CLEANUP_PATCH_PATH.exists())
 
+    def test_contact_web_form_cleanup_patch_is_registered(self):
+        patches_text = PATCHES_PATH.read_text(encoding="utf-8")
+
+        self.assertIn(
+            "pikt_inc.patches.post_model_sync.remove_legacy_contact_request_web_form",
+            patches_text,
+        )
+        self.assertTrue(CONTACT_WEB_FORM_CLEANUP_PATCH_PATH.exists())
+
     def test_contact_fixture_copy_does_not_ship_placeholder_service_area_text(self):
         components = json.loads(BUILDER_COMPONENT_FIXTURE_PATH.read_text(encoding="utf-8"))
+        component_names = {row["component_name"] for row in components}
         service_area_component = next(row for row in components if row["component_name"] == "LP Service Area Section")
         block = service_area_component["block"]
 
+        self.assertNotIn("LP Quote Form", component_names)
+        self.assertNotIn("LP Quote Result Section", component_names)
+        self.assertNotIn("LP Walkthrough Received", component_names)
         self.assertNotIn("What to swap in", block)
         self.assertNotIn("Downtown core", block)
         self.assertNotIn("North corridor", block)

@@ -9,7 +9,6 @@
 {{ super() }}
 {{ quote_funnel_head(noindex_meta) }}
 <style>
-#digital-walkthrough-upload-panel iframe { display: none !important; }
 #dw-inline-upload-shell { width: 100%; }
 #dw-inline-upload-shell .dw-upload-card { border: 1px solid #e5e7eb; border-radius: 18px; background: #f8fafc; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
 #dw-inline-upload-shell .dw-upload-status { border-radius: 14px; padding: 12px 14px; line-height: 1.5; font-weight: 600; display: none; }
@@ -109,7 +108,7 @@
       return { valid: 0, message: 'We could not validate that estimate link. Please return to the estimate page and try again.' };
     }
   };
-  const ensureUploadShell = () => { const panel = document.getElementById('digital-walkthrough-upload-panel'); if (!panel) { return null; } const iframe = panel.querySelector('iframe'); if (iframe) { iframe.remove(); } let shell = document.getElementById('dw-inline-upload-shell'); if (!shell) { panel.innerHTML = '<div id="dw-inline-upload-shell" data-walkthrough-slot="upload-shell"></div>'; shell = document.getElementById('dw-inline-upload-shell'); } return shell; };
+  const ensureUploadShell = () => { const panel = document.getElementById('digital-walkthrough-upload-panel'); if (!panel) { return null; } let shell = document.getElementById('dw-inline-upload-shell'); if (!shell) { panel.innerHTML = '<div id="dw-inline-upload-shell" data-walkthrough-slot="upload-shell"></div>'; shell = document.getElementById('dw-inline-upload-shell'); } return shell; };
   const renderUploadUI = () => {
     const shell = ensureUploadShell();
     if (!shell) { return; }

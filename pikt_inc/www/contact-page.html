@@ -35,8 +35,21 @@
 .contact-service-area span{display:flex;align-items:center;justify-content:center;padding:18px 16px;border:1px solid #e7e7e7;border-radius:16px;background:#fff;color:#2f3d37;font-size:16px;font-weight:600;text-align:center}
 .contact-form-shell{margin-top:22px}
 .contact-form-shell.is-hidden{display:none}
-.contact-form-embed{margin-top:0}
-.contact-form-frame{display:block;width:100%;min-height:720px;border:0;background:transparent}
+.contact-form{display:grid;gap:14px}
+.contact-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.contact-field{display:flex;flex-direction:column;gap:8px}
+.contact-field label{color:#171717;font-size:14px;font-weight:700;line-height:1.2}
+.contact-field input,.contact-field select,.contact-field textarea{width:100%;padding:14px 16px;border:1px solid #d7d7d7;border-radius:16px;background:#fff;color:#171717;font:inherit;box-sizing:border-box}
+.contact-field textarea{min-height:180px;resize:vertical}
+.contact-field input:focus,.contact-field select:focus,.contact-field textarea:focus{border-color:#171717;outline:none;box-shadow:rgba(23,23,23,.08) 0 0 0 4px}
+.contact-actions{display:flex;flex-direction:column;gap:12px;margin-top:6px}
+.contact-submit{appearance:none;border:0;border-radius:16px;background:#171717;color:#fff;cursor:pointer;font-size:15px;font-weight:700;line-height:1.1;padding:16px 20px}
+.contact-submit:hover:not(:disabled){background:#303030}
+.contact-submit:disabled{cursor:not-allowed;opacity:.7}
+.contact-status{display:none;border-radius:18px;padding:14px 16px;font-size:14px;font-weight:600;line-height:1.6}
+.contact-status.is-visible{display:block}
+.contact-status.is-error{background:#fef2f2;border:1px solid #fecaca;color:#b91c1c}
+.contact-status.is-success{background:#ecfdf3;border:1px solid #bbf7d0;color:#166534}
 .contact-success{display:none;margin-top:22px;padding:24px;border:1px solid #dfe8e1;border-radius:24px;background:#f7fbf8}
 .contact-success.is-visible{display:block}
 .contact-success h3{margin:0;color:#171717;font-size:24px;font-weight:700;line-height:1.15}
@@ -54,6 +67,7 @@
   .contact-grid{padding:0 0 48px}
   .contact-card,.contact-form-card{padding:20px}
   .contact-service-area{grid-template-columns:1fr}
+  .contact-form-grid{grid-template-columns:1fr}
   .contact-form-card{order:1}
   .contact-panel{order:2}
   .contact-success{padding:20px}
@@ -136,14 +150,51 @@
             Use your primary contact details so the follow-up lands with the right person on your team.
           </p>
           <div id="contact-form-shell" class="contact-form-shell">
-            <div class="contact-form-embed">
-              <iframe
-                id="contact-request-web-form"
-                class="contact-form-frame"
-                src="/contact-request-form/new?embedded=1"
-                title="Send your request">
-              </iframe>
-            </div>
+            <form id="contact-request-form" class="contact-form" novalidate>
+              <div class="contact-form-grid">
+                <div class="contact-field">
+                  <label for="first_name">First name</label>
+                  <input id="first_name" name="first_name" type="text" autocomplete="given-name" required>
+                </div>
+                <div class="contact-field">
+                  <label for="last_name">Last name</label>
+                  <input id="last_name" name="last_name" type="text" autocomplete="family-name" required>
+                </div>
+                <div class="contact-field">
+                  <label for="email_id">Work email</label>
+                  <input id="email_id" name="email_id" type="email" autocomplete="email" required>
+                </div>
+                <div class="contact-field">
+                  <label for="mobile_no">Phone</label>
+                  <input id="mobile_no" name="mobile_no" type="tel" autocomplete="tel">
+                </div>
+                <div class="contact-field">
+                  <label for="company_name">Company</label>
+                  <input id="company_name" name="company_name" type="text" autocomplete="organization" required>
+                </div>
+                <div class="contact-field">
+                  <label for="city">City</label>
+                  <input id="city" name="city" type="text" autocomplete="address-level2" required>
+                </div>
+              </div>
+              <div class="contact-field">
+                <label for="request_type">Request type</label>
+                <select id="request_type" name="request_type" required>
+                  <option value="">Select request type</option>
+                  {% for option in request_type_options or [] %}
+                  <option value="{{ option }}">{{ option }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="contact-field">
+                <label for="message">How can we help?</label>
+                <textarea id="message" name="message" required></textarea>
+              </div>
+              <div class="contact-actions">
+                <button id="contact-request-submit" class="contact-submit" type="submit">Send Message</button>
+                <div id="contact-request-status" class="contact-status" aria-live="polite"></div>
+              </div>
+            </form>
             <p class="contact-fine-print">
               We use this form to review service fit and route the request to the right next step. It is not a live chat.
             </p>
@@ -169,19 +220,68 @@
 </div>
 <script>
 (() => {
-  const iframe = document.getElementById('contact-request-web-form');
+  const form = document.getElementById('contact-request-form');
+  const submitButton = document.getElementById('contact-request-submit');
+  const statusBox = document.getElementById('contact-request-status');
   const formShell = document.getElementById('contact-form-shell');
   const successState = document.getElementById('contact-request-success');
-  if (!iframe || !formShell || !successState) {
+  if (!form || !submitButton || !statusBox || !formShell || !successState) {
     return;
   }
 
-  const source = 'pikt-contact-request-form';
-  const origin = window.location.origin;
-  const minimumHeight = 720;
-  const setHeight = (height) => {
-    const next = Math.max(minimumHeight, Number(height) || 0);
-    iframe.style.height = next + 'px';
+  const csrf = () => {
+    const match = document.cookie.match(/(?:^|; )csrf_token=([^;]+)/);
+    if (match) {
+      return decodeURIComponent(match[1]);
+    }
+    if (window.frappe && frappe.csrf_token) {
+      return frappe.csrf_token;
+    }
+    if (window.csrf_token) {
+      return window.csrf_token;
+    }
+    return '';
+  };
+
+  const setStatus = (type, message) => {
+    statusBox.className = 'contact-status';
+    if (!message) {
+      statusBox.textContent = '';
+      return;
+    }
+    statusBox.classList.add('is-visible');
+    statusBox.classList.add(type);
+    statusBox.textContent = message;
+  };
+
+  const extractMessage = (body) => {
+    if (body && body.message && typeof body.message === 'string') {
+      return body.message;
+    }
+    if (body && body.message && typeof body.message.message === 'string') {
+      return body.message.message;
+    }
+    if (body && typeof body._server_messages === 'string' && body._server_messages) {
+      try {
+        const messages = JSON.parse(body._server_messages);
+        if (Array.isArray(messages) && messages.length) {
+          const first = messages[0];
+          if (typeof first === 'string') {
+            try {
+              const parsed = JSON.parse(first);
+              if (parsed && parsed.message) {
+                return parsed.message;
+              }
+            } catch (error) {
+              return first;
+            }
+          }
+        }
+      } catch (error) {
+        return body._server_messages;
+      }
+    }
+    return 'We could not submit the request right now. Please try again.';
   };
 
   const showSuccess = () => {
@@ -192,22 +292,45 @@
     }
   };
 
-  setHeight(minimumHeight);
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
 
-  window.addEventListener('message', (event) => {
-    if (event.origin !== origin || event.source !== iframe.contentWindow) {
+    if (!form.reportValidity()) {
       return;
     }
-    const payload = event.data || {};
-    if (payload.source !== source || !payload.type) {
-      return;
-    }
-    if (payload.type === 'ready' || payload.type === 'resize') {
-      setHeight(payload.height);
-      return;
-    }
-    if (payload.type === 'success') {
+
+    submitButton.disabled = true;
+    submitButton.textContent = 'Sending...';
+    setStatus('', '');
+
+    const payload = {};
+    new FormData(form).forEach((value, key) => {
+      payload[key] = value;
+    });
+
+    try {
+      const response = await window.fetch('/api/method/pikt_inc.api.contact_request.submit_contact_request', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-Frappe-CSRF-Token': csrf()
+        },
+        body: JSON.stringify(payload)
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || body.exception || body.exc || body.exc_type) {
+        throw new Error(extractMessage(body));
+      }
+      form.reset();
+      setStatus('is-success', 'Request received.');
       showSuccess();
+    } catch (error) {
+      submitButton.disabled = false;
+      submitButton.textContent = 'Send Message';
+      setStatus('is-error', (error && error.message) || 'We could not submit the request right now. Please try again.');
     }
   });
 })();

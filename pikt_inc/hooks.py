@@ -425,15 +425,12 @@ fixtures = [
 					"LP Industry Detail Section",
 					"LP Industry Links Grid",
 					"LP Process Section",
-					"LP Quote Form",
-					"LP Quote Result Section",
 					"LP Service Area Section",
 					"LP Service Detail Section",
 					"LP Service Links Grid",
 					"LP Hero Centered",
 					"LP Testimonial Section",
 					"LP Trust Section",
-					"LP Walkthrough Received",
 				],
 			]
 		],
@@ -466,7 +463,7 @@ fixtures = [
 	},
 	{
 		"dt": "Web Form",
-		"filters": [["name", "in", ["master-service-agreement", "service-agreement-addendum", "contact-request-form"]]],
+		"filters": [["name", "in", ["master-service-agreement", "service-agreement-addendum"]]],
 	},
 ]
 
