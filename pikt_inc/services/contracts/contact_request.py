@@ -55,4 +55,4 @@ class ContactRequestInput(RequestModel):
 class ContactRequestSubmitted(ResponseModel):
     status: Literal["submitted"]
     message: str
-    lead: str
+    request: str

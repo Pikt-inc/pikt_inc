@@ -19,14 +19,20 @@ except ModuleNotFoundError:
     contact_contracts = importlib.import_module("pikt_inc.pikt_inc.services.contracts.contact_request")
 
 
-class FakeLeadDoc:
+class FakeContactRequestDoc:
     def __init__(self, payload):
         self.payload = payload
-        self.name = "CRM-LEAD-TEST-0001"
+        self.name = "CR-2026-00001"
+        self.ignore_permissions = False
 
     def insert(self, ignore_permissions=False):
         self.ignore_permissions = ignore_permissions
         return self
+
+
+class ContactRequestDict(dict):
+    __getattr__ = dict.get
+    __setattr__ = dict.__setitem__
 
 
 class TestContactRequest(TestCase):
@@ -60,50 +66,42 @@ class TestContactRequest(TestCase):
                 }
             )
 
-    def test_submit_contact_request_maps_request_type_to_valid_lead_value(self):
-        created_doc = None
-        lead_payload = None
-        fake_fields = []
-        for field in (
-            "lead_name",
-            "first_name",
-            "last_name",
-            "email_id",
-            "mobile_no",
-            "company_name",
-            "city",
-            "service_interest",
-            "source",
-        ):
-            fake_fields.append(type("DF", (), {"fieldname": field})())
-        fake_fields.append(
-            type(
-                "DF",
-                (),
-                {
-                    "fieldname": "request_type",
-                    "options": "\n".join(
-                        (
-                            "Product Enquiry",
-                            "Request for Information",
-                            "Suggestions",
-                            "Other",
-                        )
-                    ),
-                },
-            )()
+    def test_prepare_contact_request_normalizes_doc_fields(self):
+        doc = ContactRequestDict(
+            first_name=" Codex ",
+            last_name=" Review ",
+            email_id=" CODEX.REVIEW@EXAMPLE.COM ",
+            mobile_no=" 5125550100 ",
+            company_name=" Codex Review LLC ",
+            city=" Austin ",
+            request_type="Walkthrough request",
+            message=" Please tell me more about recurring service. ",
+            request_status="",
         )
-        fake_meta = type("Meta", (), {"fields": fake_fields})()
 
-        def build_lead_doc(payload):
-            nonlocal created_doc, lead_payload
-            lead_payload = payload
-            created_doc = FakeLeadDoc(payload)
+        contact_request.prepare_contact_request(doc)
+
+        self.assertEqual(doc.first_name, "Codex")
+        self.assertEqual(doc.last_name, "Review")
+        self.assertEqual(doc.email_id, "codex.review@example.com")
+        self.assertEqual(doc.mobile_no, "5125550100")
+        self.assertEqual(doc.company_name, "Codex Review LLC")
+        self.assertEqual(doc.city, "Austin")
+        self.assertEqual(doc.request_type, "Walkthrough request")
+        self.assertEqual(doc.message, "Please tell me more about recurring service.")
+        self.assertEqual(doc.request_status, "New")
+
+    def test_submit_contact_request_creates_contact_request_only(self):
+        created_doc = None
+        request_payload = None
+
+        def build_contact_request_doc(payload):
+            nonlocal created_doc, request_payload
+            request_payload = payload
+            created_doc = FakeContactRequestDoc(payload)
             return created_doc
 
-        with patch.object(contact_request.frappe, "get_meta", return_value=fake_meta, create=True), patch.object(
-            contact_request.frappe, "get_doc", side_effect=build_lead_doc
-        ):
+        with patch.object(contact_request.frappe, "get_doc", side_effect=build_contact_request_doc):
             result = contact_request.submit_contact_request(
                 first_name="Codex",
                 last_name="Review",
@@ -116,11 +114,11 @@ class TestContactRequest(TestCase):
             )
 
         self.assertEqual(result["status"], "submitted")
-        self.assertEqual(result["lead"], "CRM-LEAD-TEST-0001")
-        self.assertEqual(lead_payload["doctype"], "Lead")
-        self.assertEqual(lead_payload["request_type"], "Product Enquiry")
-        self.assertIn("Requested contact type: Walkthrough request", lead_payload["service_interest"])
-        self.assertIn("Please tell me more about recurring service.", lead_payload["service_interest"])
+        self.assertEqual(result["request"], "CR-2026-00001")
+        self.assertEqual(request_payload["doctype"], "Contact Request")
+        self.assertEqual(request_payload["request_type"], "Walkthrough request")
+        self.assertEqual(request_payload["message"], "Please tell me more about recurring service.")
+        self.assertEqual(request_payload["request_status"], "New")
         self.assertTrue(created_doc.ignore_permissions)
 
     def test_submit_contact_request_rejects_invalid_email(self):

@@ -143,6 +143,9 @@ after_sync = ["pikt_inc.migrate.ensure_building_custom_docperms"]
 # Hook on document methods and events
 
 doc_events = {
+	"Contact Request": {
+		"before_insert": "pikt_inc.events.contact_request.before_insert",
+	},
 	"Instant Quote Request": {
 		"before_insert": "pikt_inc.events.instant_quote_request.before_insert",
 	},
@@ -243,6 +246,19 @@ fixtures = [
 				"in",
 				[
 					"Instant Quote Request",
+				],
+			]
+		],
+	},
+	{
+		"dt": "DocType",
+		"prefix": "03_contact_request",
+		"filters": [
+			[
+				"name",
+				"in",
+				[
+					"Contact Request",
 				],
 			]
 		],
@@ -466,7 +482,7 @@ fixtures = [
 	},
 	{
 		"dt": "Web Form",
-		"filters": [["name", "in", ["master-service-agreement", "service-agreement-addendum", "instant-quote-form"]]],
+		"filters": [["name", "in", ["master-service-agreement", "service-agreement-addendum", "instant-quote-form", "contact-request-form"]]],
 	},
 ]
 
