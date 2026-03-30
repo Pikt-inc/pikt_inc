@@ -194,6 +194,10 @@ class TestWebsiteFixtures(unittest.TestCase):
         self.assertEqual(web_form["login_required"], 1)
         self.assertEqual(web_form["allow_edit"], 1)
         self.assertEqual(web_form["allow_incomplete"], 1)
+        self.assertIsNotNone(web_form["custom_css"])
+        self.assertIn("MASTER AGREEMENT", web_form["custom_css"])
+        self.assertIn(".web-form-header h1", web_form["custom_css"])
+        self.assertIn(".btn-primary", web_form["custom_css"])
 
         fieldnames = {row.get("fieldname") for row in web_form["web_form_fields"] if row.get("fieldname")}
         self.assertIn("agreement_name", fieldnames)
@@ -217,6 +221,10 @@ class TestWebsiteFixtures(unittest.TestCase):
         self.assertEqual(web_form["login_required"], 1)
         self.assertEqual(web_form["allow_edit"], 1)
         self.assertEqual(web_form["allow_incomplete"], 1)
+        self.assertIsNotNone(web_form["custom_css"])
+        self.assertIn("LOCATION ADDENDUM", web_form["custom_css"])
+        self.assertIn(".web-form-header h1", web_form["custom_css"])
+        self.assertIn(".btn-primary", web_form["custom_css"])
 
         fieldnames = {row.get("fieldname") for row in web_form["web_form_fields"] if row.get("fieldname")}
         self.assertIn("addendum_name", fieldnames)
