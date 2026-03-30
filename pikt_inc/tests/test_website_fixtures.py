@@ -13,9 +13,6 @@ from pikt_inc import hooks as app_hooks
 
 BUILDER_PAGE_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "builder_page.json"
 BUILDING_DOCTYPE_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "00_building_doctype.json"
-INSTANT_QUOTE_REQUEST_DOCTYPE_FIXTURE_PATH = (
-    Path(__file__).resolve().parents[1] / "fixtures" / "02_instant_quote_request_doctype.json"
-)
 CONTACT_REQUEST_DOCTYPE_FIXTURE_PATH = (
     Path(__file__).resolve().parents[1] / "fixtures" / "03_contact_request_doctype.json"
 )
@@ -111,13 +108,20 @@ class TestWebsiteFixtures(unittest.TestCase):
     def test_instant_quote_template_contains_submission_contract(self):
         template = INSTANT_QUOTE_TEMPLATE_PATH.read_text(encoding="utf-8")
 
-        self.assertIn('<iframe', template)
-        self.assertIn('/instant-quote-form/new?embedded=1', template)
-        self.assertIn("pikt-instant-quote-form", template)
-        self.assertIn("event.source !== iframe.contentWindow", template)
-        self.assertNotIn('/api/method/create_instant_quote_opportunity', template)
-        self.assertNotIn("contentWindow.document", template)
-        self.assertNotIn("syncHeightForWindow", template)
+        self.assertIn('/api/method/create_instant_quote_opportunity', template)
+        self.assertIn("window.location.assign('/thank-you?'", template)
+        for field_name in (
+            "prospect_name",
+            "contact_email",
+            "phone",
+            "prospect_company",
+            "building_type",
+            "building_size",
+            "service_frequency",
+            "service_interest",
+            "bathroom_count_range",
+        ):
+            self.assertIn(f'name="{field_name}"', template)
 
     def test_instant_quote_files_exist(self):
         self.assertTrue(INSTANT_QUOTE_CONTROLLER_PATH.exists())
@@ -178,7 +182,7 @@ class TestWebsiteFixtures(unittest.TestCase):
 
         self.assertEqual(
             web_form_fixture["filters"],
-            [["name", "in", ["master-service-agreement", "service-agreement-addendum", "instant-quote-form", "contact-request-form"]]],
+            [["name", "in", ["master-service-agreement", "service-agreement-addendum", "contact-request-form"]]],
         )
 
     def test_master_service_agreement_web_form_fixture_file_exists_and_targets_service_agreement(self):
@@ -193,15 +197,6 @@ class TestWebsiteFixtures(unittest.TestCase):
         self.assertEqual(web_form["login_required"], 1)
         self.assertEqual(web_form["allow_edit"], 1)
         self.assertEqual(web_form["allow_incomplete"], 1)
-        self.assertIsNotNone(web_form["custom_css"])
-        self.assertIn("MASTER AGREEMENT", web_form["custom_css"])
-        self.assertIn(".web-form-header h1", web_form["custom_css"])
-        self.assertIn(".btn-primary.submit-btn", web_form["custom_css"])
-        self.assertIn(".discard-btn,.web-form-actions .discard-btn,.web-form-footer .discard-btn{display:none !important;}", web_form["custom_css"])
-        self.assertIn("[data-doctype='Web Form'] .page-content-wrapper .container .page_content", web_form["custom_css"])
-        self.assertIn(".form-column{padding-left:0;padding-right:0;}", web_form["custom_css"])
-        self.assertIn(".select-icon{top:50%;right:16px;transform:translateY(-50%);", web_form["custom_css"])
-        self.assertIn(".control-input{background:transparent;border:0;padding:0;box-shadow:none;}", web_form["custom_css"])
 
         fieldnames = {row.get("fieldname") for row in web_form["web_form_fields"] if row.get("fieldname")}
         self.assertIn("agreement_name", fieldnames)
@@ -225,15 +220,6 @@ class TestWebsiteFixtures(unittest.TestCase):
         self.assertEqual(web_form["login_required"], 1)
         self.assertEqual(web_form["allow_edit"], 1)
         self.assertEqual(web_form["allow_incomplete"], 1)
-        self.assertIsNotNone(web_form["custom_css"])
-        self.assertIn("LOCATION ADDENDUM", web_form["custom_css"])
-        self.assertIn(".web-form-header h1", web_form["custom_css"])
-        self.assertIn(".btn-primary.submit-btn", web_form["custom_css"])
-        self.assertIn(".discard-btn,.web-form-actions .discard-btn,.web-form-footer .discard-btn{display:none !important;}", web_form["custom_css"])
-        self.assertIn("[data-doctype='Web Form'] .page-content-wrapper .container .page_content", web_form["custom_css"])
-        self.assertIn(".form-column{padding-left:0;padding-right:0;}", web_form["custom_css"])
-        self.assertIn(".select-icon{top:50%;right:16px;transform:translateY(-50%);", web_form["custom_css"])
-        self.assertIn(".control-input{background:transparent;border:0;padding:0;box-shadow:none;}", web_form["custom_css"])
 
         fieldnames = {row.get("fieldname") for row in web_form["web_form_fields"] if row.get("fieldname")}
         self.assertIn("addendum_name", fieldnames)
@@ -251,48 +237,6 @@ class TestWebsiteFixtures(unittest.TestCase):
         self.assertIn("signed_by_name", fieldnames)
         self.assertIn("signed_by_title", fieldnames)
         self.assertIn("signed_by_email", fieldnames)
-
-    def test_instant_quote_web_form_fixture_file_exists_and_targets_request_doctype(self):
-        web_forms = json.loads(WEB_FORM_FIXTURE_PATH.read_text(encoding="utf-8"))
-        web_form = next(doc for doc in web_forms if doc["name"] == "instant-quote-form")
-
-        self.assertEqual(web_form["doctype"], "Web Form")
-        self.assertEqual(web_form["title"], "Instant Quote Request")
-        self.assertEqual(web_form["route"], "instant-quote-form")
-        self.assertEqual(web_form["doc_type"], "Instant Quote Request")
-        self.assertEqual(web_form["published"], 1)
-        self.assertEqual(web_form["anonymous"], 1)
-        self.assertEqual(web_form["login_required"], 0)
-        self.assertEqual(web_form["allow_edit"], 0)
-        self.assertEqual(web_form["allow_multiple"], 1)
-        self.assertEqual(web_form["allow_incomplete"], 0)
-        self.assertIsNotNone(web_form["custom_css"])
-        self.assertIsNotNone(web_form["client_script"])
-        self.assertIn("body[data-pikt-embedded='1']", web_form["custom_css"])
-        self.assertIn(".btn-primary.submit-btn", web_form["custom_css"])
-        self.assertIn(".discard-btn,.web-form-actions .discard-btn,.web-form-footer .discard-btn{display:none !important;}", web_form["custom_css"])
-        self.assertIn("window.parent.postMessage", web_form["client_script"])
-        self.assertIn("postToParent('success'", web_form["client_script"])
-        self.assertIn("pikt-instant-quote-form", web_form["client_script"])
-        self.assertIn("frappe.web_form.after_load", web_form["client_script"])
-        self.assertNotIn("window.top.location.assign", web_form["client_script"])
-        self.assertIn("handle_success", web_form["client_script"])
-
-        fieldnames = [row.get("fieldname") for row in web_form["web_form_fields"] if row.get("fieldname")]
-        self.assertEqual(
-            fieldnames,
-            [
-                "prospect_name",
-                "contact_email",
-                "phone",
-                "prospect_company",
-                "building_type",
-                "building_size",
-                "service_frequency",
-                "bathroom_count_range",
-                "service_interest",
-            ],
-        )
 
     def test_contact_request_web_form_fixture_file_exists_and_targets_request_doctype(self):
         web_forms = json.loads(WEB_FORM_FIXTURE_PATH.read_text(encoding="utf-8"))
@@ -335,7 +279,6 @@ class TestWebsiteFixtures(unittest.TestCase):
                 "message",
             ],
         )
-
     def test_quote_schema_fixture_files_contain_funnel_records(self):
         custom_fields = json.loads(CUSTOM_FIELD_FIXTURE_PATH.read_text(encoding="utf-8"))
         custom_docperms = json.loads(CUSTOM_DOCPERM_FIXTURE_PATH.read_text(encoding="utf-8"))
@@ -353,7 +296,6 @@ class TestWebsiteFixtures(unittest.TestCase):
     def test_building_schema_fixture_files_exist(self):
         self.assertTrue(BUILDING_DOCTYPE_FIXTURE_PATH.exists())
         self.assertTrue(BUILDING_CUSTOM_FIELD_FIXTURE_PATH.exists())
-        self.assertTrue(INSTANT_QUOTE_REQUEST_DOCTYPE_FIXTURE_PATH.exists())
         self.assertTrue(CONTACT_REQUEST_DOCTYPE_FIXTURE_PATH.exists())
 
     def test_building_schema_fixture_entries_are_exported_in_safe_order(self):
@@ -371,20 +313,12 @@ class TestWebsiteFixtures(unittest.TestCase):
         self.assertEqual(building_doctype_fixture["filters"], [["name", "in", ["Building"]]])
         self.assertEqual(building_custom_field_fixture["filters"], [["dt", "=", "Building"]])
 
-        instant_quote_fixture = next(
-            row
-            for row in app_hooks.fixtures
-            if row["dt"] == "DocType" and row.get("prefix") == "02_instant_quote_request"
-        )
-        self.assertEqual(instant_quote_fixture["filters"], [["name", "in", ["Instant Quote Request"]]])
-
         contact_request_fixture = next(
             row
             for row in app_hooks.fixtures
             if row["dt"] == "DocType" and row.get("prefix") == "03_contact_request"
         )
         self.assertEqual(contact_request_fixture["filters"], [["name", "in", ["Contact Request"]]])
-
     def test_building_schema_fixture_files_cover_live_portal_fields(self):
         building_doctypes = json.loads(BUILDING_DOCTYPE_FIXTURE_PATH.read_text(encoding="utf-8"))
         building_custom_fields = json.loads(BUILDING_CUSTOM_FIELD_FIXTURE_PATH.read_text(encoding="utf-8"))
@@ -403,36 +337,6 @@ class TestWebsiteFixtures(unittest.TestCase):
         self.assertIn("supervisor_user", custom_field_names)
         self.assertIn("custom_service_agreement", custom_field_names)
         self.assertIn("custom_service_agreement_addendum", custom_field_names)
-
-    def test_instant_quote_request_doctype_fixture_covers_public_intake_fields(self):
-        doctypes = json.loads(INSTANT_QUOTE_REQUEST_DOCTYPE_FIXTURE_PATH.read_text(encoding="utf-8"))
-
-        self.assertEqual(len(doctypes), 1)
-        self.assertEqual(doctypes[0]["name"], "Instant Quote Request")
-        self.assertEqual(doctypes[0]["autoname"], "format:IQR-{YYYY}-{#####}")
-
-        field_names = {row["fieldname"] for row in doctypes[0]["fields"] if row.get("fieldname")}
-        for field_name in (
-            "prospect_name",
-            "contact_email",
-            "phone",
-            "prospect_company",
-            "building_type",
-            "building_size",
-            "service_frequency",
-            "service_interest",
-            "bathroom_count_range",
-            "lead",
-            "opportunity",
-            "public_funnel_token",
-            "public_funnel_token_expires_on",
-            "estimate_low",
-            "estimate_high",
-            "currency",
-            "final_price",
-            "risk_level",
-        ):
-            self.assertIn(field_name, field_names)
 
     def test_contact_request_doctype_fixture_covers_public_contact_fields(self):
         doctypes = json.loads(CONTACT_REQUEST_DOCTYPE_FIXTURE_PATH.read_text(encoding="utf-8"))
@@ -454,7 +358,6 @@ class TestWebsiteFixtures(unittest.TestCase):
             "request_status",
         ):
             self.assertIn(field_name, field_names)
-
     def test_building_custom_docperm_is_reconciled_outside_fixtures(self):
         custom_docperms = json.loads(CUSTOM_DOCPERM_FIXTURE_PATH.read_text(encoding="utf-8"))
 
@@ -541,20 +444,14 @@ class TestWebsiteFixtures(unittest.TestCase):
     def test_quote_funnel_frontend_contracts(self):
         thank_you_template = QUOTE_THANK_YOU_TEMPLATE_PATH.read_text(encoding="utf-8")
         walkthrough_template = QUOTE_DIGITAL_WALKTHROUGH_TEMPLATE_PATH.read_text(encoding="utf-8")
-        walkthrough_received_template = QUOTE_DIGITAL_WALKTHROUGH_RECEIVED_TEMPLATE_PATH.read_text(encoding="utf-8")
         review_template = QUOTE_REVIEW_TEMPLATE_PATH.read_text(encoding="utf-8")
         accepted_script = QUOTE_ACCEPTED_ASSET_PATH.read_text(encoding="utf-8")
         complete_script = QUOTE_BILLING_COMPLETE_ASSET_PATH.read_text(encoding="utf-8")
 
-        self.assertIn("load_public_quote_request_state", thank_you_template)
-        self.assertNotIn("validate_public_funnel_opportunity", thank_you_template)
-        self.assertIn("request", thank_you_template)
+        self.assertIn("validate_public_funnel_opportunity", thank_you_template)
+        self.assertIn("let booted = false;", thank_you_template)
+        self.assertIn("/digital-walkthrough", thank_you_template)
         self.assertIn("save_opportunity_walkthrough_upload", walkthrough_template)
-        self.assertIn("load_public_quote_request_state", walkthrough_template)
-        self.assertNotIn("validate_public_funnel_opportunity", walkthrough_template)
-        self.assertIn("request", walkthrough_received_template)
-        self.assertIn("load_public_quote_request_state", walkthrough_received_template)
-        self.assertNotIn("validate_public_funnel_opportunity", walkthrough_received_template)
         self.assertIn("validate_public_quote", review_template)
         self.assertIn("accept_public_quote", accepted_script)
         self.assertIn("load_public_quote_portal_state", accepted_script)

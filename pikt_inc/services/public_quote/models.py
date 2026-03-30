@@ -349,7 +349,6 @@ class PublicQuoteSmokeConfig(BaseModel):
 class PublicQuoteSmokeArtifacts(BaseModel):
     model_config = ConfigDict(extra='forbid', frozen=True)
 
-    request: str = ''
     lead: str = ''
     opportunity: str = ''
     quote: str = ''

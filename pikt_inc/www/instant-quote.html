@@ -24,8 +24,21 @@
 .quote-form-card{padding:26px}
 .quote-form-card h2,.quote-panel h2{margin:0;color:#171717;font-size:30px;font-weight:700;line-height:1.15}
 .quote-card-copy{margin:12px 0 0;color:#525252;font-size:16px;line-height:1.65}
-.quote-form-embed{margin-top:22px}
-.quote-form-frame{display:block;width:100%;min-height:760px;border:0;background:transparent}
+.quote-form{display:grid;gap:14px;margin-top:22px}
+.quote-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.quote-field{display:flex;flex-direction:column;gap:8px}
+.quote-field label{color:#171717;font-size:14px;font-weight:700;line-height:1.2}
+.quote-field input,.quote-field select{width:100%;padding:14px 16px;border:1px solid #d7d7d7;border-radius:16px;background:#fff;color:#171717;font:inherit;box-sizing:border-box}
+.quote-field input:focus,.quote-field select:focus{border-color:#171717;outline:none;box-shadow:rgba(23,23,23,.08) 0 0 0 4px}
+.quote-field small{color:#737373;font-size:13px;line-height:1.5}
+.quote-actions{display:flex;flex-direction:column;gap:12px;margin-top:6px}
+.quote-submit{appearance:none;border:0;border-radius:16px;background:#171717;color:#fff;cursor:pointer;font-size:15px;font-weight:700;line-height:1.1;padding:16px 20px}
+.quote-submit:hover:not(:disabled){background:#303030}
+.quote-submit:disabled{cursor:not-allowed;opacity:.7}
+.quote-status{display:none;border-radius:18px;padding:14px 16px;font-size:14px;font-weight:600;line-height:1.6}
+.quote-status.is-visible{display:block}
+.quote-status.is-error{background:#fef2f2;border:1px solid #fecaca;color:#b91c1c}
+.quote-status.is-success{background:#ecfdf3;border:1px solid #bbf7d0;color:#166534}
 .quote-fine-print{color:#737373;font-size:13px;line-height:1.6}
 .quote-steps,.quote-trust,.quote-result{padding:26px}
 .quote-step-list{display:grid;gap:14px}
@@ -48,6 +61,7 @@
   .quote-copy{margin-top:14px;font-size:15px;line-height:1.55}
   .quote-grid{padding:0 0 48px}
   .quote-form-card,.quote-steps,.quote-trust,.quote-result{padding:20px}
+  .quote-form-grid{grid-template-columns:1fr}
   .quote-form-card{order:1}
   .quote-panel{order:2}
 }
@@ -125,17 +139,85 @@
           <p class="quote-card-copy">
             Use your primary contact details so we can attach the walkthrough and next-step follow-up to the correct request.
           </p>
-          <div class="quote-form-embed">
-            <iframe
-              id="instant-quote-web-form"
-              class="quote-form-frame"
-              src="/instant-quote-form/new?embedded=1"
-              title="Request your estimate">
-            </iframe>
-          </div>
-          <p class="quote-fine-print">
-            This estimate is for recurring service planning and may change after the walkthrough and scope review.
-          </p>
+          <form id="instant-quote-form" class="quote-form" novalidate>
+            <div class="quote-form-grid">
+              <div class="quote-field">
+                <label for="prospect_name">Full name</label>
+                <input id="prospect_name" name="prospect_name" type="text" autocomplete="name" required>
+              </div>
+              <div class="quote-field">
+                <label for="contact_email">Work email</label>
+                <input id="contact_email" name="contact_email" type="email" autocomplete="email" required>
+              </div>
+              <div class="quote-field">
+                <label for="phone">Phone</label>
+                <input id="phone" name="phone" type="tel" autocomplete="tel">
+              </div>
+              <div class="quote-field">
+                <label for="prospect_company">Company</label>
+                <input id="prospect_company" name="prospect_company" type="text" autocomplete="organization" required>
+              </div>
+              <div class="quote-field">
+                <label for="building_type">Building type</label>
+                <select id="building_type" name="building_type" required>
+                  <option value="">Select building type</option>
+                  <option value="Office">Office</option>
+                  <option value="Warehouse">Warehouse</option>
+                  <option value="Retail">Retail</option>
+                  <option value="Medical">Medical</option>
+                  <option value="Industrial">Industrial</option>
+                  <option value="Educational">Educational</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div class="quote-field">
+                <label for="building_size">Approximate square footage</label>
+                <input id="building_size" name="building_size" type="number" min="1" inputmode="numeric" required>
+              </div>
+              <div class="quote-field">
+                <label for="service_frequency">Service frequency</label>
+                <select id="service_frequency" name="service_frequency" required>
+                  <option value="">Select frequency</option>
+                  <option value="5x/week">5x/week</option>
+                  <option value="3x/week">3x/week</option>
+                  <option value="2x/week">2x/week</option>
+                  <option value="Weekly">Weekly</option>
+                  <option value="Biweekly">Biweekly</option>
+                  <option value="Monthly">Monthly</option>
+                </select>
+              </div>
+              <div class="quote-field">
+                <label for="bathroom_count_range">Restroom traffic level</label>
+                <select id="bathroom_count_range" name="bathroom_count_range" required>
+                  <option value="">Select traffic level</option>
+                  <option value="None">None</option>
+                  <option value="1-2">Light</option>
+                  <option value="3-5">Medium</option>
+                  <option value="6-10">Heavy</option>
+                  <option value="11+">Very heavy</option>
+                </select>
+                <small>This helps us estimate recurring restroom cleaning effort.</small>
+              </div>
+            </div>
+            <div class="quote-field">
+              <label for="service_interest">Service interest</label>
+              <select id="service_interest" name="service_interest" required>
+                <option value="">Select service mix</option>
+                <option value="Recurring standard cleaning">Recurring standard cleaning</option>
+                <option value="Recurring cleaning + restocking">Recurring cleaning + restocking</option>
+                <option value="Recurring cleaning + disinfection">Recurring cleaning + disinfection</option>
+                <option value="Not sure - need recommendation">Not sure, need a recommendation</option>
+                <option value="Special request / custom scope">Special request or custom scope</option>
+              </select>
+            </div>
+            <div class="quote-actions">
+              <button id="instant-quote-submit" class="quote-submit" type="submit">Get Instant Estimate</button>
+              <div id="instant-quote-status" class="quote-status" aria-live="polite"></div>
+              <p class="quote-fine-print">
+                This estimate is for recurring service planning and may change after the walkthrough and scope review.
+              </p>
+            </div>
+          </form>
         </article>
       </section>
     </div>
@@ -146,40 +228,128 @@
 </div>
 <script>
 (() => {
-  const iframe = document.getElementById('instant-quote-web-form');
-  if (!iframe) {
+  const form = document.getElementById('instant-quote-form');
+  const submitButton = document.getElementById('instant-quote-submit');
+  const statusBox = document.getElementById('instant-quote-status');
+
+  if (!form || !submitButton || !statusBox) {
     return;
   }
 
-  const source = 'pikt-instant-quote-form';
-  const origin = window.location.origin;
-  const minimumHeight = 760;
-  const setHeight = (height) => {
-    const next = Math.max(minimumHeight, Number(height) || 0);
-    iframe.style.height = next + 'px';
+  const csrf = () => {
+    const match = document.cookie.match(/(?:^|; )csrf_token=([^;]+)/);
+    if (match) {
+      return decodeURIComponent(match[1]);
+    }
+    if (window.frappe && frappe.csrf_token) {
+      return frappe.csrf_token;
+    }
+    if (window.csrf_token) {
+      return window.csrf_token;
+    }
+    return '';
   };
 
-  setHeight(minimumHeight);
+  const setStatus = (type, message) => {
+    statusBox.className = 'quote-status';
+    if (!message) {
+      statusBox.textContent = '';
+      return;
+    }
+    statusBox.classList.add('is-visible');
+    statusBox.classList.add(type);
+    statusBox.textContent = message;
+  };
 
-  window.addEventListener('message', (event) => {
-    if (event.origin !== origin || event.source !== iframe.contentWindow) {
-      return;
+  const extractMessage = (body) => {
+    if (body && body.message && typeof body.message === 'string') {
+      return body.message;
     }
-    const payload = event.data || {};
-    if (payload.source !== source || !payload.type) {
-      return;
+    if (body && body.message && typeof body.message.message === 'string') {
+      return body.message.message;
     }
-    if (payload.type === 'ready' || payload.type === 'resize') {
-      setHeight(payload.height);
-      return;
-    }
-    if (payload.type === 'success') {
-      const request = String(payload.request || '').trim();
-      const token = String(payload.token || '').trim();
-      if (!request || !token) {
-        return;
+    if (body && typeof body._server_messages === 'string' && body._server_messages) {
+      try {
+        const messages = JSON.parse(body._server_messages);
+        if (Array.isArray(messages) && messages.length) {
+          const first = messages[0];
+          if (typeof first === 'string') {
+            try {
+              const parsed = JSON.parse(first);
+              if (parsed && parsed.message) {
+                return parsed.message;
+              }
+            } catch (error) {
+              return first;
+            }
+          }
+        }
+      } catch (error) {
+        return body._server_messages;
       }
-      window.location.assign('/thank-you?request=' + encodeURIComponent(request) + '&token=' + encodeURIComponent(token));
+    }
+    return 'We could not create your estimate right now. Please try again.';
+  };
+
+  const toQuery = (payload) => {
+    const params = new URLSearchParams();
+    [
+      ['opp', payload.opp || payload.name || ''],
+      ['token', payload.token || ''],
+      ['low', payload.low || ''],
+      ['high', payload.high || ''],
+      ['currency', payload.currency || 'USD']
+    ].forEach(([key, value]) => {
+      if (String(value || '').trim()) {
+        params.set(key, String(value));
+      }
+    });
+    return params.toString();
+  };
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+
+    if (!form.reportValidity()) {
+      return;
+    }
+
+    submitButton.disabled = true;
+    setStatus('', '');
+    submitButton.textContent = 'Creating Estimate...';
+
+    const payload = {};
+    new FormData(form).forEach((value, key) => {
+      payload[key] = value;
+    });
+
+    try {
+      const response = await window.fetch('/api/method/create_instant_quote_opportunity', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-Frappe-CSRF-Token': csrf()
+        },
+        body: JSON.stringify(payload)
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || body.exception || body.exc || body.exc_type) {
+        throw new Error(extractMessage(body));
+      }
+      const result = body && body.message ? body.message : {};
+      const query = toQuery(result);
+      if (!query) {
+        throw new Error('We could not open the estimate result. Please try again.');
+      }
+      setStatus('is-success', 'Estimate ready. Redirecting...');
+      window.location.assign('/thank-you?' + query);
+    } catch (error) {
+      submitButton.disabled = false;
+      submitButton.textContent = 'Get Instant Estimate';
+      setStatus('is-error', (error && error.message) || 'We could not create your estimate right now. Please try again.');
     }
   });
 })();

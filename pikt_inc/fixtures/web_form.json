@@ -30,7 +30,7 @@
     "meta_title": "Master Service Agreement",
     "meta_description": "Draft web form scaffold for the master service agreement record.",
     "client_script": null,
-    "custom_css": "body{background:#fff;color:#171717;}\n.page_content,.page-content,.page-content-wrapper{background:#fff;}\n[data-doctype='Web Form'] .page-content-wrapper .container .page_content{max-width:none;width:100%;padding:0 20px 72px;}\n.web-form-container,.page-card{max-width:1200px;margin:0 auto;padding:0;background:transparent;border:0;box-shadow:none;}\n.web-form-header{padding:64px 0 28px;border:0;}\n.web-form-header::before{content:'MASTER AGREEMENT';display:block;margin:0 0 14px;color:#0f5132;font-size:13px;font-weight:700;letter-spacing:.08em;line-height:1.2;text-transform:uppercase;}\n.web-form-header h1{margin:0;max-width:760px;color:#171717;font-size:clamp(2.4rem,5vw,4.5rem);font-weight:700;line-height:1.03;letter-spacing:-.03em;}\n.web-form-header .introduction,.web-form-header p{margin:18px 0 0;max-width:840px;color:#525252;font-size:17px;font-weight:500;line-height:1.65;}\n.web-form-wrapper,.web-form-body,.form-page{background:#fff;}\n.form-page{border:1px solid #e7e7e7;border-radius:28px;padding:30px;}\n.section-head{margin:0 0 18px;padding-top:26px;border-top:1px solid #e7e7e7;color:#171717;font-size:30px;font-weight:700;line-height:1.15;letter-spacing:-.02em;}\n.form-page .section-head:first-child{padding-top:0;border-top:0;}\n.web-form-wrapper .row{margin-left:-10px;margin-right:-10px;}\n.web-form-wrapper [class*='col-']{padding-left:10px;padding-right:10px;}\n.form-group{margin-bottom:20px;}\n.control-label,.web-form-label,label{margin-bottom:8px;color:#171717;font-size:14px;font-weight:700;line-height:1.2;}\n.control-input{background:transparent;border:0;padding:0;box-shadow:none;}\n.form-control,.input-with-feedback,.ql-editor{min-height:56px;width:100%;padding:14px 16px;border:1px solid #d7d7d7;border-radius:16px;background:#fff;color:#171717;box-shadow:none;box-sizing:border-box;}\n.frappe-control[data-fieldtype='Select'] .control-input{position:relative;}\n.frappe-control[data-fieldtype='Select'] .control-input .select-icon{top:50%;right:16px;transform:translateY(-50%);padding:0;width:16px;height:16px;display:flex;align-items:center;justify-content:center;}\n.frappe-control[data-fieldtype='Select'] .control-input .select-icon .icon,.frappe-control[data-fieldtype='Select'] .control-input .select-icon .es-icon{width:16px;height:16px;display:block;}\n.frappe-control[data-fieldtype='Select'] select.form-control{padding-right:44px;}\ntextarea.form-control,.ql-editor{min-height:220px;}\n.form-control:focus,.input-with-feedback:focus,.ql-editor:focus{border-color:#171717;outline:none;box-shadow:rgba(23,23,23,.08) 0 0 0 4px;}\n.ql-toolbar,.ql-container{border-color:#d7d7d7;}\n.ql-toolbar{border-radius:16px 16px 0 0;background:#fff;}\n.ql-container{border-radius:0 0 16px 16px;}\n.web-form-actions,.web-form-footer,.form-submit-container{display:flex;flex-direction:column;align-items:flex-start;gap:12px;margin-top:10px;}\n.discard-btn,.web-form-actions .discard-btn,.web-form-footer .discard-btn{display:none !important;}\n.submit-btn.btn,.btn-primary.submit-btn,.web-form-actions .submit-btn,.web-form-footer .submit-btn{appearance:none;border:0;border-radius:16px;background:#171717 !important;color:#fff !important;cursor:pointer;font-size:15px;font-weight:700;line-height:1.1;padding:16px 20px;min-height:52px;box-shadow:none;}\n.submit-btn.btn:hover,.submit-btn.btn:focus,.btn-primary.submit-btn:hover,.btn-primary.submit-btn:focus,.web-form-actions .submit-btn:hover,.web-form-actions .submit-btn:focus,.web-form-footer .submit-btn:hover,.web-form-footer .submit-btn:focus{background:#303030 !important;color:#fff !important;}\n.text-muted,.help-box,small,.small{color:#737373 !important;font-size:13px;line-height:1.6;}\n@media (max-width:768px){[data-doctype='Web Form'] .page-content-wrapper .container .page_content{padding:0 12px 40px;}[data-doctype='Web Form'] .page-content-wrapper .container .page_content .web-form .web-form-wrapper .form-column{padding-left:0;padding-right:0;}.web-form-wrapper .row{margin-left:0;margin-right:0;}.web-form-header{padding:36px 0 16px;}.web-form-header .introduction,.web-form-header p{margin-top:14px;font-size:15px;line-height:1.55;}.form-page{padding:16px;border-radius:22px;}.section-head{padding-top:20px;font-size:24px;}}",
+    "custom_css": null,
     "web_form_fields": [
       {
         "doctype": "Web Form Field",
@@ -151,7 +151,7 @@
     "meta_title": "Service Agreement Addendum",
     "meta_description": "Draft web form scaffold for the service agreement addendum record.",
     "client_script": null,
-    "custom_css": "body{background:#fff;color:#171717;}\n.page_content,.page-content,.page-content-wrapper{background:#fff;}\n[data-doctype='Web Form'] .page-content-wrapper .container .page_content{max-width:none;width:100%;padding:0 20px 72px;}\n.web-form-container,.page-card{max-width:1200px;margin:0 auto;padding:0;background:transparent;border:0;box-shadow:none;}\n.web-form-header{padding:64px 0 28px;border:0;}\n.web-form-header::before{content:'LOCATION ADDENDUM';display:block;margin:0 0 14px;color:#0f5132;font-size:13px;font-weight:700;letter-spacing:.08em;line-height:1.2;text-transform:uppercase;}\n.web-form-header h1{margin:0;max-width:760px;color:#171717;font-size:clamp(2.4rem,5vw,4.5rem);font-weight:700;line-height:1.03;letter-spacing:-.03em;}\n.web-form-header .introduction,.web-form-header p{margin:18px 0 0;max-width:840px;color:#525252;font-size:17px;font-weight:500;line-height:1.65;}\n.web-form-wrapper,.web-form-body,.form-page{background:#fff;}\n.form-page{border:1px solid #e7e7e7;border-radius:28px;padding:30px;}\n.section-head{margin:0 0 18px;padding-top:26px;border-top:1px solid #e7e7e7;color:#171717;font-size:30px;font-weight:700;line-height:1.15;letter-spacing:-.02em;}\n.form-page .section-head:first-child{padding-top:0;border-top:0;}\n.web-form-wrapper .row{margin-left:-10px;margin-right:-10px;}\n.web-form-wrapper [class*='col-']{padding-left:10px;padding-right:10px;}\n.form-group{margin-bottom:20px;}\n.control-label,.web-form-label,label{margin-bottom:8px;color:#171717;font-size:14px;font-weight:700;line-height:1.2;}\n.control-input{background:transparent;border:0;padding:0;box-shadow:none;}\n.form-control,.input-with-feedback,.ql-editor{min-height:56px;width:100%;padding:14px 16px;border:1px solid #d7d7d7;border-radius:16px;background:#fff;color:#171717;box-shadow:none;box-sizing:border-box;}\n.frappe-control[data-fieldtype='Select'] .control-input{position:relative;}\n.frappe-control[data-fieldtype='Select'] .control-input .select-icon{top:50%;right:16px;transform:translateY(-50%);padding:0;width:16px;height:16px;display:flex;align-items:center;justify-content:center;}\n.frappe-control[data-fieldtype='Select'] .control-input .select-icon .icon,.frappe-control[data-fieldtype='Select'] .control-input .select-icon .es-icon{width:16px;height:16px;display:block;}\n.frappe-control[data-fieldtype='Select'] select.form-control{padding-right:44px;}\ntextarea.form-control,.ql-editor{min-height:220px;}\n.form-control:focus,.input-with-feedback:focus,.ql-editor:focus{border-color:#171717;outline:none;box-shadow:rgba(23,23,23,.08) 0 0 0 4px;}\n.ql-toolbar,.ql-container{border-color:#d7d7d7;}\n.ql-toolbar{border-radius:16px 16px 0 0;background:#fff;}\n.ql-container{border-radius:0 0 16px 16px;}\n.web-form-actions,.web-form-footer,.form-submit-container{display:flex;flex-direction:column;align-items:flex-start;gap:12px;margin-top:10px;}\n.discard-btn,.web-form-actions .discard-btn,.web-form-footer .discard-btn{display:none !important;}\n.submit-btn.btn,.btn-primary.submit-btn,.web-form-actions .submit-btn,.web-form-footer .submit-btn{appearance:none;border:0;border-radius:16px;background:#171717 !important;color:#fff !important;cursor:pointer;font-size:15px;font-weight:700;line-height:1.1;padding:16px 20px;min-height:52px;box-shadow:none;}\n.submit-btn.btn:hover,.submit-btn.btn:focus,.btn-primary.submit-btn:hover,.btn-primary.submit-btn:focus,.web-form-actions .submit-btn:hover,.web-form-actions .submit-btn:focus,.web-form-footer .submit-btn:hover,.web-form-footer .submit-btn:focus{background:#303030 !important;color:#fff !important;}\n.text-muted,.help-box,small,.small{color:#737373 !important;font-size:13px;line-height:1.6;}\n@media (max-width:768px){[data-doctype='Web Form'] .page-content-wrapper .container .page_content{padding:0 12px 40px;}[data-doctype='Web Form'] .page-content-wrapper .container .page_content .web-form .web-form-wrapper .form-column{padding-left:0;padding-right:0;}.web-form-wrapper .row{margin-left:0;margin-right:0;}.web-form-header{padding:36px 0 16px;}.web-form-header .introduction,.web-form-header p{margin-top:14px;font-size:15px;line-height:1.55;}.form-page{padding:16px;border-radius:22px;}.section-head{padding-top:20px;font-size:24px;}}",
+    "custom_css": null,
     "web_form_fields": [
       {
         "doctype": "Web Form Field",
@@ -302,164 +302,6 @@
         "fieldtype": "Data",
         "label": "Signed By Email",
         "options": "Email",
-        "reqd": 1
-      }
-    ],
-    "list_columns": []
-  },
-  {
-    "doctype": "Web Form",
-    "name": "instant-quote-form",
-    "title": "Instant Quote Request",
-    "route": "instant-quote-form",
-    "published": 1,
-    "doc_type": "Instant Quote Request",
-    "module": "Custom",
-    "is_standard": 0,
-    "introduction_text": "<p>Share the building details, cleaning frequency, and scope so we can create an estimate range and open the secure walkthrough flow for this request.</p>",
-    "anonymous": 1,
-    "login_required": 0,
-    "apply_document_permissions": 0,
-    "allow_edit": 0,
-    "allow_multiple": 1,
-    "allow_delete": 0,
-    "allow_incomplete": 0,
-    "allow_comments": 0,
-    "allow_print": 0,
-    "max_attachment_size": 0,
-    "show_attachments": 0,
-    "hide_navbar": 1,
-    "hide_footer": 1,
-    "show_list": 0,
-    "show_sidebar": 0,
-    "button_label": "Get Instant Estimate",
-    "success_title": "Estimate Ready",
-    "success_message": "Redirecting to your estimate details.",
-    "meta_title": "Instant Quote Request",
-    "meta_description": "Public instant quote intake form for recurring commercial cleaning requests.",
-    "client_script": "(() => {\\n  const SOURCE = 'pikt-instant-quote-form';\\n  const FIELD_NAMES = ['prospect_name','contact_email','phone','prospect_company','building_type','building_size','service_frequency','service_interest','bathroom_count_range'];\\n  const isEmbedded = () => {\\n    try {\\n      return new URLSearchParams(window.location.search || '').get('embedded') === '1';\\n    } catch (error) {\\n      return false;\\n    }\\n  };\\n\\n  const getHeight = () => {\\n    const body = document.body;\\n    const docEl = document.documentElement;\\n    return Math.max(\\n      body ? body.scrollHeight : 0,\\n      body ? body.offsetHeight : 0,\\n      docEl ? docEl.scrollHeight : 0,\\n      docEl ? docEl.offsetHeight : 0\\n    );\\n  };\\n\\n  const postToParent = (type, payload = {}) => {\\n    if (!isEmbedded() || window.parent === window) {\\n      return;\\n    }\\n\\n    window.parent.postMessage({\\n      source: SOURCE,\\n      type,\\n      ...payload\\n    }, window.location.origin);\\n  };\\n\\n  const postHeight = () => {\\n    postToParent('resize', { height: getHeight() });\\n  };\\n\\n  const markEmbedded = () => {\\n    if (!isEmbedded()) {\\n      return;\\n    }\\n    document.body.setAttribute('data-pikt-embedded', '1');\\n    document.documentElement.setAttribute('data-pikt-embedded', '1');\\n  };\\n\\n  const installSuccessBridge = () => {\\n    const webForm = frappe.web_form;\\n    if (!webForm || webForm.__pikt_quote_success_bridge_installed) {\\n      return;\\n    }\\n\\n    const originalHandleSuccess = webForm.handle_success.bind(webForm);\\n    webForm.handle_success = (message) => {\\n      const requestName = (message && message.name) || (webForm.doc && webForm.doc.name) || '';\\n      const token = (message && message.public_funnel_token) || (webForm.doc && webForm.doc.public_funnel_token) || '';\\n\\n      if (isEmbedded() && requestName && token) {\\n        postToParent('success', { request: requestName, token });\\n        return;\\n      }\\n\\n      originalHandleSuccess(message);\\n    };\\n\\n    webForm.__pikt_quote_success_bridge_installed = true;\\n  };\\n\\n  const installResizeObserver = () => {\\n    if (!isEmbedded()) {\\n      return;\\n    }\\n\\n    if (window.__pikt_quote_resize_observer_installed) {\\n      postHeight();\\n      return;\\n    }\\n\\n    const target = document.querySelector('.web-form-container') || document.body;\\n    if (target && window.ResizeObserver) {\\n      const observer = new ResizeObserver(() => postHeight());\\n      observer.observe(target);\\n      window.__pikt_quote_resize_observer_installed = true;\\n    }\\n\\n    window.setTimeout(() => postToParent('ready', { height: getHeight() }), 0);\\n    window.setTimeout(postHeight, 120);\\n    window.setTimeout(postHeight, 500);\\n  };\\n\\n  frappe.web_form.after_load = () => {\\n    markEmbedded();\\n    installSuccessBridge();\\n    installResizeObserver();\\n  };\\n\\n  FIELD_NAMES.forEach((fieldname) => {\\n    frappe.web_form.on(fieldname, () => {\\n      window.setTimeout(postHeight, 0);\\n    });\\n  });\\n})();",
-    "custom_css": "body{background:#fff;color:#171717;}\\n.page_content,.page-content,.page-content-wrapper{background:#fff;}\\n[data-doctype='Web Form'] .page-content-wrapper .container .page_content{max-width:none;width:100%;padding:32px 20px 72px;}\\n.web-form-container,.page-card{max-width:820px;margin:0 auto;padding:0;background:transparent;border:0;box-shadow:none;}\\n.web-form-header{padding:0 0 20px;border:0;}\\n.web-form-header h1{margin:0;max-width:640px;color:#171717;font-size:clamp(2rem,4vw,3.2rem);font-weight:700;line-height:1.05;letter-spacing:-.03em;}\\n.web-form-header .introduction,.web-form-header p{margin:14px 0 0;max-width:680px;color:#525252;font-size:16px;font-weight:500;line-height:1.6;}\\n.web-form-wrapper,.web-form-body,.form-page{background:transparent;}\\n.form-page{padding:0;border:0;box-shadow:none;}\\n.section-head{display:none;}\\n.web-form-wrapper .row{margin-left:-7px;margin-right:-7px;}\\n.web-form-wrapper [class*='col-']{padding-left:7px;padding-right:7px;}\\n.form-group{margin-bottom:14px;}\\n.control-label,.web-form-label,label{margin-bottom:8px;color:#171717;font-size:14px;font-weight:700;line-height:1.2;}\\n.control-input{background:transparent;border:0;padding:0;box-shadow:none;}\\n.form-control,.input-with-feedback,.ql-editor{min-height:56px;width:100%;padding:14px 16px;border:1px solid #d7d7d7;border-radius:16px;background:#fff;color:#171717;box-shadow:none;box-sizing:border-box;}\\n.frappe-control[data-fieldtype='Select'] .control-input{position:relative;}\\n.frappe-control[data-fieldtype='Select'] .control-input .select-icon{top:50%;right:16px;transform:translateY(-50%);padding:0;width:16px;height:16px;display:flex;align-items:center;justify-content:center;}\\n.frappe-control[data-fieldtype='Select'] .control-input .select-icon .icon,.frappe-control[data-fieldtype='Select'] .control-input .select-icon .es-icon{width:16px;height:16px;display:block;}\\n.frappe-control[data-fieldtype='Select'] select.form-control{padding-right:44px;}\\n.form-control:focus,.input-with-feedback:focus,.ql-editor:focus{border-color:#171717;outline:none;box-shadow:rgba(23,23,23,.08) 0 0 0 4px;}\\n.web-form-actions,.web-form-footer,.form-submit-container{display:flex;flex-direction:column;align-items:flex-start;gap:12px;margin-top:10px;}\\n.discard-btn,.web-form-actions .discard-btn,.web-form-footer .discard-btn{display:none !important;}\\n.submit-btn.btn,.btn-primary.submit-btn,.web-form-actions .submit-btn,.web-form-footer .submit-btn{appearance:none;border:0;border-radius:16px;background:#171717 !important;color:#fff !important;cursor:pointer;font-size:15px;font-weight:700;line-height:1.1;padding:16px 20px;min-height:52px;box-shadow:none;}\\n.submit-btn.btn:hover,.submit-btn.btn:focus,.btn-primary.submit-btn:hover,.btn-primary.submit-btn:focus,.web-form-actions .submit-btn:hover,.web-form-actions .submit-btn:focus,.web-form-footer .submit-btn:hover,.web-form-footer .submit-btn:focus{background:#303030 !important;color:#fff !important;}\\n.text-muted,.help-box,small,.small{color:#737373 !important;font-size:13px;line-height:1.6;}\\nbody[data-pikt-embedded='1'],body[data-pikt-embedded='1'] .page_content,body[data-pikt-embedded='1'] .page-content,body[data-pikt-embedded='1'] .page-content-wrapper{background:transparent;}\\nbody[data-pikt-embedded='1'] [data-doctype='Web Form'] .page-content-wrapper .container .page_content{padding:0;max-width:none;}\\nbody[data-pikt-embedded='1'] .web-form-container,body[data-pikt-embedded='1'] .page-card{max-width:none;margin:0;}\\nbody[data-pikt-embedded='1'] .web-form-header{display:none;}\\n@media (max-width:768px){[data-doctype='Web Form'] .page-content-wrapper .container .page_content{padding:16px 16px 40px;}.web-form-wrapper .row{margin-left:0;margin-right:0;}.web-form-header h1{font-size:clamp(1.9rem,8vw,2.4rem);}.web-form-header .introduction,.web-form-header p{font-size:15px;line-height:1.55;}.web-form-wrapper [class*='col-']{padding-left:0;padding-right:0;}body[data-pikt-embedded='1'] [data-doctype='Web Form'] .page-content-wrapper .container .page_content{padding:0;}}",
-    "web_form_fields": [
-      {
-        "doctype": "Web Form Field",
-        "idx": 1,
-        "fieldtype": "Section Break"
-      },
-      {
-        "doctype": "Web Form Field",
-        "idx": 2,
-        "fieldname": "prospect_name",
-        "fieldtype": "Data",
-        "label": "Full name",
-        "reqd": 1
-      },
-      {
-        "doctype": "Web Form Field",
-        "idx": 3,
-        "fieldtype": "Column Break"
-      },
-      {
-        "doctype": "Web Form Field",
-        "idx": 4,
-        "fieldname": "contact_email",
-        "fieldtype": "Data",
-        "label": "Work email",
-        "options": "Email",
-        "reqd": 1
-      },
-      {
-        "doctype": "Web Form Field",
-        "idx": 5,
-        "fieldtype": "Section Break"
-      },
-      {
-        "doctype": "Web Form Field",
-        "idx": 6,
-        "fieldname": "phone",
-        "fieldtype": "Data",
-        "label": "Phone",
-        "options": "Phone"
-      },
-      {
-        "doctype": "Web Form Field",
-        "idx": 7,
-        "fieldtype": "Column Break"
-      },
-      {
-        "doctype": "Web Form Field",
-        "idx": 8,
-        "fieldname": "prospect_company",
-        "fieldtype": "Data",
-        "label": "Company",
-        "reqd": 1
-      },
-      {
-        "doctype": "Web Form Field",
-        "idx": 9,
-        "fieldtype": "Section Break"
-      },
-      {
-        "doctype": "Web Form Field",
-        "idx": 10,
-        "fieldname": "building_type",
-        "fieldtype": "Select",
-        "label": "Building type",
-        "options": "Office\nWarehouse\nRetail\nMedical\nIndustrial\nEducational\nOther",
-        "reqd": 1
-      },
-      {
-        "doctype": "Web Form Field",
-        "idx": 11,
-        "fieldtype": "Column Break"
-      },
-      {
-        "doctype": "Web Form Field",
-        "idx": 12,
-        "fieldname": "building_size",
-        "fieldtype": "Int",
-        "label": "Approximate square footage",
-        "reqd": 1
-      },
-      {
-        "doctype": "Web Form Field",
-        "idx": 13,
-        "fieldtype": "Section Break"
-      },
-      {
-        "doctype": "Web Form Field",
-        "idx": 14,
-        "fieldname": "service_frequency",
-        "fieldtype": "Select",
-        "label": "Service frequency",
-        "options": "5x/week\n3x/week\n2x/week\nWeekly\nBiweekly\nMonthly",
-        "reqd": 1
-      },
-      {
-        "doctype": "Web Form Field",
-        "idx": 15,
-        "fieldtype": "Column Break"
-      },
-      {
-        "doctype": "Web Form Field",
-        "idx": 16,
-        "fieldname": "bathroom_count_range",
-        "fieldtype": "Select",
-        "label": "Restroom traffic level",
-        "options": "None\nLight\nMedium\nHeavy",
-        "reqd": 1
-      },
-      {
-        "doctype": "Web Form Field",
-        "idx": 17,
-        "fieldtype": "Section Break"
-      },
-      {
-        "doctype": "Web Form Field",
-        "idx": 18,
-        "fieldname": "service_interest",
-        "fieldtype": "Select",
-        "label": "Service interest",
-        "options": "Recurring standard cleaning\nRecurring cleaning + restocking\nRecurring cleaning + disinfection\nNot sure - need recommendation\nSpecial request / custom scope",
         "reqd": 1
       }
     ],

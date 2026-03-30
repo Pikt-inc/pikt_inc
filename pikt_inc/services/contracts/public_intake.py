@@ -99,22 +99,12 @@ class PublicFunnelValidationInput(RequestModel):
         return clean_str(value)
 
 
-class PublicQuoteRequestStateInput(RequestModel):
-    request: str = ""
-    token: str = ""
-
-    @field_validator("request", "token", mode="before")
-    @classmethod
-    def clean_values(cls, value: Any) -> str:
-        return clean_str(value)
-
-
 class WalkthroughUploadInput(RequestModel):
-    request: str = Field(min_length=1)
+    opportunity: str = Field(min_length=1)
     token: str = Field(min_length=1)
     uploaded: Any = None
 
-    @field_validator("request", "token", mode="before")
+    @field_validator("opportunity", "token", mode="before")
     @classmethod
     def clean_values(cls, value: Any) -> str:
         return clean_str(value)
@@ -127,7 +117,6 @@ class WalkthroughUploadInput(RequestModel):
 
 
 class InstantQuoteResponse(ResponseModel):
-    request: str = ""
     name: str
     opp: str
     low: float
@@ -139,19 +128,8 @@ class InstantQuoteResponse(ResponseModel):
     duplicate: Literal[0, 1]
 
 
-class PublicQuoteRequestStateResponse(ResponseModel):
-    valid: Literal[1]
-    request: str
-    low: float
-    high: float
-    risk: str
-    currency: str
-    final_price: float
-    token: str
-
-
 class WalkthroughUploadResponse(ResponseModel):
-    request: str
+    opportunity: str
     digital_walkthrough_file: str
     digital_walkthrough_status: str
     digital_walkthrough_received_on: str

@@ -50,12 +50,12 @@
 <script>
 (() => {
   const slot = (name) => document.querySelector('[data-quote-slot="' + name + '"]');
-  const loadQuoteRequestState = async (request, token) => {
-    if (!request || !token) {
+  const validateOpportunity = async (opp, token) => {
+    if (!opp || !token) {
       return { valid: 0 };
     }
     try {
-      const response = await window.fetch('/api/method/load_public_quote_request_state?request=' + encodeURIComponent(request) + '&token=' + encodeURIComponent(token), {
+      const response = await window.fetch('/api/method/validate_public_funnel_opportunity?opportunity=' + encodeURIComponent(opp) + '&token=' + encodeURIComponent(token), {
         method: 'GET',
         headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
         credentials: 'same-origin'
@@ -65,12 +65,12 @@
       if (!response.ok) {
         return { valid: 0 };
       }
-      return { valid: Number(message.valid || 0) === 1 ? 1 : 0, request: String(message.request || '').trim() };
+      return { valid: Number(message.valid || 0) === 1 ? 1 : 0, opportunity: String(message.opportunity || '').trim() };
     } catch (error) {
       return { valid: 0 };
     }
   };
-  const personalize = (request) => {
+  const personalize = (opp) => {
     const eyebrow = slot('eyebrow');
     const title = slot('title');
     const copy = slot('note');
@@ -78,24 +78,24 @@
     const step2 = slot('step-2-copy');
     const step3 = slot('step-3-copy');
     if (eyebrow) { eyebrow.textContent = 'Walkthrough attached'; }
-    if (title) { title.textContent = 'We attached your walkthrough to your estimate request'; }
-    if (copy) { copy.textContent = 'Your upload is linked to request ' + request + '. Our team will review it and follow up with the refined next step.'; }
-    if (step1) { step1.textContent = 'Your file is linked directly to request ' + request + ' for internal review.'; }
+    if (title) { title.textContent = 'We attached your walkthrough to your estimate'; }
+    if (copy) { copy.textContent = 'Your upload is linked to estimate ' + opp + '. Our team will review it and follow up with the refined next step.'; }
+    if (step1) { step1.textContent = 'Your file is linked directly to estimate ' + opp + ' for internal review.'; }
     if (step2) { step2.textContent = 'We compare the walkthrough to your estimate request and tighten the next step from there.'; }
     if (step3) { step3.textContent = 'If we need anything else, we will use the contact details already on that estimate request to follow up.'; }
   };
   const boot = async () => {
     const params = new URLSearchParams(window.location.search || '');
-    const request = String(params.get('request') || '').trim();
+    const opp = String(params.get('opp') || '').trim();
     const token = String(params.get('token') || '').trim();
-    if (!request || !token) {
+    if (!opp || !token) {
       return;
     }
-    const validation = await loadQuoteRequestState(request, token);
+    const validation = await validateOpportunity(opp, token);
     if (!validation.valid) {
       return;
     }
-    personalize(validation.request || request);
+    personalize(validation.opportunity || opp);
   };
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', boot, { once: true });

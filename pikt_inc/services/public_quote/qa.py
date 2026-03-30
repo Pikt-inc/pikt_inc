@@ -151,7 +151,6 @@ def create_public_quote_smoke_artifacts(config: PublicQuoteSmokeConfig) -> Publi
             "bathroom_count_range": config.bathroom_count_range,
         }
     )
-    request_name = clean(intake_result.get("request"))
     opportunity_name = clean(intake_result.get("opp") or intake_result.get("name"))
     lead_name = clean(frappe.db.get_value("Opportunity", opportunity_name, "party_name"))
     if not opportunity_name or not lead_name:
@@ -164,7 +163,6 @@ def create_public_quote_smoke_artifacts(config: PublicQuoteSmokeConfig) -> Publi
 
     quote_name, token = create_public_quote_smoke_quotation(config, opportunity_name, lead_name)
     return PublicQuoteSmokeArtifacts(
-        request=request_name,
         lead=lead_name,
         opportunity=opportunity_name,
         quote=quote_name,
@@ -289,7 +287,6 @@ def cleanup_public_quote_smoke_records(
         ("Address", artifact_model.address, False),
         ("Contact", artifact_model.contact, False),
         ("Customer", artifact_model.customer, False),
-        ("Instant Quote Request", artifact_model.request, False),
         ("Opportunity", artifact_model.opportunity, False),
         ("Lead", artifact_model.lead, False),
     ]
