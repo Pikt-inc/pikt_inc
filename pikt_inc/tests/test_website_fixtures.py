@@ -200,6 +200,8 @@ class TestWebsiteFixtures(unittest.TestCase):
         self.assertIn(".btn-primary", web_form["custom_css"])
         self.assertIn("[data-doctype='Web Form'] .page-content-wrapper .container .page_content", web_form["custom_css"])
         self.assertIn(".form-column{padding-left:0;padding-right:0;}", web_form["custom_css"])
+        self.assertIn(".select-icon{top:50%;right:16px;transform:translateY(-50%);", web_form["custom_css"])
+        self.assertIn(".control-input{background:transparent;border:0;padding:0;box-shadow:none;}", web_form["custom_css"])
 
         fieldnames = {row.get("fieldname") for row in web_form["web_form_fields"] if row.get("fieldname")}
         self.assertIn("agreement_name", fieldnames)
@@ -229,6 +231,8 @@ class TestWebsiteFixtures(unittest.TestCase):
         self.assertIn(".btn-primary", web_form["custom_css"])
         self.assertIn("[data-doctype='Web Form'] .page-content-wrapper .container .page_content", web_form["custom_css"])
         self.assertIn(".form-column{padding-left:0;padding-right:0;}", web_form["custom_css"])
+        self.assertIn(".select-icon{top:50%;right:16px;transform:translateY(-50%);", web_form["custom_css"])
+        self.assertIn(".control-input{background:transparent;border:0;padding:0;box-shadow:none;}", web_form["custom_css"])
 
         fieldnames = {row.get("fieldname") for row in web_form["web_form_fields"] if row.get("fieldname")}
         self.assertIn("addendum_name", fieldnames)
