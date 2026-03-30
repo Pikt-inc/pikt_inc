@@ -247,6 +247,7 @@ fixtures = [
 			]
 		],
 	},
+	{
 		"dt": "Notification",
 		"filters": [
 			[
