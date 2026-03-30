@@ -28,6 +28,23 @@
 
 .portal-page a:hover{text-decoration:underline}
 
+.portal-page .site-shell-mobile-quote,
+.portal-page .site-shell-mobile-quote:visited{
+  background:#171717;
+  color:#ffffff;
+}
+
+.portal-page .site-shell-mobile-login,
+.portal-page .site-shell-mobile-login:visited{
+  background:#f3f3f3;
+  color:var(--portal-ink);
+}
+
+.portal-page .site-shell-mobile-quote:hover,
+.portal-page .site-shell-mobile-login:hover{
+  text-decoration:none;
+}
+
 .portal-shell{
   display:grid;
   grid-template-columns:260px minmax(0,1fr);
