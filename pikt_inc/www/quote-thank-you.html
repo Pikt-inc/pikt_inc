@@ -119,19 +119,16 @@
     }
   };
 
-  const getQuote = () => {
+  const getQuoteRequest = () => {
     const params = new URLSearchParams(window.location.search || '');
-    const opp = normalize(params.get('opp'));
+    const request = normalize(params.get('request'));
     const token = normalize(params.get('token'));
-    const low = parseNumber(params.get('low'));
-    const high = parseNumber(params.get('high'));
-    const currency = normalize(params.get('currency')) || 'USD';
 
-    if (!(low > 0) || !(high > 0)) {
+    if (!request || !token) {
       return null;
     }
 
-    return { opp, token, low, high, currency };
+    return { request, token };
   };
 
   const buildQuery = (pairs) => {
@@ -145,13 +142,13 @@
     return query ? '?' + query : '';
   };
 
-  const validateOpportunity = async (opp, token) => {
-    if (!opp || !token) {
+  const loadQuoteRequestState = async (request, token) => {
+    if (!request || !token) {
       return { valid: 0, message: 'Missing secure estimate reference.' };
     }
 
     try {
-      const response = await window.fetch('/api/method/validate_public_funnel_opportunity?opportunity=' + encodeURIComponent(opp) + '&token=' + encodeURIComponent(token), {
+      const response = await window.fetch('/api/method/load_public_quote_request_state?request=' + encodeURIComponent(request) + '&token=' + encodeURIComponent(token), {
         method: 'GET',
         headers: {
           Accept: 'application/json',
@@ -166,18 +163,24 @@
       }
       return {
         valid: Number(message.valid || 0) === 1 ? 1 : 0,
-        opportunity: normalize(message.opportunity),
-        message: normalize(message.message) || 'We could not find that estimate. Please return to the estimate page and try again.'
+        request: normalize(message.request),
+        token: normalize(message.token || token),
+        low: parseNumber(message.low),
+        high: parseNumber(message.high),
+        currency: normalize(message.currency) || 'USD',
+        risk: normalize(message.risk),
+        final_price: parseNumber(message.final_price),
+        message: normalize(message.message) || 'We could not find that estimate. Please return to the quote page and try again.'
       };
     } catch (error) {
       return { valid: 0, message: 'We could not validate that estimate link.' };
     }
   };
 
-  const applyFallback = () => {
+  const applyFallback = (message) => {
     setText('eyebrow', 'Estimate pending');
     setTitle('We are preparing your estimate');
-    setText('note', 'Your request is in. Our team will review the scope and follow up shortly if anything needs clarification.');
+    setText('note', message || 'Your request is in. Our team will review the scope and follow up shortly if anything needs clarification.');
     setText('step-1-title', 'Request captured');
     setText('step-1-copy', 'Your building details, cleaning frequency, and service preferences are attached to this request.');
     setText('step-2-title', 'Estimate review');
@@ -188,21 +191,7 @@
     setLink('cta-secondary', 'Review Services', '/services');
   };
 
-  const applyGenericEstimate = (displayLabel) => {
-    setText('eyebrow', 'Instant estimate');
-    setTitle('Your estimated monthly range', displayLabel);
-    setText('note', 'Your estimate range is still available here, but we could not reopen the walkthrough from this link. Our team can help continue the request.');
-    setText('step-1-title', 'Estimate ready');
-    setText('step-1-copy', 'Your estimate range is still available for review on this page.');
-    setText('step-2-title', 'Need the walkthrough reopened?');
-    setText('step-2-copy', 'If you need help continuing to the walkthrough step, contact our team and we will reopen the correct path.');
-    setText('step-3-title', 'Keep moving');
-    setText('step-3-copy', 'You can still review services or contact us while we help reconnect the request.');
-    setLink('cta-primary', 'Talk to Our Team', '/contact');
-    setLink('cta-secondary', 'Review Services', '/services');
-  };
-
-  const applyWalkthrough = (quote, displayLabel) => {
+  const applyWalkthrough = (state, displayLabel) => {
     setText('eyebrow', 'Instant estimate');
     setTitle('Your estimated monthly range', displayLabel);
     setText('note', 'This range is based on your current scope. Next step is a digital walkthrough so we can confirm the site details and move the request forward.');
@@ -212,26 +201,25 @@
     setText('step-2-copy', 'A digital walkthrough helps us confirm layout, access, special areas, and any site-specific details that can change scope.');
     setText('step-3-title', 'What happens after upload');
     setText('step-3-copy', 'Once we receive the walkthrough, our team reviews it against this estimate and follows up with the next step.');
-    setLink('cta-primary', 'Submit Digital Walkthrough', '/digital-walkthrough' + buildQuery([['opp', quote.opp], ['token', quote.token]]));
+    setLink('cta-primary', 'Submit Digital Walkthrough', '/digital-walkthrough' + buildQuery([['request', state.request], ['token', state.token]]));
     setLink('cta-secondary', 'Talk to Our Team', '/contact');
   };
 
   const applyQuote = async () => {
-    const quote = getQuote();
-    if (!quote) {
-      applyFallback();
+    const quoteRequest = getQuoteRequest();
+    if (!quoteRequest) {
+      applyFallback('This secure estimate link is missing the quote request reference. Please return to the quote page and try again.');
       return;
     }
 
-    const displayLabel = formatMoney(quote.low, quote.currency) + ' - ' + formatMoney(quote.high, quote.currency);
-    const validation = await validateOpportunity(quote.opp, quote.token);
-
-    if (!validation.valid) {
-      applyGenericEstimate(displayLabel);
+    const state = await loadQuoteRequestState(quoteRequest.request, quoteRequest.token);
+    if (!state.valid || !(state.low > 0) || !(state.high > 0) || !state.request || !state.token) {
+      applyFallback(state.message || 'We could not reopen that estimate request. Please start a new quote request and try again.');
       return;
     }
 
-    applyWalkthrough(quote, displayLabel);
+    const displayLabel = formatMoney(state.low, state.currency) + ' - ' + formatMoney(state.high, state.currency);
+    applyWalkthrough(state, displayLabel);
   };
 
   const requiredSlots = [

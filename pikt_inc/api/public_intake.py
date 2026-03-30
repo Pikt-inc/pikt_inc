@@ -21,14 +21,23 @@ def validate_public_funnel_opportunity(opportunity=None, token=None, **kwargs):
 
 
 @frappe.whitelist(allow_guest=True)
-def save_opportunity_walkthrough_upload(opportunity=None, token=None, **kwargs):
-    payload = collect_request_payload({"opportunity": opportunity, "token": token, **kwargs})
+def load_public_quote_request_state(request=None, token=None, **kwargs):
+    payload = collect_request_payload({"request": request, "token": token, **kwargs})
+    return public_intake_service.load_public_quote_request_state(
+        request=payload.get("request"),
+        token=payload.get("token"),
+    )
+
+
+@frappe.whitelist(allow_guest=True)
+def save_opportunity_walkthrough_upload(request=None, token=None, **kwargs):
+    payload = collect_request_payload({"request": request, "token": token, **kwargs})
     uploaded = None
     if getattr(frappe, "request", None) and getattr(frappe.request, "files", None):
         uploaded = frappe.request.files.get("walkthrough_upload")
 
     return public_intake_service.save_opportunity_walkthrough_upload(
-        opportunity=payload.get("opportunity"),
+        request=payload.get("request"),
         token=payload.get("token"),
         uploaded=uploaded,
     )

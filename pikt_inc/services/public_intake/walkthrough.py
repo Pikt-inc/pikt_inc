@@ -9,10 +9,10 @@ from pikt_inc.services.contracts.public_intake import WalkthroughUploadInput
 from pikt_inc.services.contracts.public_intake import WalkthroughUploadResponse
 from .constants import ALLOWED_WALKTHROUGH_EXTENSIONS, MAX_WALKTHROUGH_BYTES
 from .shared import clean, fail
-from . import tokens
+from . import intake
 
 
-def save_opportunity_walkthrough_upload(opportunity=None, token=None, uploaded=None):
+def save_opportunity_walkthrough_upload(request=None, token=None, uploaded=None):
     uploaded = uploaded or (
         frappe.request.files.get("walkthrough_upload")
         if getattr(frappe, "request", None) and getattr(frappe.request, "files", None)
@@ -21,18 +21,21 @@ def save_opportunity_walkthrough_upload(opportunity=None, token=None, uploaded=N
     try:
         payload = WalkthroughUploadInput.model_validate(
             {
-                "opportunity": opportunity if opportunity is not None else frappe.form_dict.get("opportunity"),
+                "request": request if request is not None else frappe.form_dict.get("request"),
                 "token": token if token is not None else frappe.form_dict.get("token"),
                 "uploaded": uploaded,
             }
         )
     except ValidationError as exc:
         fail(first_validation_message(exc))
-    opportunity = payload.opportunity
+    request_name = payload.request
     token = payload.token
     uploaded = payload.uploaded
 
-    tokens.require_valid_public_funnel_opportunity(opportunity, token)
+    request_row = intake.require_valid_public_quote_request(request_name, token)
+    opportunity = clean((request_row or {}).get("opportunity"))
+    if not opportunity:
+        fail("We could not reopen that estimate request. Please start a new quote request and try again.")
 
     file_name = clean(getattr(uploaded, "filename", "")) or "digital-walkthrough-upload"
     extension = ""
@@ -95,7 +98,7 @@ def save_opportunity_walkthrough_upload(opportunity=None, token=None, uploaded=N
                 frappe.log_error(frappe.get_traceback(), "Cleanup Replaced Walkthrough File")
 
     return WalkthroughUploadResponse(
-        opportunity=doc.name,
+        request=clean((request_row or {}).get("name")) or request_name,
         digital_walkthrough_file=doc.digital_walkthrough_file,
         digital_walkthrough_status=doc.digital_walkthrough_status,
         digital_walkthrough_received_on=clean(doc.digital_walkthrough_received_on),

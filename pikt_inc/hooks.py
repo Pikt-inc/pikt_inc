@@ -143,6 +143,9 @@ after_sync = ["pikt_inc.migrate.ensure_building_custom_docperms"]
 # Hook on document methods and events
 
 doc_events = {
+	"Instant Quote Request": {
+		"before_insert": "pikt_inc.events.instant_quote_request.before_insert",
+	},
 	"Opportunity": {
 		"before_insert": "pikt_inc.events.opportunity.before_insert"
 	},
@@ -227,6 +230,19 @@ fixtures = [
 				"in",
 				[
 					"Building",
+				],
+			]
+		],
+	},
+	{
+		"dt": "DocType",
+		"prefix": "02_instant_quote_request",
+		"filters": [
+			[
+				"name",
+				"in",
+				[
+					"Instant Quote Request",
 				],
 			]
 		],
@@ -450,7 +466,7 @@ fixtures = [
 	},
 	{
 		"dt": "Web Form",
-		"filters": [["name", "in", ["master-service-agreement", "service-agreement-addendum"]]],
+		"filters": [["name", "in", ["master-service-agreement", "service-agreement-addendum", "instant-quote-form"]]],
 	},
 ]
 
@@ -467,6 +483,7 @@ fixtures = [
 #
 override_whitelisted_methods = {
 	"create_instant_quote_opportunity": "pikt_inc.api.public_intake.create_instant_quote_opportunity",
+	"load_public_quote_request_state": "pikt_inc.api.public_intake.load_public_quote_request_state",
 	"validate_public_funnel_opportunity": "pikt_inc.api.public_intake.validate_public_funnel_opportunity",
 	"save_opportunity_walkthrough_upload": "pikt_inc.api.public_intake.save_opportunity_walkthrough_upload",
 	"validate_public_quote": "pikt_inc.api.public_quote.validate_public_quote",
