@@ -549,6 +549,42 @@ class TestCustomerPortal(TestCase):
         self.assertEqual(final_update[2]["designation"], "Facilities Lead")
         self.assertEqual(final_update[2]["address"], "ADDR-PORTAL")
 
+    def test_location_update_marks_routes_dirty_after_save(self):
+        scope = portal.PortalScope(
+            session_user="portal@example.com",
+            customer_name="CUST-1",
+            customer_display="Portal Customer LLC",
+            portal_contact_name="CONTACT-1",
+            portal_contact_email="portal@example.com",
+            portal_contact_phone="512-555-0101",
+            portal_contact_designation="Office Manager",
+            portal_address_name="ADDR-PORTAL",
+            billing_contact_name="CONTACT-BILLING",
+            billing_contact_email="billing@example.com",
+            billing_contact_phone="512-555-0133",
+            billing_contact_designation="Accounts Payable",
+            billing_address_name="ADDR-1",
+            tax_id="99-1234567",
+        )
+
+        with patch.object(portal.locations, "_require_portal_scope", return_value=scope), patch.object(
+            portal.locations.public_quote_service,
+            "doc_db_set_values",
+        ) as doc_db_set_values, patch.object(
+            portal.locations.dispatch_routing,
+            "mark_routes_dirty_for_building",
+        ) as mark_routes_dirty:
+            response = portal.update_customer_portal_location(
+                building_name="BUILD-1",
+                access_method="Door code / keypad",
+                allowed_entry_time="After 7 PM",
+                site_notes="Manual site note",
+            )
+
+        doc_db_set_values.assert_called_once()
+        mark_routes_dirty.assert_called_once_with("BUILD-1")
+        self.assertEqual(response["status"], "updated")
+
     def test_location_update_rejects_out_of_scope_building(self):
         scope = portal.PortalScope(
             session_user="portal@example.com",
@@ -659,7 +695,9 @@ class TestCustomerPortal(TestCase):
         self.assertIn("closeOpenPortalMenus", js)
         self.assertIn("data-portal-mobile-nav", js)
         self.assertIn("site-shell-mobile[open]", js)
-        self.assertIn("window.location.reload()", js)
+        self.assertIn("setFormBusy", js)
+        self.assertIn("portalSubmitting", js)
+        self.assertNotIn("window.location.reload()", js)
 
         for template in (overview, agreements, billing, billing_info, locations):
             self.assertIn("customer_portal_header", template)

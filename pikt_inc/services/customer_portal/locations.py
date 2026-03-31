@@ -5,6 +5,7 @@ from frappe.utils import now_datetime
 from pydantic import ValidationError
 
 from .. import public_quote as public_quote_service
+from ..dispatch import routing as dispatch_routing
 from ..contracts.common import first_validation_message, truthy
 from ..contracts.customer_portal import CustomerPortalLocationUpdateInput, PortalLocationsUpdateResponse
 from .payloads import _build_locations_response, _portal_access_error_response
@@ -59,6 +60,7 @@ def update_customer_portal_location(**kwargs):
             updates["access_details_completed_on"] = now_datetime()
 
     public_quote_service.doc_db_set_values("Building", payload.building_name, updates)
+    dispatch_routing.mark_routes_dirty_for_building(payload.building_name)
     response = _build_locations_response(
         scope,
         _get_buildings(scope.customer_name),

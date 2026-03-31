@@ -51,6 +51,7 @@ def get_public_funnel_validation_message(opportunity, token, row):
     if not opportunity:
         return {
             "valid": 0,
+            "reason": "missing_reference",
             "message": (
                 "This link is missing the estimate reference. Please return to the estimate page and try again."
             ),
@@ -59,6 +60,7 @@ def get_public_funnel_validation_message(opportunity, token, row):
     if not token:
         return {
             "valid": 0,
+            "reason": "missing_token",
             "message": (
                 "This link is missing its secure access token. Please return to the estimate page and try again."
             ),
@@ -67,6 +69,7 @@ def get_public_funnel_validation_message(opportunity, token, row):
     if not row:
         return {
             "valid": 0,
+            "reason": "not_found",
             "message": "We could not find that estimate. Please return to the estimate page and try again.",
         }
 
@@ -76,6 +79,7 @@ def get_public_funnel_validation_message(opportunity, token, row):
     if (not stored_token) or (stored_token != token):
         return {
             "valid": 0,
+            "reason": "invalid_token",
             "message": (
                 "This estimate link is no longer valid. Please return to the estimate page and try again."
             ),
@@ -84,10 +88,11 @@ def get_public_funnel_validation_message(opportunity, token, row):
     if (not expires_dt) or (now_datetime() >= expires_dt):
         return {
             "valid": 0,
+            "reason": "expired",
             "message": "This estimate link has expired. Please return to the estimate page to continue.",
         }
 
-    return {"valid": 1, "opportunity": opportunity}
+    return {"valid": 1, "reason": "valid", "opportunity": opportunity}
 
 
 def validate_public_funnel_opportunity(opportunity=None, token=None):

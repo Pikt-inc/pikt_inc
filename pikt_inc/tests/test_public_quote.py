@@ -253,6 +253,61 @@ class TestPublicQuote(unittest.TestCase):
             },
         )
 
+    @patch.object(acceptance, "mark_opportunity_converted")
+    @patch.object(acceptance, "build_sales_order")
+    @patch.object(payloads, "get_building_row", return_value={})
+    @patch.object(payloads, "get_sales_order_row", return_value={})
+    @patch.object(
+        payloads,
+        "get_lead_row",
+        return_value={
+            "first_name": "Patten",
+            "last_name": "Whiting",
+            "company_name": "Pikt Inc",
+            "email_id": "lead@example.com",
+        },
+    )
+    @patch.object(portal, "load_review_items", return_value=[{"item_code": "ITEM-1", "qty": 1}])
+    @patch.object(
+        portal,
+        "get_public_quote_access_result",
+        return_value={
+            "state": "ready",
+            "message": "",
+            "row": {
+                "name": "SAL-QTN-TEST-0001",
+                "quotation_to": "Lead",
+                "party_name": "CRM-LEAD-TEST-0001",
+                "contact_email": "lead@example.com",
+                "customer_name": "Pikt Inc",
+                "currency": "USD",
+                "grand_total": 1250,
+                "rounded_total": 1250,
+                "transaction_date": "2026-03-22",
+                "valid_till": "2026-04-21",
+                "terms": "Net 30",
+                "custom_accepted_sales_order": "",
+            },
+        },
+    )
+    def test_validate_public_quote_is_read_only(
+        self,
+        _mock_access_result,
+        _mock_items,
+        _mock_lead_row,
+        _mock_sales_order_row,
+        _mock_building_row,
+        mock_build_sales_order,
+        mock_mark_converted,
+    ):
+        public_quote.validate_public_quote(
+            quote="SAL-QTN-TEST-0001",
+            token="expected-token",
+        )
+
+        mock_build_sales_order.assert_not_called()
+        mock_mark_converted.assert_not_called()
+
     @patch.object(acceptance, "get_customer_row", return_value={"customer_primary_contact": "CONTACT-1", "customer_primary_address": "ADDR-1", "email_id": "billing@example.com"})
     @patch.object(public_quote.frappe, "get_doc")
     def test_build_sales_order_copies_item_and_tax_linkage(self, mock_get_doc, _mock_customer_row):

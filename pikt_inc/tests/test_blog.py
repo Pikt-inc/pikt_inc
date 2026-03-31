@@ -554,6 +554,16 @@ class TestBlog(TestCase):
         self.assertEqual(result["status"], "noop")
         self.assertEqual(result["created"], [])
 
+    def test_ensure_starter_blog_content_uses_corrected_starter_title(self):
+        self.assertEqual(
+            ensure_starter_blog_content.STARTER_POST["title"],
+            "How PIKT Plans the First Service Walkthrough",
+        )
+        self.assertEqual(
+            ensure_starter_blog_content.STARTER_POST["seo_title"],
+            "How PIKT Plans the First Service Walkthrough",
+        )
+
     def test_blog_surface_files_and_patch_registration(self):
         self.assertFalse(BLOG_BUILDER_FIXTURE_PATH.exists())
         self.assertTrue(BLOG_HOME_TEMPLATE_PATH.exists())

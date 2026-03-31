@@ -147,7 +147,7 @@
 
   const validateOpportunity = async (opp, token) => {
     if (!opp || !token) {
-      return { valid: 0, message: 'Missing secure estimate reference.' };
+      return { valid: 0, reason: !opp ? 'missing_reference' : 'missing_token', message: 'Missing secure estimate reference.' };
     }
 
     try {
@@ -162,15 +162,16 @@
       const payload = await response.json().catch(() => ({}));
       const message = payload && payload.message ? payload.message : {};
       if (!response.ok) {
-        return { valid: 0, message: 'We could not validate that estimate link.' };
+        return { valid: 0, reason: 'invalid_token', message: 'We could not validate that estimate link.' };
       }
       return {
         valid: Number(message.valid || 0) === 1 ? 1 : 0,
+        reason: normalize(message.reason) || 'invalid_token',
         opportunity: normalize(message.opportunity),
         message: normalize(message.message) || 'We could not find that estimate. Please return to the estimate page and try again.'
       };
     } catch (error) {
-      return { valid: 0, message: 'We could not validate that estimate link.' };
+      return { valid: 0, reason: 'invalid_token', message: 'We could not validate that estimate link.' };
     }
   };
 
@@ -188,16 +189,44 @@
     setLink('cta-secondary', 'Review Services', '/services');
   };
 
-  const applyGenericEstimate = (displayLabel) => {
+  const applyMissingEstimateLink = (displayLabel) => {
     setText('eyebrow', 'Instant estimate');
     setTitle('Your estimated monthly range', displayLabel);
-    setText('note', 'Your estimate range is still available here, but we could not reopen the walkthrough from this link. Our team can help continue the request.');
+    setText('note', 'Your estimate range is still available here, but this page is missing the secure walkthrough reference. Use the quote email or contact our team if you need the walkthrough reopened.');
     setText('step-1-title', 'Estimate ready');
     setText('step-1-copy', 'Your estimate range is still available for review on this page.');
-    setText('step-2-title', 'Need the walkthrough reopened?');
-    setText('step-2-copy', 'If you need help continuing to the walkthrough step, contact our team and we will reopen the correct path.');
+    setText('step-2-title', 'Secure link required');
+    setText('step-2-copy', 'The walkthrough step only opens from a complete secure estimate link with both the estimate reference and token.');
+    setText('step-3-title', 'Need help reopening it?');
+    setText('step-3-copy', 'Our team can reconnect the request and send you back into the correct next step.');
+    setLink('cta-primary', 'Talk to Our Team', '/contact');
+    setLink('cta-secondary', 'Review Services', '/services');
+  };
+
+  const applyInvalidEstimateLink = (displayLabel, message) => {
+    setText('eyebrow', 'Instant estimate');
+    setTitle('Your estimated monthly range', displayLabel);
+    setText('note', message || 'Your estimate range is still available here, but this secure walkthrough link is no longer valid. Our team can help continue the request.');
+    setText('step-1-title', 'Estimate ready');
+    setText('step-1-copy', 'Your estimate range is still available for review on this page.');
+    setText('step-2-title', 'Walkthrough link invalid');
+    setText('step-2-copy', 'Use a fresh secure link from your quote email or contact our team to reopen the walkthrough step.');
     setText('step-3-title', 'Keep moving');
     setText('step-3-copy', 'You can still review services or contact us while we help reconnect the request.');
+    setLink('cta-primary', 'Talk to Our Team', '/contact');
+    setLink('cta-secondary', 'Review Services', '/services');
+  };
+
+  const applyExpiredEstimateLink = (displayLabel, message) => {
+    setText('eyebrow', 'Instant estimate');
+    setTitle('Your estimated monthly range', displayLabel);
+    setText('note', message || 'Your estimate range is still available here, but the walkthrough portion of this secure link has expired.');
+    setText('step-1-title', 'Estimate ready');
+    setText('step-1-copy', 'Your estimate range is still available for review on this page.');
+    setText('step-2-title', 'Walkthrough link expired');
+    setText('step-2-copy', 'The secure walkthrough path has expired. Contact our team if you still need help continuing this request.');
+    setText('step-3-title', 'Next step');
+    setText('step-3-copy', 'We can reopen the correct path or help you move forward manually from here.');
     setLink('cta-primary', 'Talk to Our Team', '/contact');
     setLink('cta-secondary', 'Review Services', '/services');
   };
@@ -227,7 +256,15 @@
     const validation = await validateOpportunity(quote.opp, quote.token);
 
     if (!validation.valid) {
-      applyGenericEstimate(displayLabel);
+      if (validation.reason === 'expired') {
+        applyExpiredEstimateLink(displayLabel, validation.message);
+        return;
+      }
+      if (validation.reason === 'missing_reference' || validation.reason === 'missing_token') {
+        applyMissingEstimateLink(displayLabel);
+        return;
+      }
+      applyInvalidEstimateLink(displayLabel, validation.message);
       return;
     }
 

@@ -12,12 +12,68 @@ ROUTE_SIGNATURE_BUILDING_FIELDS = [
     "city",
     "state",
     "postal_code",
+    "access_method",
+    "access_entrance",
+    "access_entry_details",
+    "has_alarm_system",
+    "alarm_instructions",
+    "allowed_entry_time",
+    "primary_site_contact",
+    "lockout_emergency_contact",
+    "key_fob_handoff_details",
+    "areas_to_avoid",
+    "closing_instructions",
+    "parking_elevator_notes",
+    "first_service_notes",
     "site_notes",
     "access_notes",
     "alarm_notes",
     "site_supervisor_name",
     "site_supervisor_phone",
 ]
+
+
+def _build_detail_lines(pairs: list[tuple[str, str]]) -> list[str]:
+    lines = []
+    for label, value in pairs:
+        cleaned = shared.clean(value)
+        if cleaned:
+            lines.append(f"{label}: {cleaned}")
+    return lines
+
+
+def build_structured_access_lines(building_row: dict) -> list[str]:
+    return _build_detail_lines(
+        [
+            ("Access method", building_row.get("access_method")),
+            ("Entrance", building_row.get("access_entrance")),
+            ("Entry details", building_row.get("access_entry_details")),
+            ("Allowed entry time", building_row.get("allowed_entry_time")),
+            ("Primary site contact", building_row.get("primary_site_contact")),
+            ("Lockout emergency contact", building_row.get("lockout_emergency_contact")),
+            ("Key / fob handoff", building_row.get("key_fob_handoff_details")),
+            ("Closing instructions", building_row.get("closing_instructions")),
+        ]
+    )
+
+
+def build_structured_alarm_lines(building_row: dict) -> list[str]:
+    return _build_detail_lines(
+        [
+            ("Alarm system", building_row.get("has_alarm_system")),
+            ("Alarm instructions", building_row.get("alarm_instructions")),
+        ]
+    )
+
+
+def build_structured_site_lines(building_row: dict) -> list[str]:
+    return _build_detail_lines(
+        [
+            ("Parking / elevator notes", building_row.get("parking_elevator_notes")),
+            ("Areas to avoid", building_row.get("areas_to_avoid")),
+            ("First service notes", building_row.get("first_service_notes")),
+        ]
+    )
 
 
 def acquire_route_lock(employee: str, service_date):
@@ -104,6 +160,19 @@ def build_route_signature(stop_rows: list[dict], building_rows: dict[str, dict])
                     shared.clean(building_row.get("city")),
                     shared.clean(building_row.get("state")),
                     shared.clean(building_row.get("postal_code")),
+                    shared.clean(building_row.get("access_method")),
+                    shared.clean(building_row.get("access_entrance")),
+                    shared.clean(building_row.get("access_entry_details")),
+                    shared.clean(building_row.get("has_alarm_system")),
+                    shared.clean(building_row.get("alarm_instructions")),
+                    shared.clean(building_row.get("allowed_entry_time")),
+                    shared.clean(building_row.get("primary_site_contact")),
+                    shared.clean(building_row.get("lockout_emergency_contact")),
+                    shared.clean(building_row.get("key_fob_handoff_details")),
+                    shared.clean(building_row.get("areas_to_avoid")),
+                    shared.clean(building_row.get("closing_instructions")),
+                    shared.clean(building_row.get("parking_elevator_notes")),
+                    shared.clean(building_row.get("first_service_notes")),
                     shared.clean(building_row.get("site_notes")),
                     shared.clean(building_row.get("access_notes")),
                     shared.clean(building_row.get("alarm_notes")),
@@ -563,6 +632,15 @@ def build_route_context(route_name: str, now_value=None):
         if supervisor_name:
             supervisor_line = f"{supervisor_name} ({supervisor_phone})" if supervisor_phone else supervisor_name
             lines.append(f"<li>Site Contact: {shared.escape_text(supervisor_line)}</li>")
+        structured_access = build_structured_access_lines(building_row)
+        if structured_access:
+            lines.append(f"<li>Access Summary: {shared.escape_multiline(chr(10).join(structured_access))}</li>")
+        structured_alarm = build_structured_alarm_lines(building_row)
+        if structured_alarm:
+            lines.append(f"<li>Alarm Summary: {shared.escape_multiline(chr(10).join(structured_alarm))}</li>")
+        structured_site = build_structured_site_lines(building_row)
+        if structured_site:
+            lines.append(f"<li>Site Summary: {shared.escape_multiline(chr(10).join(structured_site))}</li>")
         if building_row.get("site_notes"):
             lines.append(f"<li>Site Notes: {shared.escape_multiline(building_row.get('site_notes'))}</li>")
         if building_row.get("access_notes"):

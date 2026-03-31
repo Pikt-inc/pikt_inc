@@ -10,7 +10,7 @@ STARTER_CATEGORY = {
 }
 
 STARTER_POST = {
-    "title": "How Pikt Plans the First Service Walkthrough",
+    "title": "How PIKT Plans the First Service Walkthrough",
     "slug": "how-pikt-plans-the-first-service-walkthrough",
     "published": 1,
     "featured": 1,
@@ -24,7 +24,7 @@ STARTER_POST = {
 <p>When the walkthrough is documented well, recurring service becomes more consistent. Supervisors know what was promised, technicians know what matters most on the site, and the client has a cleaner handoff from quoting into active service.</p>
 <p>That operating discipline is what keeps routine service dependable after the first week.</p>
 """.strip(),
-    "seo_title": "How Pikt Plans the First Service Walkthrough",
+    "seo_title": "How PIKT Plans the First Service Walkthrough",
     "seo_description": "See how Pikt uses the first service walkthrough to confirm scope, access details, and recurring cleaning priorities.",
 }
 

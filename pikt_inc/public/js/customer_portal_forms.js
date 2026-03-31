@@ -54,9 +54,18 @@
     return '';
   }
 
+  function setFormBusy(form,busy){
+    var shouldDisable=!!busy;
+    form.dataset.portalSubmitting=shouldDisable?'1':'0';
+    form.querySelectorAll('input, select, textarea, button').forEach(function(control){
+      if(control&&control.type==='hidden'){return;}
+      control.disabled=shouldDisable;
+    });
+  }
+
   async function submitForm(form){
     var endpoint=form.getAttribute('data-portal-endpoint');
-    if(!endpoint){return;}
+    if(!endpoint||form.dataset.portalSubmitting==='1'){return;}
     closeOpenPortalMenus();
     var formData=new FormData(form);
     var payload={};
@@ -69,6 +78,7 @@
     }
 
     try{
+      setFormBusy(form,true);
       var response=await fetch(endpoint,{
         method:'POST',
         credentials:'same-origin',
@@ -86,8 +96,9 @@
         messageBox.textContent=extractMessage(body)||'Changes saved.';
         messageBox.classList.add('is-visible');
       }
-      window.setTimeout(function(){window.location.reload();},600);
+      setFormBusy(form,false);
     }catch(error){
+      setFormBusy(form,false);
       if(messageBox){
         messageBox.textContent=error.message||'Unable to save changes.';
         messageBox.classList.add('is-visible','is-error');

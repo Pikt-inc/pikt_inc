@@ -96,7 +96,7 @@ class TestPageViews(TestCase):
             (InstantQuotePageView, "Get a Quote", ""),
             (QuoteDigitalWalkthroughPageView, "Digital Walkthrough", "Upload your completed digital walkthrough for commercial cleaning review."),
             (QuoteDigitalWalkthroughReceivedPageView, "Digital Walkthrough Received", "Confirmation that your digital walkthrough has been received."),
-            (QuoteReviewPageView, "Preparing Your Billing Setup", "Compatibility redirect for previously sent public quote links."),
+            (QuoteReviewPageView, "Review Your Quote", "Review the status of your secure quote link before continuing into the setup portal."),
             (QuoteAcceptedPortalPageView, "Quote Accepted", "Accept your quote, set up billing, and confirm your service site access in one secure portal."),
             (QuoteBillingCompletePageView, "Setup Complete", "Your quote, invoice setup, and service-site access details are complete."),
         ]

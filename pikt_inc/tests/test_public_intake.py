@@ -113,6 +113,16 @@ class TestPublicIntake(unittest.TestCase):
         self.assertEqual(doc.naming_series, "CRM-OPP-.YYYY.-")
         self.assertEqual(result["final_price"], 700.0)
 
+    def test_validate_public_funnel_opportunity_rejects_missing_reference(self):
+        result = public_intake.validate_public_funnel_opportunity(
+            opportunity="",
+            token="expected-token",
+        )
+
+        self.assertEqual(result["valid"], 0)
+        self.assertEqual(result["reason"], "missing_reference")
+        self.assertIn("missing the estimate reference", result["message"])
+
     @patch.object(public_intake.frappe.db, "get_value")
     def test_validate_public_funnel_opportunity_rejects_invalid_token(self, mock_get_value):
         mock_get_value.return_value = {
@@ -127,6 +137,7 @@ class TestPublicIntake(unittest.TestCase):
         )
 
         self.assertEqual(result["valid"], 0)
+        self.assertEqual(result["reason"], "invalid_token")
         self.assertIn("no longer valid", result["message"])
 
     @patch.object(public_intake.frappe.db, "get_value")
@@ -142,7 +153,25 @@ class TestPublicIntake(unittest.TestCase):
             token="expected-token",
         )
 
-        self.assertEqual(result, {"valid": 1, "opportunity": "CRM-OPP-TEST-0001"})
+        self.assertEqual(result, {"valid": 1, "reason": "valid", "opportunity": "CRM-OPP-TEST-0001"})
+
+    @patch.object(public_intake.tokens, "now_datetime", return_value=public_intake.get_datetime("2099-01-01 00:00:00"))
+    @patch.object(public_intake.frappe.db, "get_value")
+    def test_validate_public_funnel_opportunity_rejects_expired_token(self, mock_get_value, _mock_now_datetime):
+        mock_get_value.return_value = {
+            "name": "CRM-OPP-TEST-0001",
+            "public_funnel_token": "expected-token",
+            "public_funnel_token_expires_on": "2098-12-31 23:59:59",
+        }
+
+        result = public_intake.validate_public_funnel_opportunity(
+            opportunity="CRM-OPP-TEST-0001",
+            token="expected-token",
+        )
+
+        self.assertEqual(result["valid"], 0)
+        self.assertEqual(result["reason"], "expired")
+        self.assertIn("has expired", result["message"])
 
     @patch.object(public_intake.tokens, "ensure_public_token", return_value="renewed-token")
     @patch.object(public_intake.intake, "add_to_date", return_value="2026-03-22 00:00:00")

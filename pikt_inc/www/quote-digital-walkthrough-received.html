@@ -52,7 +52,7 @@
   const slot = (name) => document.querySelector('[data-quote-slot="' + name + '"]');
   const validateOpportunity = async (opp, token) => {
     if (!opp || !token) {
-      return { valid: 0 };
+      return { valid: 0, reason: !opp ? 'missing_reference' : 'missing_token' };
     }
     try {
       const response = await window.fetch('/api/method/validate_public_funnel_opportunity?opportunity=' + encodeURIComponent(opp) + '&token=' + encodeURIComponent(token), {
@@ -63,36 +63,57 @@
       const payload = await response.json().catch(() => ({}));
       const message = payload && payload.message ? payload.message : {};
       if (!response.ok) {
-        return { valid: 0 };
+        return { valid: 0, reason: 'invalid_token', message: 'We could not validate that estimate link.' };
       }
-      return { valid: Number(message.valid || 0) === 1 ? 1 : 0, opportunity: String(message.opportunity || '').trim() };
+      return {
+        valid: Number(message.valid || 0) === 1 ? 1 : 0,
+        reason: String(message.reason || '').trim() || 'invalid_token',
+        opportunity: String(message.opportunity || '').trim(),
+        message: String(message.message || '').trim()
+      };
     } catch (error) {
-      return { valid: 0 };
+      return { valid: 0, reason: 'invalid_token', message: 'We could not validate that estimate link.' };
+    }
+  };
+  const setText = (name, value) => {
+    const el = slot(name);
+    if (el) {
+      el.textContent = value;
     }
   };
   const personalize = (opp) => {
-    const eyebrow = slot('eyebrow');
-    const title = slot('title');
-    const copy = slot('note');
-    const step1 = slot('step-1-copy');
-    const step2 = slot('step-2-copy');
-    const step3 = slot('step-3-copy');
-    if (eyebrow) { eyebrow.textContent = 'Walkthrough attached'; }
-    if (title) { title.textContent = 'We attached your walkthrough to your estimate'; }
-    if (copy) { copy.textContent = 'Your upload is linked to estimate ' + opp + '. Our team will review it and follow up with the refined next step.'; }
-    if (step1) { step1.textContent = 'Your file is linked directly to estimate ' + opp + ' for internal review.'; }
-    if (step2) { step2.textContent = 'We compare the walkthrough to your estimate request and tighten the next step from there.'; }
-    if (step3) { step3.textContent = 'If we need anything else, we will use the contact details already on that estimate request to follow up.'; }
+    setText('eyebrow', 'Walkthrough attached');
+    setText('title', 'We attached your walkthrough to your estimate');
+    setText('note', 'Your upload is linked to estimate ' + opp + '. Our team will review it and follow up with the refined next step.');
+    setText('step-1-copy', 'Your file is linked directly to estimate ' + opp + ' for internal review.');
+    setText('step-2-copy', 'We compare the walkthrough to your estimate request and tighten the next step from there.');
+    setText('step-3-copy', 'If we need anything else, we will use the contact details already on that estimate request to follow up.');
+  };
+  const applyUnavailable = (reason, message) => {
+    if (reason === 'expired') {
+      setText('eyebrow', 'Estimate link expired');
+      setText('title', 'That estimate link has expired.');
+      setText('note', message || 'We could not confirm this walkthrough against an active estimate link. Contact our team if you still need help with the request.');
+      setText('step-1-copy', 'The walkthrough confirmation page only stays active while the secure estimate link is valid.');
+      setText('step-2-copy', 'If the request is still active, our team can reopen the next step for you.');
+      setText('step-3-copy', 'Use the contact details from your quote or reach out directly and we will reconnect the request.');
+      return;
+    }
+
+    setText('eyebrow', 'Estimate link unavailable');
+    setText('title', 'We could not reopen that walkthrough confirmation.');
+    setText('note', message || 'This secure estimate link is missing or no longer valid. Please return to the estimate page and try again.');
+    setText('step-1-copy', 'This confirmation page only works when it is tied to a valid secure estimate link.');
+    setText('step-2-copy', 'Return to the estimate page that sent you here, or use the latest quote email if you have it.');
+    setText('step-3-copy', 'If the original link is unavailable, our team can help reconnect the request.');
   };
   const boot = async () => {
     const params = new URLSearchParams(window.location.search || '');
     const opp = String(params.get('opp') || '').trim();
     const token = String(params.get('token') || '').trim();
-    if (!opp || !token) {
-      return;
-    }
     const validation = await validateOpportunity(opp, token);
     if (!validation.valid) {
+      applyUnavailable(validation.reason, validation.message);
       return;
     }
     personalize(validation.opportunity || opp);

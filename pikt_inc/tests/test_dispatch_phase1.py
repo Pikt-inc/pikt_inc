@@ -247,6 +247,131 @@ class TestDispatchPhase1(unittest.TestCase):
 
         self.assertNotEqual(first, second)
 
+    def test_build_route_signature_changes_when_structured_access_changes(self):
+        stops = [
+            {
+                "stop_index": 1,
+                "site_shift_requirement": "SSR-0001",
+                "building": "BLDG-0001",
+                "arrival_window_start": "2026-03-24 18:00:00",
+                "arrival_window_end": "2026-03-24 19:00:00",
+            }
+        ]
+        base_buildings = {
+            "BLDG-0001": {
+                "building_name": "North Office",
+                "address_line_1": "123 Main",
+                "address_line_2": "",
+                "city": "Austin",
+                "state": "TX",
+                "postal_code": "78701",
+                "access_method": "Door code / keypad",
+                "access_entrance": "Main lobby",
+                "access_entry_details": "Use code 1234",
+                "has_alarm_system": "Yes",
+                "alarm_instructions": "Disarm panel",
+                "allowed_entry_time": "After 6 PM",
+                "primary_site_contact": "Jordan Lead",
+                "lockout_emergency_contact": "512-555-0102",
+                "key_fob_handoff_details": "Security desk",
+                "areas_to_avoid": "Executive suite",
+                "closing_instructions": "Reset lights",
+                "parking_elevator_notes": "Garage level 2",
+                "first_service_notes": "Badge pickup",
+                "site_notes": "",
+                "access_notes": "",
+                "alarm_notes": "",
+                "site_supervisor_name": "Pat",
+                "site_supervisor_phone": "555-0001",
+            }
+        }
+        changed_buildings = {
+            "BLDG-0001": {
+                **base_buildings["BLDG-0001"],
+                "allowed_entry_time": "After 7 PM",
+            }
+        }
+
+        first = routing.build_route_signature(stops, base_buildings)
+        second = routing.build_route_signature(stops, changed_buildings)
+
+        self.assertNotEqual(first, second)
+
+    @patch.object(routing.shared, "get_building_fields")
+    @patch.object(routing.frappe.db, "get_value")
+    @patch.object(routing.frappe, "get_doc")
+    def test_build_route_context_prefers_structured_building_details_in_stop_blocks(
+        self,
+        mock_get_doc,
+        mock_get_value,
+        mock_get_building_fields,
+    ):
+        mock_get_doc.return_value = SimpleNamespace(
+            name="DROUTE-0001",
+            status="Ready",
+            route_start="2026-03-24 18:00:00",
+            route_end="2026-03-24 19:00:00",
+            employee="EMP-0001",
+            stops=[SimpleNamespace(site_shift_requirement="SSR-0001", stop_index=1, building="BLDG-0001", arrival_window_start="2026-03-24 18:00:00", arrival_window_end="2026-03-24 19:00:00")],
+            last_emailed_hash="",
+            needs_resend=0,
+        )
+
+        def get_value_side_effect(doctype, name, fields, as_dict=False):
+            if doctype == "Employee":
+                return {
+                    "employee_name": "Jordan Tech",
+                    "user_id": "jordan@example.com",
+                    "company_email": "",
+                    "personal_email": "",
+                }
+            if doctype == "User":
+                return 1
+            if doctype == "Site Shift Requirement":
+                return {
+                    "building": "BLDG-0001",
+                    "arrival_window_start": "2026-03-24 18:00:00",
+                    "arrival_window_end": "2026-03-24 19:00:00",
+                }
+            raise AssertionError(f"Unexpected get_value call: {doctype}, {name}, {fields}")
+
+        mock_get_value.side_effect = get_value_side_effect
+        mock_get_building_fields.return_value = {
+            "building_name": "North Office",
+            "address_line_1": "123 Main",
+            "address_line_2": "",
+            "city": "Austin",
+            "state": "TX",
+            "postal_code": "78701",
+            "access_method": "Door code / keypad",
+            "access_entrance": "Main lobby",
+            "access_entry_details": "Use code 1234",
+            "has_alarm_system": "Yes",
+            "alarm_instructions": "Disarm panel",
+            "allowed_entry_time": "After 6 PM",
+            "primary_site_contact": "Jordan Lead",
+            "lockout_emergency_contact": "512-555-0102",
+            "key_fob_handoff_details": "Security desk",
+            "areas_to_avoid": "Executive suite",
+            "closing_instructions": "Reset lights",
+            "parking_elevator_notes": "Garage level 2",
+            "first_service_notes": "Badge pickup",
+            "site_notes": "Rear hallway storage stays locked.",
+            "access_notes": "Manual note for security desk.",
+            "alarm_notes": "Manual alarm note.",
+            "site_supervisor_name": "Pat",
+            "site_supervisor_phone": "555-0001",
+        }
+
+        context = routing.build_route_context("DROUTE-0001", now_value="2026-03-23 18:00:00")
+
+        self.assertIsNotNone(context)
+        self.assertIn("Access Summary", context["stop_blocks"][0])
+        self.assertIn("Allowed entry time: After 6 PM", context["stop_blocks"][0])
+        self.assertIn("Site Summary", context["stop_blocks"][0])
+        self.assertIn("Alarm Summary", context["stop_blocks"][0])
+        self.assertIn("Manual note for security desk.", context["stop_blocks"][0])
+
     def test_choose_route_recipient_precedence(self):
         with self.subTest("enabled user id wins"):
             with patch.object(routing.frappe.db, "exists", return_value=True), patch.object(

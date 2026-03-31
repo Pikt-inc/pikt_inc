@@ -421,15 +421,20 @@ class TestWebsiteFixtures(unittest.TestCase):
     def test_quote_funnel_frontend_contracts(self):
         thank_you_template = QUOTE_THANK_YOU_TEMPLATE_PATH.read_text(encoding="utf-8")
         walkthrough_template = QUOTE_DIGITAL_WALKTHROUGH_TEMPLATE_PATH.read_text(encoding="utf-8")
+        walkthrough_received_template = QUOTE_DIGITAL_WALKTHROUGH_RECEIVED_TEMPLATE_PATH.read_text(encoding="utf-8")
         review_template = QUOTE_REVIEW_TEMPLATE_PATH.read_text(encoding="utf-8")
         accepted_script = QUOTE_ACCEPTED_ASSET_PATH.read_text(encoding="utf-8")
         complete_script = QUOTE_BILLING_COMPLETE_ASSET_PATH.read_text(encoding="utf-8")
 
         self.assertIn("validate_public_funnel_opportunity", thank_you_template)
+        self.assertIn("validation.reason", thank_you_template)
         self.assertIn("let booted = false;", thank_you_template)
         self.assertIn("/digital-walkthrough", thank_you_template)
         self.assertIn("save_opportunity_walkthrough_upload", walkthrough_template)
+        self.assertIn("message.reason", walkthrough_received_template)
         self.assertIn("validate_public_quote", review_template)
+        self.assertNotIn("window.location.replace('/quote-accepted", review_template)
+        self.assertIn("Continue to Secure Quote Portal", review_template)
         self.assertIn("accept_public_quote", accepted_script)
         self.assertIn("load_public_quote_portal_state", accepted_script)
         self.assertIn("complete_public_service_agreement_signature", accepted_script)
@@ -475,3 +480,23 @@ class TestWebsiteFixtures(unittest.TestCase):
         self.assertNotIn("What to swap in", block)
         self.assertNotIn("Downtown core", block)
         self.assertNotIn("North corridor", block)
+
+    def test_marketing_copy_cleanup_replaces_internal_placeholder_text(self):
+        components_text = BUILDER_COMPONENT_FIXTURE_PATH.read_text(encoding="utf-8")
+        site_shell = SITE_SHELL_MACROS_PATH.read_text(encoding="utf-8")
+
+        for phrase in (
+            "Keep the quote form as the primary path",
+            "Share why the business exists and how you work",
+            "Use this section for a short founder note",
+            "A good pattern is: why you started",
+            "Suggested headline",
+            "What to customize",
+            "Swap these cards for founder bio",
+            "Built for local SEO landing pages, quote capture, and commercial cleaning service inquiries.",
+            "What\\u00e2\\u20ac\\u2122s included",
+        ):
+            with self.subTest(phrase=phrase):
+                self.assertNotIn(phrase, components_text + site_shell)
+
+        self.assertIn("PIKT serves recurring commercial cleaning accounts", site_shell)

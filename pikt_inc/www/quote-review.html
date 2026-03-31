@@ -15,8 +15,13 @@
 .pikt-review-compat-eyebrow{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#666;font-weight:700;margin-bottom:10px;}
 #pikt-review-compat-title{font-size:34px;line-height:1.1;margin:0 0 12px;}
 #pikt-review-compat-message{font-size:16px;line-height:1.6;color:#4b5563;margin:0 0 18px;}
+#pikt-review-compat-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-top:20px}
+.pikt-review-compat-summary-card{background:#f8fafc;border:1px solid #e5e7eb;border-radius:14px;padding:14px 16px}
+.pikt-review-compat-summary-card span{display:block;color:#6b7280;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.pikt-review-compat-summary-card strong{display:block;color:#111827;font-size:16px;line-height:1.4;margin-top:8px}
 #pikt-review-compat-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:20px;}
 .pikt-review-compat-link{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 20px;border-radius:999px;text-decoration:none;font-weight:700;font-size:14px;background:#f3f4f6;color:#111;}
+.pikt-review-compat-link.is-primary{background:#171717;color:#fff}
 @media (max-width: 720px){ .pikt-review-compat-card-inner{padding:22px 18px 24px;} #pikt-review-compat-title{font-size:28px;} }
 </style>
 <script>
@@ -24,6 +29,7 @@
   function byId(id){return document.getElementById(id);}
   function setText(id,text){var el=byId(id);if(el){el.textContent=text||'';}}
   function setHtml(id,html){var el=byId(id);if(el){el.innerHTML=html||'';}}
+  function clean(value){return String(value==null?'':value).trim();}
   function readParams(){var params=new URLSearchParams(window.location.search||'');return {quote:(params.get('quote')||'').trim(),token:(params.get('token')||'').trim()};}
   function parseErrorPayload(payload,fallback){
     if(payload&&payload._server_messages){
@@ -48,10 +54,33 @@
     if(payload&&payload.message){return payload.message;}
     throw new Error('We could not read the server response.');
   }
+  function escapeHtml(value){return String(value==null?'':value).replace(/[&<>"']/g,function(char){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char];});}
+  function formatMoney(value,currency){var amount=Number(value||0);if(!amount){return '';}try{return new Intl.NumberFormat('en-US',{style:'currency',currency:currency||'USD'}).format(amount);}catch(error){return new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(amount);}}
+  function renderSummary(result){
+    var cards=[];
+    if(clean(result.quote)){cards.push('<div class="pikt-review-compat-summary-card"><span>Quote</span><strong>'+escapeHtml(result.quote)+'</strong></div>');}
+    if(clean(result.company_name||result.contact_name)){cards.push('<div class="pikt-review-compat-summary-card"><span>Company</span><strong>'+escapeHtml(result.company_name||result.contact_name)+'</strong></div>');}
+    if(clean(result.contact_email)){cards.push('<div class="pikt-review-compat-summary-card"><span>Contact Email</span><strong>'+escapeHtml(result.contact_email)+'</strong></div>');}
+    if(Number(result.rounded_total||result.grand_total||0)>0){cards.push('<div class="pikt-review-compat-summary-card"><span>Total</span><strong>'+escapeHtml(formatMoney(result.rounded_total||result.grand_total,result.currency))+'</strong></div>');}
+    setHtml('pikt-review-compat-summary',cards.join(''));
+  }
   function renderError(title,message){
     setText('pikt-review-compat-title',title||'Quote unavailable');
     setText('pikt-review-compat-message',message||'We could not validate this secure quote link.');
+    setHtml('pikt-review-compat-summary','');
     setHtml('pikt-review-compat-actions','<a class="pikt-review-compat-link" href="/contact">Contact Our Team</a><a class="pikt-review-compat-link" href="/quote">Request a New Quote</a>');
+  }
+  function renderReady(result,params){
+    setText('pikt-review-compat-title','Review your secure quote');
+    setText('pikt-review-compat-message','This link is still active. Continue into the secure quote portal when you are ready to accept the quote, sign the service agreement, and finish billing and access setup.');
+    renderSummary(result||{});
+    setHtml('pikt-review-compat-actions','<a class="pikt-review-compat-link is-primary" href="/quote-accepted?quote='+encodeURIComponent(params.quote)+'&token='+encodeURIComponent(params.token)+'">Continue to Secure Quote Portal</a><a class="pikt-review-compat-link" href="/contact">Contact Our Team</a>');
+  }
+  function renderAccepted(result,params){
+    setText('pikt-review-compat-title','This quote has already been accepted');
+    setText('pikt-review-compat-message',clean(result.message)||'The secure setup portal is still available if you need to finish the remaining agreement, billing, or service-site steps.');
+    renderSummary(result||{});
+    setHtml('pikt-review-compat-actions','<a class="pikt-review-compat-link is-primary" href="/quote-accepted?quote='+encodeURIComponent(params.quote)+'&token='+encodeURIComponent(params.token)+'">Open Secure Setup Portal</a><a class="pikt-review-compat-link" href="/contact">Contact Our Team</a>');
   }
   async function boot(){
     var params=readParams();
@@ -59,13 +88,17 @@
       renderError('Quote unavailable','Missing quotation reference or secure token. Please return to your quote email and try again.');
       return;
     }
-    setText('pikt-review-compat-title','Preparing your billing setup...');
-    setText('pikt-review-compat-message','We are moving you to the secure billing portal for this quote.');
+    setText('pikt-review-compat-title','Reviewing your secure quote...');
+    setText('pikt-review-compat-message','We are checking the current status of this quote link.');
     try{
       var result=await validate(params);
       var state=(result.state||'').trim();
       if(state==='ready'||state==='accepted'){
-        window.location.replace('/quote-accepted?quote='+encodeURIComponent(params.quote)+'&token='+encodeURIComponent(params.token));
+        if(state==='accepted'){
+          renderAccepted(result,params);
+        }else{
+          renderReady(result,params);
+        }
         return;
       }
       if(state==='expired'){
@@ -95,8 +128,9 @@
     <div class="pikt-review-compat-card">
       <div class="pikt-review-compat-card-inner">
         <div class="pikt-review-compat-eyebrow">Secure Quote Link</div>
-        <h1 id="pikt-review-compat-title">Preparing your billing setup...</h1>
-        <p id="pikt-review-compat-message">We are moving you to the secure billing portal for this quote.</p>
+        <h1 id="pikt-review-compat-title">Reviewing your secure quote...</h1>
+        <p id="pikt-review-compat-message">We are checking the current status of this quote link.</p>
+        <div id="pikt-review-compat-summary"></div>
         <div id="pikt-review-compat-actions"></div>
       </div>
     </div>

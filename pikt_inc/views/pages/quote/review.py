@@ -7,5 +7,5 @@ class QuoteReviewPageView(QuotePageView):
     """Concrete view for the quote review compatibility page."""
 
     sitemap = 0
-    page_title = "Preparing Your Billing Setup"
-    meta_description = "Compatibility redirect for previously sent public quote links."
+    page_title = "Review Your Quote"
+    meta_description = "Review the status of your secure quote link before continuing into the setup portal."
