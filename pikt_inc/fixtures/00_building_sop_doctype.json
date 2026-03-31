@@ -1,0 +1,78 @@
+[
+  {
+    "doctype": "DocType",
+    "name": "Building SOP",
+    "module": "Custom",
+    "custom": 1,
+    "track_changes": 1,
+    "document_type": "Document",
+    "istable": 0,
+    "issingle": 0,
+    "is_submittable": 0,
+    "autoname": "hash",
+    "engine": "InnoDB",
+    "allow_copy": 0,
+    "allow_rename": 0,
+    "sort_field": "creation",
+    "sort_order": "DESC",
+    "permissions": [
+      {
+        "role": "System Manager",
+        "read": 1,
+        "write": 1,
+        "create": 1,
+        "delete": 0,
+        "report": 1,
+        "export": 1,
+        "print": 1,
+        "email": 1,
+        "share": 1
+      }
+    ],
+    "fields": [
+      {
+        "fieldname": "building",
+        "label": "Building",
+        "fieldtype": "Link",
+        "options": "Building",
+        "reqd": 1,
+        "in_list_view": 1
+      },
+      {
+        "fieldname": "customer",
+        "label": "Customer",
+        "fieldtype": "Link",
+        "options": "Customer",
+        "read_only": 1,
+        "in_list_view": 1
+      },
+      {
+        "fieldname": "version_number",
+        "label": "Version",
+        "fieldtype": "Int",
+        "read_only": 1,
+        "in_list_view": 1
+      },
+      {
+        "fieldname": "source",
+        "label": "Source",
+        "fieldtype": "Select",
+        "options": "Desk\nPortal",
+        "default": "Desk"
+      },
+      {
+        "fieldname": "supersedes",
+        "label": "Supersedes",
+        "fieldtype": "Link",
+        "options": "Building SOP",
+        "read_only": 1
+      },
+      {
+        "fieldname": "items",
+        "label": "Checklist Items",
+        "fieldtype": "Table",
+        "options": "Building SOP Item"
+      }
+    ]
+  }
+]

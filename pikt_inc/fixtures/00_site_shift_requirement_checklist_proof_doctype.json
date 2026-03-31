@@ -1,0 +1,30 @@
+[
+  {
+    "doctype": "DocType",
+    "name": "Site Shift Requirement Checklist Proof",
+    "module": "Custom",
+    "custom": 1,
+    "istable": 1,
+    "editable_grid": 1,
+    "fields": [
+      {
+        "fieldname": "checklist_item_id",
+        "label": "Checklist Item ID",
+        "fieldtype": "Data",
+        "reqd": 1,
+        "in_list_view": 1
+      },
+      {
+        "fieldname": "proof_file",
+        "label": "Proof File",
+        "fieldtype": "Attach",
+        "reqd": 1
+      },
+      {
+        "fieldname": "proof_caption",
+        "label": "Caption",
+        "fieldtype": "Data"
+      }
+    ]
+  }
+]

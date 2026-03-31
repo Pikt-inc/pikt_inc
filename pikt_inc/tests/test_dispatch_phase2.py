@@ -190,6 +190,7 @@ class TestDispatchPhase2(unittest.TestCase):
 
     @patch.object(staffing.incidents, "has_open_callout_for_ssr", return_value=False)
     @patch.object(staffing.incidents, "has_open_escalation_for_ssr", return_value=False)
+    @patch.object(staffing.building_sop, "requirement_checklist_state", return_value={"enabled": False, "resolved": True, "final_state": "Completed"})
     @patch.object(staffing.frappe, "get_all")
     @patch.object(staffing.frappe.db, "set_value")
     @patch.object(staffing.shared, "now", return_value="2026-03-24 21:00:00")
@@ -198,6 +199,7 @@ class TestDispatchPhase2(unittest.TestCase):
         _mock_now,
         mock_set_value,
         mock_get_all,
+        _mock_checklist_state,
         _mock_has_open_escalation,
         _mock_has_open_callout,
     ):
@@ -225,6 +227,78 @@ class TestDispatchPhase2(unittest.TestCase):
                 "completed_at": "2026-03-24 21:00:00",
                 "exception_reason": None,
                 "custom_calendar_subject": "BLDG-0001 | Evening | S1 | EMP-0001 | Completed | America/Chicago",
+            },
+        )
+
+    @patch.object(staffing.building_sop, "requirement_checklist_state", return_value={"enabled": True, "resolved": False, "final_state": "Completed"})
+    @patch.object(staffing.incidents, "has_open_callout_for_ssr", return_value=False)
+    @patch.object(staffing.incidents, "has_open_escalation_for_ssr", return_value=False)
+    @patch.object(staffing.frappe, "get_all")
+    @patch.object(staffing.frappe.db, "set_value")
+    def test_finalize_completed_requirements_skips_unresolved_checklist_visits(
+        self,
+        mock_set_value,
+        mock_get_all,
+        _mock_has_open_escalation,
+        _mock_has_open_callout,
+        _mock_checklist_state,
+    ):
+        mock_get_all.return_value = [
+            {
+                "name": "SSR-0001",
+                "building": "BLDG-0001",
+                "shift_type": "Evening",
+                "slot_index": 1,
+                "current_employee": "EMP-0001",
+                "service_timezone": "America/Chicago",
+                "arrival_window_end": "2026-03-24 20:00:00",
+            }
+        ]
+
+        result = staffing.finalize_completed_requirements(now_dt="2026-03-24 21:00:00")
+
+        self.assertEqual(result, 0)
+        mock_set_value.assert_not_called()
+
+    @patch.object(staffing.building_sop, "requirement_checklist_state", return_value={"enabled": True, "resolved": True, "final_state": "Completed With Exception"})
+    @patch.object(staffing.incidents, "has_open_callout_for_ssr", return_value=False)
+    @patch.object(staffing.incidents, "has_open_escalation_for_ssr", return_value=False)
+    @patch.object(staffing.frappe, "get_all")
+    @patch.object(staffing.frappe.db, "set_value")
+    @patch.object(staffing.shared, "now", return_value="2026-03-24 21:00:00")
+    def test_finalize_completed_requirements_uses_exception_completion_state(
+        self,
+        _mock_now,
+        mock_set_value,
+        mock_get_all,
+        _mock_has_open_escalation,
+        _mock_has_open_callout,
+        _mock_checklist_state,
+    ):
+        mock_get_all.return_value = [
+            {
+                "name": "SSR-0001",
+                "building": "BLDG-0001",
+                "shift_type": "Evening",
+                "slot_index": 1,
+                "current_employee": "EMP-0001",
+                "service_timezone": "America/Chicago",
+                "arrival_window_end": "2026-03-24 20:00:00",
+            }
+        ]
+
+        result = staffing.finalize_completed_requirements(now_dt="2026-03-24 21:00:00")
+
+        self.assertEqual(result, 1)
+        mock_set_value.assert_called_once_with(
+            "Site Shift Requirement",
+            "SSR-0001",
+            {
+                "status": "Completed With Exception",
+                "completion_status": "Completed With Exception",
+                "completed_at": "2026-03-24 21:00:00",
+                "exception_reason": None,
+                "custom_calendar_subject": "BLDG-0001 | Evening | S1 | EMP-0001 | Completed With Exception | America/Chicago",
             },
         )
 

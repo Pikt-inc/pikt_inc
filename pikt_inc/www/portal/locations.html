@@ -56,6 +56,15 @@
           {% if selected_building.agreement_status_label %}<span>{{ selected_building.agreement_status_label }}</span>{% endif %}
           {% if selected_building.modified_label %}<span>Updated {{ selected_building.modified_label }}</span>{% endif %}
         </div>
+      </section>
+      <section class="portal-card portal-card--document portal-card--location">
+        <div class="portal-section-head">
+          <div>
+            <p class="portal-kicker">Access details</p>
+            <h2>Site access and operating notes</h2>
+            <p class="portal-muted">Keep access instructions, contact details, and manual notes current for this location.</p>
+          </div>
+        </div>
         <form class="portal-form" data-portal-endpoint="/api/method/pikt_inc.api.customer_portal.update_customer_portal_location">
           <input type="hidden" name="building_name" value="{{ selected_building.name }}">
           <div class="portal-form__grid">
@@ -104,6 +113,143 @@
           </div>
           <div class="portal-message" data-portal-message></div>
         </form>
+      </section>
+      <section class="portal-card portal-card--document portal-card--location">
+        <div class="portal-section-head">
+          <div>
+            <p class="portal-kicker">Building checklist</p>
+            <h2>Customer SOP</h2>
+            <p class="portal-muted">Define the recurring checklist your team expects for this building. Changes go live immediately for future service visits.</p>
+          </div>
+        </div>
+        <div class="portal-inline-summary portal-inline-summary--checklist-meta" data-checklist-version-meta{% if not selected_building_sop %} hidden{% endif %}>
+          {% if selected_building_sop %}
+          <span>Version {{ selected_building_sop.version_number }}</span>
+          {% if selected_building_sop.updated_label %}<span>Updated {{ selected_building_sop.updated_label }}</span>{% endif %}
+          {% if selected_building_sop.item_count %}<span>{{ selected_building_sop.item_count }} items</span>{% else %}<span>No active items</span>{% endif %}
+          {% endif %}
+        </div>
+        <form class="portal-form portal-form--stacked" data-portal-checklist-form data-portal-endpoint="/api/method/pikt_inc.api.customer_portal.update_customer_portal_building_sop">
+          <input type="hidden" name="building_name" value="{{ selected_building.name }}" data-checklist-field="building_name">
+          <div class="portal-checklist-list" data-portal-checklist-list>
+            {% for item in selected_building_checklist %}
+            <article class="portal-checklist-item" data-checklist-item>
+              <input type="hidden" value="{{ item.item_id }}" data-checklist-field="item_id">
+              <div class="portal-checklist-item__grid">
+                <label class="portal-field"><span>Checklist item</span><input type="text" value="{{ item.title }}" data-checklist-field="title"></label>
+                <label class="portal-field portal-field--short">
+                  <span>Requires photo proof</span>
+                  <label class="portal-checkbox portal-checkbox--inline">
+                    <input type="checkbox" value="1" data-checklist-field="requires_photo_proof"{% if item.requires_photo_proof %} checked{% endif %}>
+                    <span>Require proof</span>
+                  </label>
+                </label>
+              </div>
+              <label class="portal-field"><span>Description</span><textarea data-checklist-field="description">{{ item.description }}</textarea></label>
+              <div class="portal-actions portal-actions--compact">
+                <button class="portal-button portal-button--ghost" type="button" data-checklist-move="up">Move up</button>
+                <button class="portal-button portal-button--ghost" type="button" data-checklist-move="down">Move down</button>
+                <button class="portal-button portal-button--ghost portal-button--danger" type="button" data-checklist-remove>Remove</button>
+              </div>
+            </article>
+            {% endfor %}
+          </div>
+          <template data-checklist-template>
+            <article class="portal-checklist-item" data-checklist-item>
+              <input type="hidden" value="" data-checklist-field="item_id">
+              <div class="portal-checklist-item__grid">
+                <label class="portal-field"><span>Checklist item</span><input type="text" value="" data-checklist-field="title"></label>
+                <label class="portal-field portal-field--short">
+                  <span>Requires photo proof</span>
+                  <label class="portal-checkbox portal-checkbox--inline">
+                    <input type="checkbox" value="1" data-checklist-field="requires_photo_proof">
+                    <span>Require proof</span>
+                  </label>
+                </label>
+              </div>
+              <label class="portal-field"><span>Description</span><textarea data-checklist-field="description"></textarea></label>
+              <div class="portal-actions portal-actions--compact">
+                <button class="portal-button portal-button--ghost" type="button" data-checklist-move="up">Move up</button>
+                <button class="portal-button portal-button--ghost" type="button" data-checklist-move="down">Move down</button>
+                <button class="portal-button portal-button--ghost portal-button--danger" type="button" data-checklist-remove>Remove</button>
+              </div>
+            </article>
+          </template>
+          <div class="portal-empty portal-empty--inline" data-checklist-empty{% if selected_building_checklist %} hidden{% endif %}>
+            <h3>No checklist items yet.</h3>
+            <p>Add the building-specific tasks your cleaning team should follow on every visit.</p>
+          </div>
+          <div class="portal-actions">
+            <button class="portal-button portal-button--ghost" type="button" data-checklist-add>Add checklist item</button>
+            <button class="portal-button portal-button--solid" type="submit">Save checklist</button>
+          </div>
+          <div class="portal-message" data-portal-message></div>
+        </form>
+      </section>
+      <section class="portal-card portal-card--document portal-card--location">
+        <div class="portal-section-head">
+          <div>
+            <p class="portal-kicker">Service history</p>
+            <h2>Visit log</h2>
+            <p class="portal-muted">Review past service visits, checklist outcomes, and proof photos captured by the internal team.</p>
+          </div>
+        </div>
+        {% if service_history %}
+        <div class="portal-history-list">
+          {% for visit in service_history %}
+          <article class="portal-history-visit">
+            <div class="portal-section-head">
+              <div>
+                <h3>{{ visit.service_date_label or visit.name }}</h3>
+                <p class="portal-muted">{{ visit.arrival_window_label or 'Window pending' }}</p>
+              </div>
+              <div class="portal-inline-summary">
+                <span>{{ visit.status }}</span>
+                <span>{{ visit.employee_label }}</span>
+                <span>{{ visit.sop_version_label }}</span>
+              </div>
+            </div>
+            {% if visit.has_checklist %}
+            <div class="portal-history-checklist">
+              {% for item in visit.checklist_items %}
+              <div class="portal-history-checklist__item">
+                <div class="portal-history-checklist__head">
+                  <strong>{{ item.title }}</strong>
+                  <span class="portal-pill">{{ item.status or 'Pending' }}</span>
+                </div>
+                {% if item.description %}<p class="portal-muted">{{ item.description }}</p>{% endif %}
+                <div class="portal-inline-summary">
+                  {% if item.requires_photo_proof %}<span>Photo proof required</span>{% endif %}
+                  {% if item.exception_note %}<span>Exception noted</span>{% endif %}
+                </div>
+                {% if item.exception_note %}<p class="portal-muted">{{ item.exception_note }}</p>{% endif %}
+                {% if item.proofs %}
+                <div class="portal-proof-list">
+                  {% for proof in item.proofs %}
+                  <a class="portal-proof-link" href="{{ proof.url }}">{{ proof.label }}</a>
+                  {% endfor %}
+                </div>
+                {% endif %}
+              </div>
+              {% endfor %}
+            </div>
+            {% else %}
+            <p class="portal-muted">This visit does not include a captured checklist snapshot.</p>
+            {% endif %}
+          </article>
+          {% endfor %}
+        </div>
+        {% if service_history_has_more and service_history_next_url %}
+        <div class="portal-actions">
+          <a class="portal-button portal-button--ghost" href="{{ service_history_next_url }}">Load older visits</a>
+        </div>
+        {% endif %}
+        {% else %}
+        <section class="portal-empty portal-empty--inline">
+          <h3>No visits yet.</h3>
+          <p>Service history will appear here once work begins at this location.</p>
+        </section>
+        {% endif %}
       </section>
       {% else %}
       <section class="portal-stack">

@@ -41,6 +41,11 @@ def update_customer_portal_location(**kwargs):
 
 
 @frappe.whitelist()
+def update_customer_portal_building_sop(**kwargs):
+    return customer_portal_service.update_customer_portal_building_sop(**_payload(kwargs))
+
+
+@frappe.whitelist()
 def download_customer_portal_invoice(invoice=None, **kwargs):
     payload = _payload(kwargs)
     if invoice is not None:
@@ -56,3 +61,11 @@ def download_customer_portal_agreement_snapshot(addendum=None, agreement=None, *
     if agreement is not None:
         payload["agreement"] = agreement
     return customer_portal_service.download_customer_portal_agreement_snapshot(**payload)
+
+
+@frappe.whitelist()
+def download_customer_portal_checklist_proof(proof=None, **kwargs):
+    payload = _payload(kwargs)
+    if proof is not None:
+        payload["proof"] = proof
+    return customer_portal_service.download_customer_portal_checklist_proof(**payload)

@@ -589,11 +589,16 @@
 .portal-text-link:hover{text-decoration:underline}
 
 .portal-form{display:grid;gap:16px}
+.portal-form--stacked{gap:18px}
 
 .portal-form__grid{
   display:grid;
   grid-template-columns:repeat(2, minmax(0, 1fr));
   gap:16px;
+}
+
+.portal-field--short{
+  justify-content:flex-end;
 }
 
 .portal-field{
@@ -642,11 +647,19 @@
 }
 
 .portal-checkbox input{margin-top:4px}
+.portal-checkbox--inline{
+  margin-top:6px;
+}
+.portal-checkbox--inline input{margin-top:2px}
 
 .portal-actions{
   display:flex;
   gap:10px;
   flex-wrap:wrap;
+}
+
+.portal-actions--compact{
+  justify-content:flex-end;
 }
 
 .portal-button,
@@ -677,6 +690,10 @@
 .portal-button--ghost{
   border-color:var(--portal-border);
   background:#ffffff;
+}
+
+.portal-button--danger{
+  color:#8a3a22;
 }
 
 .portal-message{
@@ -767,6 +784,82 @@
 }
 
 .portal-empty{margin-bottom:22px}
+.portal-empty--inline{
+  margin-bottom:0;
+  padding:18px;
+  border-radius:18px;
+}
+
+.portal-checklist-list,
+.portal-history-list{
+  display:flex;
+  flex-direction:column;
+  gap:16px;
+}
+
+.portal-checklist-item,
+.portal-history-visit{
+  padding:18px;
+  border:1px solid #eef1eb;
+  border-radius:20px;
+  background:#fbfcfa;
+}
+
+.portal-checklist-item__grid{
+  display:grid;
+  grid-template-columns:minmax(0, 1fr) 220px;
+  gap:16px;
+}
+
+.portal-inline-summary--checklist-meta{
+  margin-bottom:16px;
+}
+
+.portal-history-checklist{
+  display:grid;
+  gap:14px;
+}
+
+.portal-history-checklist__item{
+  padding-top:14px;
+  border-top:1px solid #eef1eb;
+}
+
+.portal-history-checklist__item:first-child{
+  padding-top:0;
+  border-top:0;
+}
+
+.portal-history-checklist__head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:8px;
+}
+
+.portal-proof-list{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-top:10px;
+}
+
+.portal-proof-link{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:9px 12px;
+  border:1px solid var(--portal-border);
+  border-radius:999px;
+  background:#ffffff;
+  color:var(--portal-ink);
+  font-weight:700;
+}
+
+.portal-proof-link:hover{
+  text-decoration:none;
+}
 
 .portal-shell-footer{
   grid-column:2;
@@ -872,6 +965,10 @@
   .portal-grid--stats,
   .portal-grid--overview,
   .portal-form__grid{
+    grid-template-columns:1fr;
+  }
+
+  .portal-checklist-item__grid{
     grid-template-columns:1fr;
   }
 

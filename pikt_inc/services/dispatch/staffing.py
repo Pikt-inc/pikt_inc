@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import frappe
 
+from .. import building_sop
 from . import incidents, shared
 
 
@@ -574,12 +575,18 @@ def finalize_completed_requirements(now_dt=None):
         if incidents.has_open_escalation_for_ssr(row.get("name")) or incidents.has_open_callout_for_ssr(row.get("name")):
             continue
 
+        checklist_state = building_sop.requirement_checklist_state(row.get("name"))
+        if checklist_state.get("enabled") and not checklist_state.get("resolved"):
+            continue
+        final_state = shared.clean(checklist_state.get("final_state")) if checklist_state.get("enabled") else "Completed"
+        final_state = final_state or "Completed"
+
         frappe.db.set_value(
             "Site Shift Requirement",
             row.get("name"),
             {
-                "status": "Completed",
-                "completion_status": "Completed",
+                "status": final_state,
+                "completion_status": final_state,
                 "completed_at": shared.now(),
                 "exception_reason": None,
                 "custom_calendar_subject": shared.make_calendar_subject(
@@ -587,7 +594,7 @@ def finalize_completed_requirements(now_dt=None):
                     row.get("shift_type"),
                     row.get("slot_index"),
                     row.get("current_employee"),
-                    "Completed",
+                    final_state,
                     row.get("service_timezone"),
                 ),
             },

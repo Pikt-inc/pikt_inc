@@ -70,6 +70,13 @@ def _agreement_download_url(addendum_name: str = "", agreement_name: str = "") -
     )
 
 
+def _checklist_proof_download_url(proof_name: str) -> str:
+    return (
+        "/api/method/pikt_inc.api.customer_portal.download_customer_portal_checklist_proof"
+        f"?proof={clean(proof_name)}"
+    )
+
+
 def _contact_updates(display_name: str, phone: str, designation: str, address_name: str = "") -> dict[str, Any]:
     name_parts = public_quote_service.split_name(display_name)
     updates = {

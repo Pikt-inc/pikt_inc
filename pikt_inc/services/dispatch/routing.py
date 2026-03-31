@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import frappe
 
+from .. import building_sop
 from . import shared
 
 
@@ -146,6 +147,7 @@ def build_route_signature(stop_rows: list[dict], building_rows: dict[str, dict])
         building_name = shared.clean(stop.get("building"))
         building_row = building_rows.get(building_name) or {}
         stop_index = shared.as_int(stop.get("stop_index"), 0)
+        checklist_signature = building_sop.build_requirement_checklist_signature(shared.clean(stop.get("site_shift_requirement")))
         signature_parts.append(
             "||".join(
                 [
@@ -178,6 +180,7 @@ def build_route_signature(stop_rows: list[dict], building_rows: dict[str, dict])
                     shared.clean(building_row.get("alarm_notes")),
                     shared.clean(building_row.get("site_supervisor_name")),
                     shared.clean(building_row.get("site_supervisor_phone")),
+                    checklist_signature,
                 ]
             )
         )
@@ -647,6 +650,9 @@ def build_route_context(route_name: str, now_value=None):
             lines.append(f"<li>Access Notes: {shared.escape_multiline(building_row.get('access_notes'))}</li>")
         if building_row.get("alarm_notes"):
             lines.append(f"<li>Alarm Notes: {shared.escape_multiline(building_row.get('alarm_notes'))}</li>")
+        checklist_lines = building_sop.build_requirement_checklist_route_lines(stop.site_shift_requirement)
+        if checklist_lines:
+            lines.append(f"<li>Checklist: {shared.escape_multiline(chr(10).join(checklist_lines))}</li>")
         stop_blocks.append("<ul>" + "".join(lines) + "</ul>")
 
     building_rows = get_building_signature_rows([row.get("building") for row in stop_rows])

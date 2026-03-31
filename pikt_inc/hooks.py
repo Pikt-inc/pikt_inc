@@ -118,7 +118,10 @@ website_redirects = [
 # before_app_install = "pikt_inc.utils.before_app_install"
 # after_app_install = "pikt_inc.utils.after_app_install"
 
-after_sync = ["pikt_inc.migrate.ensure_building_custom_docperms"]
+after_sync = [
+	"pikt_inc.migrate.ensure_building_custom_docperms",
+	"pikt_inc.migrate.ensure_building_sop_custom_docperms",
+]
 
 # Integration Cleanup
 # -------------------
@@ -160,6 +163,11 @@ doc_events = {
 	"Building": {
 		"after_insert": "pikt_inc.events.building.after_insert",
 		"on_update": "pikt_inc.events.building.on_update",
+	},
+	"Building SOP": {
+		"before_insert": "pikt_inc.events.building_sop.before_insert",
+		"before_save": "pikt_inc.events.building_sop.before_save",
+		"after_insert": "pikt_inc.events.building_sop.after_insert",
 	},
 	"Site Shift Requirement": {
 		"before_save": "pikt_inc.events.site_shift_requirement.before_save",
@@ -236,6 +244,22 @@ fixtures = [
 	},
 	{
 		"dt": "DocType",
+		"prefix": "00_building_sop",
+		"filters": [
+			[
+				"name",
+				"in",
+				[
+					"Building SOP",
+					"Building SOP Item",
+					"Site Shift Requirement Checklist Item",
+					"Site Shift Requirement Checklist Proof",
+				],
+			]
+		],
+	},
+	{
+		"dt": "DocType",
 		"prefix": "03_contact_request",
 		"filters": [
 			[
@@ -280,6 +304,30 @@ fixtures = [
 				"=",
 				"Building",
 			]
+		],
+	},
+	{
+		"dt": "Custom Field",
+		"prefix": "02_sop",
+		"filters": [
+			[
+				"dt",
+				"in",
+				[
+					"Building",
+					"Site Shift Requirement",
+				],
+			],
+			[
+				"fieldname",
+				"in",
+				[
+					"current_sop",
+					"custom_building_sop",
+					"custom_checklist_items",
+					"custom_checklist_proofs",
+				],
+			],
 		],
 	},
 	{
@@ -515,7 +563,10 @@ override_whitelisted_methods = {
 # before_request = ["pikt_inc.utils.before_request"]
 # after_request = ["pikt_inc.utils.after_request"]
 
-after_migrate = ["pikt_inc.migrate.ensure_building_custom_docperms"]
+after_migrate = [
+	"pikt_inc.migrate.ensure_building_custom_docperms",
+	"pikt_inc.migrate.ensure_building_sop_custom_docperms",
+]
 
 # Job Events
 # ----------

@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 from urllib.parse import quote
 
+from .. import building_sop as building_sop_service
 from ..contracts.customer_portal import (
     DEFAULT_COUNTRY,
     LOCATION_ACCESS_METHOD_OPTIONS,
@@ -12,6 +13,9 @@ from ..contracts.customer_portal import (
     PortalAgreementsResponse,
     PortalBillingAddress,
     PortalBillingResponse,
+    PortalBuildingSopVersion,
+    PortalChecklistItem,
+    PortalChecklistProof,
     PortalContactDetails,
     PortalDashboardResponse,
     PortalInvoiceRow,
@@ -22,13 +26,14 @@ from ..contracts.customer_portal import (
     PortalMetaTags,
     PortalNavItem,
     PortalRecentActivityItem,
+    PortalServiceHistoryRow,
     PortalSummaryCard,
 )
 from .constants import BUILDING_EDIT_FIELDS, PORTAL_DESCRIPTION, PORTAL_NAV_KEYS, PORTAL_PAGE_PATHS, PORTAL_PAGE_TITLES, PORTAL_SUPPORT_PATH, PORTAL_TITLE
 from .formatters import _as_number, _format_currency, _format_date, _format_datetime
 from .queries import _load_address_row, _load_contact_row
 from .scope import PortalAccessError, PortalScope, _is_guest_session
-from .shared import _agreement_download_url, _display_name, _get_site_url, _invoice_download_url, _login_path_for_page, _set_http_status, clean, truthy
+from .shared import _agreement_download_url, _checklist_proof_download_url, _display_name, _get_site_url, _invoice_download_url, _login_path_for_page, _set_http_status, clean, truthy
 
 
 def _page_meta(page_key: str) -> PortalMetaTags:
@@ -211,6 +216,62 @@ def _shape_building_rows(buildings: list[dict[str, Any]]) -> list[PortalLocation
     return shaped
 
 
+def _shape_portal_checklist_items(items: list[dict[str, Any]]) -> list[PortalChecklistItem]:
+    shaped: list[PortalChecklistItem] = []
+    for row in items or []:
+        shaped.append(
+            PortalChecklistItem(
+                item_id=clean(row.get("item_id")),
+                title=clean(row.get("title")),
+                description=clean(row.get("description")),
+                requires_photo_proof=truthy(row.get("requires_photo_proof")),
+                active=truthy(row.get("active") or 1),
+                sort_order=int(_as_number(row.get("sort_order"))),
+                status=clean(row.get("status")),
+                exception_note=clean(row.get("exception_note")),
+                proofs=[
+                    PortalChecklistProof(
+                        name=clean(proof.get("name")),
+                        label=clean(proof.get("label")),
+                        url=clean(proof.get("url")) or _checklist_proof_download_url(clean(proof.get("name"))),
+                    )
+                    for proof in row.get("proofs") or []
+                ],
+            )
+        )
+    return shaped
+
+
+def _history_page_url(building_name: str, page_number: int) -> str:
+    page_number = max(1, int(page_number or 1))
+    return f"{PORTAL_PAGE_PATHS['locations']}?building={quote(clean(building_name))}&history_page={page_number}"
+
+
+def _shape_service_history(history_payload: dict[str, Any]) -> tuple[list[PortalServiceHistoryRow], int, bool]:
+    visits = []
+    for row in history_payload.get("visits") or []:
+        start_label = _format_datetime(row.get("arrival_window_start"))
+        end_label = _format_datetime(row.get("arrival_window_end"))
+        arrival_window_label = ""
+        if start_label and end_label:
+            arrival_window_label = f"{start_label} to {end_label}"
+        else:
+            arrival_window_label = start_label or end_label
+        visits.append(
+            PortalServiceHistoryRow(
+                name=clean(row.get("name")),
+                service_date_label=_format_date(row.get("service_date")),
+                arrival_window_label=arrival_window_label,
+                status=clean(row.get("status")) or "Scheduled",
+                employee_label=clean(row.get("employee_label")) or "Unassigned",
+                sop_version_label=clean(row.get("sop_name")) or "No checklist snapshot",
+                has_checklist=truthy(row.get("has_checklist")),
+                checklist_items=_shape_portal_checklist_items(row.get("checklist_items") or []),
+            )
+        )
+    return visits, int(history_payload.get("page") or 1), truthy(history_payload.get("has_more"))
+
+
 def _build_recent_activity(addenda: list[dict[str, Any]], invoices: list[dict[str, Any]], buildings: list[dict[str, Any]]) -> list[PortalRecentActivityItem]:
     activity: list[PortalRecentActivityItem] = []
     building_lookup = {clean(row.get("name")): row for row in buildings if clean(row.get("name"))}
@@ -372,10 +433,33 @@ def _build_locations_response(
     buildings: list[dict[str, Any]],
     *,
     selected_building_name: str = "",
+    history_page: int = 1,
 ) -> PortalLocationsResponse:
     shaped_buildings = _shape_building_rows(buildings)
     selected_name = clean(selected_building_name)
     selected_building = next((row for row in shaped_buildings if row.name == selected_name), None)
+    selected_building_sop = None
+    selected_building_checklist: list[PortalChecklistItem] = []
+    service_history: list[PortalServiceHistoryRow] = []
+    service_history_has_more = False
+    service_history_page = max(1, int(history_page or 1))
+    service_history_next_url = ""
+    if selected_building:
+        sop_payload = building_sop_service.shape_portal_sop_payload(selected_building.name)
+        if sop_payload.get("version"):
+            version = sop_payload["version"]
+            selected_building_sop = PortalBuildingSopVersion(
+                name=clean(version.get("name")),
+                version_number=int(version.get("version_number") or 0),
+                updated_label=_format_datetime(version.get("updated_on")),
+                updated_by=clean(version.get("updated_by")),
+                item_count=int(version.get("item_count") or 0),
+            )
+        selected_building_checklist = _shape_portal_checklist_items(sop_payload.get("items") or [])
+        history_payload = building_sop_service.get_building_service_history(selected_building.name, page=service_history_page)
+        service_history, service_history_page, service_history_has_more = _shape_service_history(history_payload)
+        if service_history_has_more:
+            service_history_next_url = _history_page_url(selected_building.name, service_history_page + 1)
     data = _base_page_kwargs("locations")
     data.update(
         {
@@ -386,6 +470,12 @@ def _build_locations_response(
                 access_methods=list(LOCATION_ACCESS_METHOD_OPTIONS),
                 alarm_system=list(LOCATION_ALARM_OPTIONS),
             ),
+            "selected_building_sop": selected_building_sop,
+            "selected_building_checklist": selected_building_checklist,
+            "service_history": service_history,
+            "service_history_page": service_history_page,
+            "service_history_has_more": service_history_has_more,
+            "service_history_next_url": service_history_next_url,
             "empty_state_title": "No service locations are linked to your account yet.",
             "empty_state_copy": "Once service locations are added, you will be able to review and update access details here.",
         }

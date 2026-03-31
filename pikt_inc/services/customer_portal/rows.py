@@ -112,6 +112,7 @@ class BuildingRow(TypedDict, total=False):
     name: str
     customer: str
     building_name: str
+    current_sop: str
     active: int
     address_line_1: str
     address_line_2: str
@@ -140,4 +141,37 @@ class BuildingRow(TypedDict, total=False):
     access_details_completed_on: Any
     custom_service_agreement: str
     custom_service_agreement_addendum: str
+    modified: Any
+
+
+class BuildingSopRow(TypedDict, total=False):
+    name: str
+    building: str
+    customer: str
+    version_number: int
+    supersedes: str
+    modified: Any
+    owner: str
+
+
+class BuildingSopItemRow(TypedDict, total=False):
+    name: str
+    idx: int
+    sop_item_id: str
+    item_title: str
+    item_description: str
+    requires_photo_proof: int
+    active: int
+
+
+class SiteShiftRequirementHistoryRow(TypedDict, total=False):
+    name: str
+    building: str
+    service_date: Any
+    arrival_window_start: Any
+    arrival_window_end: Any
+    status: str
+    completion_status: str
+    current_employee: str
+    custom_building_sop: str
     modified: Any

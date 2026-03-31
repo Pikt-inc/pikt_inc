@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import frappe
 
+from .. import building_sop
 from . import incidents, shared, staffing
 
 
@@ -105,6 +106,14 @@ def normalize_site_shift_requirement(doc):
         if doc.completion_status in terminal_completion_states:
             doc.completion_status = None
         doc.completed_at = None
+
+    building_sop.validate_requirement_checklist(doc)
+
+    if doc.status in {"Completed", "Completed With Exception"}:
+        checklist_state = building_sop.requirement_checklist_state(doc)
+        if checklist_state.get("enabled") and not checklist_state.get("resolved"):
+            frappe.throw("Checklist items must be resolved before this visit can be completed.")
+        building_sop.apply_requirement_completion_state(doc)
 
     if doc.status in {"Completed", "Unfilled Closed"} and not doc.completed_at:
         doc.completed_at = shared.now()
@@ -409,6 +418,10 @@ def reconcile_rule(rule_name: str | None, trigger_source: str = "manual", run_as
                         }
                     )
                     ssr.insert(ignore_permissions=True)
+                    try:
+                        building_sop.sync_checklist_snapshot_for_requirement(ssr, allow_started=True)
+                    except Exception as exc:
+                        frappe.log_error(str(exc), f"SSR checklist snapshot create {ssr.name}")
                     created_count += 1
                 except Exception as exc:
                     escalated_count += 1
@@ -493,6 +506,11 @@ def reconcile_rule(rule_name: str | None, trigger_source: str = "manual", run_as
             if update_map:
                 frappe.db.set_value("Site Shift Requirement", existing.get("name"), update_map)
                 updated_count += 1
+
+            try:
+                building_sop.sync_checklist_snapshot_for_requirement(existing.get("name"))
+            except Exception as exc:
+                frappe.log_error(str(exc), f"SSR checklist snapshot refresh {existing.get('name')}")
 
             if material_change and (existing.get("current_employee") or existing.get("shift_assignment")):
                 try:

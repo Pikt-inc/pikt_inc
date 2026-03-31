@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import mimetypes
+
 import frappe
 from pydantic import ValidationError
 
+from .. import building_sop as building_sop_service
 from .. import public_quote as public_quote_service
 from ..contracts.common import first_validation_message
-from ..contracts.customer_portal import PortalAgreementDownloadInput, PortalInvoiceDownloadInput
+from ..contracts.customer_portal import PortalAgreementDownloadInput, PortalChecklistProofDownloadInput, PortalInvoiceDownloadInput
 from .scope import _require_portal_scope
 from .shared import _set_download_response, _throw, clean
 
@@ -89,4 +92,23 @@ def download_customer_portal_agreement_snapshot(addendum: str | None = None, agr
     title = clean(row.get(title_field)) or record_name
     filename = public_quote_service.truncate_name(title.replace("/", "-"), 90) or record_name
     _set_download_response(f"{filename}.html", html.encode("utf-8"), "text/html; charset=utf-8")
+    return None
+
+
+def download_customer_portal_checklist_proof(proof: str | None = None, **kwargs):
+    scope = _require_portal_scope()
+    try:
+        payload = PortalChecklistProofDownloadInput.model_validate({"proof": proof or kwargs.get("proof")})
+    except ValidationError as exc:
+        _throw(first_validation_message(exc))
+
+    proof_context = building_sop_service.load_checklist_proof_for_download(payload.proof)
+    proof_row = proof_context.get("proof") or {}
+    building_row = proof_context.get("building") or {}
+    if not proof_row or clean(building_row.get("customer")) != scope.customer_name:
+        _throw("That checklist proof is not available in this portal account.")
+
+    file_name, content, content_type = building_sop_service.get_proof_file_content(clean(proof_row.get("proof_file")))
+    guessed_type = mimetypes.guess_type(file_name)[0]
+    _set_download_response(file_name, content, guessed_type or content_type or "application/octet-stream")
     return None

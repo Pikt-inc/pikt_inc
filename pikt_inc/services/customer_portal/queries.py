@@ -181,6 +181,7 @@ def _get_buildings(customer_name: str) -> list[BuildingRow]:
                 "name",
                 "building_name",
                 "active",
+                "current_sop",
                 "address_line_1",
                 "address_line_2",
                 "city",

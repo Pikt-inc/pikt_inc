@@ -168,6 +168,43 @@ class PortalLocationFormOptions(ResponseModel):
     alarm_system: list[str]
 
 
+class PortalChecklistProof(ResponseModel):
+    name: str
+    label: str
+    url: str
+
+
+class PortalChecklistItem(ResponseModel):
+    item_id: str
+    title: str
+    description: str
+    requires_photo_proof: bool = False
+    active: bool = True
+    sort_order: int = 0
+    status: str = ""
+    exception_note: str = ""
+    proofs: list[PortalChecklistProof] = Field(default_factory=list)
+
+
+class PortalBuildingSopVersion(ResponseModel):
+    name: str
+    version_number: int
+    updated_label: str
+    updated_by: str
+    item_count: int
+
+
+class PortalServiceHistoryRow(ResponseModel):
+    name: str
+    service_date_label: str
+    arrival_window_label: str
+    status: str
+    employee_label: str
+    sop_version_label: str
+    has_checklist: bool = False
+    checklist_items: list[PortalChecklistItem] = Field(default_factory=list)
+
+
 class PortalPageResponse(ResponseModel):
     page_key: str
     page_title: str
@@ -218,9 +255,20 @@ class PortalLocationsResponse(PortalPageResponse):
     buildings: list[PortalLocationRow] = Field(default_factory=list)
     selected_building: PortalLocationRow | None = None
     location_form_options: PortalLocationFormOptions
+    selected_building_sop: PortalBuildingSopVersion | None = None
+    selected_building_checklist: list[PortalChecklistItem] = Field(default_factory=list)
+    service_history: list[PortalServiceHistoryRow] = Field(default_factory=list)
+    service_history_page: int = 1
+    service_history_has_more: bool = False
+    service_history_next_url: str = ""
 
 
 class PortalLocationsUpdateResponse(PortalLocationsResponse):
+    status: Literal["updated"]
+    message: str
+
+
+class PortalBuildingSopUpdateResponse(PortalLocationsResponse):
     status: Literal["updated"]
     message: str
 
@@ -361,6 +409,35 @@ class CustomerPortalLocationUpdateInput(RequestModel):
         return updates
 
 
+class CustomerPortalBuildingSopItemInput(RequestModel):
+    item_id: str = ""
+    title: str = Field(min_length=1)
+    description: str = ""
+    requires_photo_proof: bool = False
+
+    @field_validator("item_id", "title", "description", mode="before")
+    @classmethod
+    def clean_item_values(cls, value: Any) -> str:
+        return clean_str(value)
+
+    @field_validator("requires_photo_proof", mode="before")
+    @classmethod
+    def normalize_requires_photo_proof(cls, value: Any) -> bool:
+        if isinstance(value, bool):
+            return value
+        return truthy(value)
+
+
+class CustomerPortalBuildingSopUpdateInput(RequestModel):
+    building_name: str = Field(validation_alias=AliasChoices("building_name", "building"), min_length=1)
+    items: list[CustomerPortalBuildingSopItemInput] = Field(default_factory=list)
+
+    @field_validator("building_name", mode="before")
+    @classmethod
+    def clean_building_name(cls, value: Any) -> str:
+        return clean_str(value)
+
+
 class PortalInvoiceDownloadInput(RequestModel):
     invoice: str = Field(min_length=1)
 
@@ -384,3 +461,12 @@ class PortalAgreementDownloadInput(RequestModel):
         if not self.addendum and not self.agreement:
             raise ValueError("Either addendum or agreement is required.")
         return self
+
+
+class PortalChecklistProofDownloadInput(RequestModel):
+    proof: str = Field(min_length=1)
+
+    @field_validator("proof", mode="before")
+    @classmethod
+    def clean_proof(cls, value: Any) -> str:
+        return clean_str(value)

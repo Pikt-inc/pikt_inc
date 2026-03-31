@@ -297,6 +297,33 @@ class TestDispatchPhase1(unittest.TestCase):
 
         self.assertNotEqual(first, second)
 
+    @patch.object(routing.building_sop, "build_requirement_checklist_signature", side_effect=["checklist-v1", "checklist-v2"])
+    def test_build_route_signature_changes_when_checklist_snapshot_changes(self, _mock_signature):
+        stops = [
+            {
+                "stop_index": 1,
+                "site_shift_requirement": "SSR-0001",
+                "building": "BLDG-0001",
+                "arrival_window_start": "2026-03-24 18:00:00",
+                "arrival_window_end": "2026-03-24 19:00:00",
+            }
+        ]
+        buildings = {
+            "BLDG-0001": {
+                "building_name": "North Office",
+                "address_line_1": "123 Main",
+                "city": "Austin",
+                "state": "TX",
+                "postal_code": "78701",
+            }
+        }
+
+        first = routing.build_route_signature(stops, buildings)
+        second = routing.build_route_signature(stops, buildings)
+
+        self.assertNotEqual(first, second)
+
+    @patch.object(routing.building_sop, "build_requirement_checklist_route_lines", return_value=["Restrooms sanitized [Photo proof required]"])
     @patch.object(routing.shared, "get_building_fields")
     @patch.object(routing.frappe.db, "get_value")
     @patch.object(routing.frappe, "get_doc")
@@ -305,6 +332,7 @@ class TestDispatchPhase1(unittest.TestCase):
         mock_get_doc,
         mock_get_value,
         mock_get_building_fields,
+        _mock_checklist_lines,
     ):
         mock_get_doc.return_value = SimpleNamespace(
             name="DROUTE-0001",
@@ -371,6 +399,7 @@ class TestDispatchPhase1(unittest.TestCase):
         self.assertIn("Site Summary", context["stop_blocks"][0])
         self.assertIn("Alarm Summary", context["stop_blocks"][0])
         self.assertIn("Manual note for security desk.", context["stop_blocks"][0])
+        self.assertIn("Restrooms sanitized [Photo proof required]", context["stop_blocks"][0])
 
     def test_choose_route_recipient_precedence(self):
         with self.subTest("enabled user id wins"):

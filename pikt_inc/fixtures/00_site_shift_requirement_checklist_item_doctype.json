@@ -1,0 +1,50 @@
+[
+  {
+    "doctype": "DocType",
+    "name": "Site Shift Requirement Checklist Item",
+    "module": "Custom",
+    "custom": 1,
+    "istable": 1,
+    "editable_grid": 1,
+    "fields": [
+      {
+        "fieldname": "sop_item_id",
+        "label": "Checklist Item ID",
+        "fieldtype": "Data",
+        "reqd": 1,
+        "in_list_view": 1
+      },
+      {
+        "fieldname": "item_title",
+        "label": "Title",
+        "fieldtype": "Data",
+        "reqd": 1,
+        "in_list_view": 1
+      },
+      {
+        "fieldname": "item_description",
+        "label": "Description",
+        "fieldtype": "Small Text"
+      },
+      {
+        "fieldname": "requires_photo_proof",
+        "label": "Requires Photo Proof",
+        "fieldtype": "Check",
+        "default": "0"
+      },
+      {
+        "fieldname": "item_status",
+        "label": "Status",
+        "fieldtype": "Select",
+        "options": "Pending\nCompleted\nException",
+        "default": "Pending",
+        "in_list_view": 1
+      },
+      {
+        "fieldname": "exception_note",
+        "label": "Exception Note",
+        "fieldtype": "Small Text"
+      }
+    ]
+  }
+]

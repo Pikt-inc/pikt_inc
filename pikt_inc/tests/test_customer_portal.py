@@ -214,8 +214,19 @@ class TestCustomerPortal(TestCase):
                 "SINV-OTHER": {"name": "SINV-OTHER", "customer": "CUST-2", "docstatus": 1},
             },
             "Building": {
-                "BUILD-1": {"name": "BUILD-1", "customer": "CUST-1", "access_details_completed_on": None},
+                "BUILD-1": {"name": "BUILD-1", "customer": "CUST-1", "access_details_completed_on": None, "current_sop": "BSOP-1"},
                 "BUILD-OTHER": {"name": "BUILD-OTHER", "customer": "CUST-2", "access_details_completed_on": None},
+            },
+            "Building SOP": {
+                "BSOP-1": {
+                    "name": "BSOP-1",
+                    "building": "BUILD-1",
+                    "customer": "CUST-1",
+                    "version_number": 2,
+                    "supersedes": "BSOP-0",
+                    "modified": datetime(2026, 3, 7, 8, 30, 0),
+                    "owner": "ops@example.com",
+                }
             },
             "Service Agreement": [
                 {
@@ -283,6 +294,7 @@ class TestCustomerPortal(TestCase):
                     "name": "BUILD-1",
                     "customer": "CUST-1",
                     "building_name": "Headquarters",
+                    "current_sop": "BSOP-1",
                     "active": 1,
                     "address_line_1": "123 Market St",
                     "address_line_2": "Suite 300",
@@ -314,6 +326,118 @@ class TestCustomerPortal(TestCase):
                     "modified": datetime(2026, 3, 6, 12, 0, 0),
                 }
             ],
+            "Building SOP Item_list": [
+                {
+                    "name": "BSOP-ITEM-1",
+                    "parent": "BSOP-1",
+                    "parenttype": "Building SOP",
+                    "parentfield": "items",
+                    "idx": 1,
+                    "sop_item_id": "restrooms",
+                    "item_title": "Restrooms sanitized",
+                    "item_description": "Disinfect all restroom touchpoints and restock consumables.",
+                    "requires_photo_proof": 1,
+                    "active": 1,
+                },
+                {
+                    "name": "BSOP-ITEM-2",
+                    "parent": "BSOP-1",
+                    "parenttype": "Building SOP",
+                    "parentfield": "items",
+                    "idx": 2,
+                    "sop_item_id": "trash",
+                    "item_title": "Trash removed",
+                    "item_description": "Empty all cans and replace liners.",
+                    "requires_photo_proof": 0,
+                    "active": 1,
+                },
+            ],
+            "Site Shift Requirement_list": [
+                {
+                    "name": "SSR-0001",
+                    "building": "BUILD-1",
+                    "service_date": datetime(2026, 3, 9, 0, 0, 0),
+                    "arrival_window_start": datetime(2026, 3, 9, 18, 0, 0),
+                    "arrival_window_end": datetime(2026, 3, 9, 20, 0, 0),
+                    "status": "Completed",
+                    "completion_status": "Completed With Exception",
+                    "current_employee": "Jordan Tech",
+                    "custom_building_sop": "BSOP-1",
+                    "modified": datetime(2026, 3, 9, 21, 0, 0),
+                },
+                {
+                    "name": "SSR-0000",
+                    "building": "BUILD-1",
+                    "service_date": datetime(2026, 2, 28, 0, 0, 0),
+                    "arrival_window_start": datetime(2026, 2, 28, 18, 0, 0),
+                    "arrival_window_end": datetime(2026, 2, 28, 20, 0, 0),
+                    "status": "Completed",
+                    "completion_status": "",
+                    "current_employee": "Jordan Tech",
+                    "custom_building_sop": "",
+                    "modified": datetime(2026, 2, 28, 21, 0, 0),
+                },
+            ],
+            "Site Shift Requirement": {
+                "SSR-0001": {"name": "SSR-0001", "building": "BUILD-1"},
+                "SSR-0000": {"name": "SSR-0000", "building": "BUILD-1"},
+            },
+            "Site Shift Requirement Checklist Item_list": [
+                {
+                    "name": "SSR-ITEM-1",
+                    "parent": "SSR-0001",
+                    "parenttype": "Site Shift Requirement",
+                    "parentfield": "custom_checklist_items",
+                    "idx": 1,
+                    "sop_item_id": "restrooms",
+                    "item_title": "Restrooms sanitized",
+                    "item_description": "Disinfect all restroom touchpoints and restock consumables.",
+                    "requires_photo_proof": 1,
+                    "item_status": "Completed",
+                    "exception_note": "",
+                },
+                {
+                    "name": "SSR-ITEM-2",
+                    "parent": "SSR-0001",
+                    "parenttype": "Site Shift Requirement",
+                    "parentfield": "custom_checklist_items",
+                    "idx": 2,
+                    "sop_item_id": "trash",
+                    "item_title": "Trash removed",
+                    "item_description": "Empty all cans and replace liners.",
+                    "requires_photo_proof": 0,
+                    "item_status": "Exception",
+                    "exception_note": "Front office can was inaccessible during lockout.",
+                },
+            ],
+            "Site Shift Requirement Checklist Proof": {
+                "PROOF-1": {
+                    "name": "PROOF-1",
+                    "parent": "SSR-0001",
+                    "proof_file": "/private/files/restroom-proof.jpg",
+                    "proof_caption": "Restroom finish photo",
+                }
+            },
+            "Site Shift Requirement Checklist Proof_list": [
+                {
+                    "name": "PROOF-1",
+                    "parent": "SSR-0001",
+                    "parenttype": "Site Shift Requirement",
+                    "parentfield": "custom_checklist_proofs",
+                    "idx": 1,
+                    "checklist_item_id": "restrooms",
+                    "proof_file": "/private/files/restroom-proof.jpg",
+                    "proof_caption": "Restroom finish photo",
+                    "modified": datetime(2026, 3, 9, 20, 15, 0),
+                }
+            ],
+            "File_list": [
+                {
+                    "name": "FILE-1",
+                    "file_url": "/private/files/restroom-proof.jpg",
+                    "file_name": "restroom-proof.jpg",
+                }
+            ],
         }
 
         portal.frappe.db = FakeDB(self.dataset)
@@ -323,6 +447,12 @@ class TestCustomerPortal(TestCase):
                 "Service Agreement Addendum": self.dataset["Service Agreement Addendum"],
                 "Sales Invoice": self.dataset["Sales Invoice_list"],
                 "Building": self.dataset["Building_list"],
+                "Building SOP": list(self.dataset["Building SOP"].values()),
+                "Building SOP Item": self.dataset["Building SOP Item_list"],
+                "Site Shift Requirement": self.dataset["Site Shift Requirement_list"],
+                "Site Shift Requirement Checklist Item": self.dataset["Site Shift Requirement Checklist Item_list"],
+                "Site Shift Requirement Checklist Proof": self.dataset["Site Shift Requirement Checklist Proof_list"],
+                "File": self.dataset["File_list"],
             }
         )
         portal.frappe.session.user = "portal@example.com"
@@ -386,6 +516,8 @@ class TestCustomerPortal(TestCase):
         self.assertEqual(data["buildings"][0]["detail_url"], "/portal/locations?building=BUILD-1")
         self.assertEqual(data["buildings"][0]["agreement_status_label"], "Location exhibit on file")
         self.assertIsNone(data["selected_building"])
+        self.assertEqual(data["selected_building_checklist"], [])
+        self.assertEqual(data["service_history"], [])
 
     def test_locations_page_can_select_a_single_building_for_editing(self):
         portal.frappe.form_dict = {"building": "BUILD-1"}
@@ -395,6 +527,13 @@ class TestCustomerPortal(TestCase):
         self.assertFalse(data["access_denied"])
         self.assertEqual(data["selected_building"]["name"], "BUILD-1")
         self.assertEqual(data["selected_building"]["title"], "Headquarters")
+        self.assertEqual(data["selected_building_sop"]["name"], "BSOP-1")
+        self.assertEqual(data["selected_building_sop"]["version_number"], 2)
+        self.assertEqual(data["selected_building_checklist"][0]["title"], "Restrooms sanitized")
+        self.assertTrue(data["selected_building_checklist"][0]["requires_photo_proof"])
+        self.assertEqual(data["service_history"][0]["name"], "SSR-0001")
+        self.assertTrue(data["service_history"][0]["has_checklist"])
+        self.assertEqual(data["service_history"][0]["checklist_items"][0]["proofs"][0]["name"], "PROOF-1")
 
     def test_portal_billing_contract_requires_address_fields(self):
         with self.assertRaisesRegex(Exception, "Field required|at least 1 character"):
@@ -418,6 +557,25 @@ class TestCustomerPortal(TestCase):
         self.assertEqual(payload.building_name, "BUILD-1")
         self.assertEqual(payload.updates()["access_method"], "Door code / keypad")
         self.assertTrue(payload.updates()["access_details_confirmed"])
+
+    def test_portal_building_sop_contract_accepts_flat_items(self):
+        payload = portal_contracts.CustomerPortalBuildingSopUpdateInput.model_validate(
+            {
+                "building": "BUILD-1",
+                "items": [
+                    {
+                        "item_id": "restrooms",
+                        "title": "Restrooms sanitized",
+                        "description": "Disinfect touchpoints.",
+                        "requires_photo_proof": "1",
+                    }
+                ],
+            }
+        )
+
+        self.assertEqual(payload.building_name, "BUILD-1")
+        self.assertEqual(payload.items[0].item_id, "restrooms")
+        self.assertTrue(payload.items[0].requires_photo_proof)
 
     def test_ambiguous_scope_returns_branded_error_page(self):
         self.dataset["contact_links"].append(
@@ -764,6 +922,37 @@ class TestCustomerPortal(TestCase):
             with self.assertRaisesRegex(Exception, "not available in this portal account"):
                 portal.update_customer_portal_location(building_name="BUILD-OTHER", access_notes="Test note")
 
+    def test_building_sop_update_creates_new_version_for_in_scope_building(self):
+        scope = self._portal_scope()
+
+        with patch.object(portal.locations, "_require_portal_scope", return_value=scope), patch.object(
+            portal.locations.building_sop_service,
+            "create_building_sop_version",
+            return_value=({"name": "BSOP-2"}, []),
+        ) as create_version:
+            response = portal.update_customer_portal_building_sop(
+                building_name="BUILD-1",
+                items=[
+                    {
+                        "item_id": "restrooms",
+                        "title": "Restrooms sanitized",
+                        "description": "Disinfect touchpoints.",
+                        "requires_photo_proof": True,
+                    }
+                ],
+            )
+
+        create_version.assert_called_once()
+        self.assertEqual(response["status"], "updated")
+        self.assertEqual(response["message"], "Building checklist updated.")
+
+    def test_building_sop_update_rejects_out_of_scope_building(self):
+        scope = self._portal_scope()
+
+        with patch.object(portal.locations, "_require_portal_scope", return_value=scope):
+            with self.assertRaisesRegex(Exception, "not available in this portal account"):
+                portal.update_customer_portal_building_sop(building_name="BUILD-OTHER", items=[])
+
     def test_invoice_download_sets_download_response(self):
         scope = portal.PortalScope(
             session_user="portal@example.com",
@@ -791,6 +980,21 @@ class TestCustomerPortal(TestCase):
         self.assertEqual(portal.frappe.local.response["filename"], "SINV-0001.pdf")
         self.assertEqual(portal.frappe.local.response["type"], "download")
         self.assertEqual(portal.frappe.local.response["content_type"], "application/pdf")
+
+    def test_checklist_proof_download_sets_scoped_response(self):
+        scope = self._portal_scope()
+        portal.frappe.local.response = {}
+
+        with patch.object(portal.downloads, "_require_portal_scope", return_value=scope), patch.object(
+            portal.downloads.building_sop_service,
+            "get_proof_file_content",
+            return_value=("restroom-proof.jpg", b"IMG", "image/jpeg"),
+        ):
+            portal.download_customer_portal_checklist_proof("PROOF-1")
+
+        self.assertEqual(portal.frappe.local.response["filename"], "restroom-proof.jpg")
+        self.assertEqual(portal.frappe.local.response["type"], "download")
+        self.assertEqual(portal.frappe.local.response["content_type"], "image/jpeg")
 
     def test_render_invoice_pdf_uses_scoped_print_bypass(self):
         portal.frappe.local.flags = types.SimpleNamespace(ignore_print_permissions=False)
@@ -866,8 +1070,14 @@ class TestCustomerPortal(TestCase):
         self.assertIn("/api/method/pikt_inc.api.customer_portal.update_customer_portal_billing", billing_info)
         self.assertNotIn("/api/method/pikt_inc.api.customer_portal.update_customer_portal_billing", billing)
         self.assertIn("/api/method/pikt_inc.api.customer_portal.update_customer_portal_location", locations)
+        self.assertIn("/api/method/pikt_inc.api.customer_portal.update_customer_portal_building_sop", locations)
+        self.assertIn("data-portal-checklist-form", locations)
+        self.assertIn("Load older visits", locations)
         self.assertNotIn("buildings_json", locations)
         self.assertNotIn("portal-locations-data", locations)
+        self.assertIn("serializeChecklistForm", js)
+        self.assertIn("portal-checklist-item", css)
+        self.assertIn("portal-history-visit", css)
 
     def test_portal_www_controllers_proxy_to_service(self):
         context = types.SimpleNamespace()
@@ -1008,13 +1218,25 @@ class TestCustomerPortal(TestCase):
             portal_api.customer_portal_service,
             "get_customer_portal_locations_data",
             return_value={"page_key": "locations"},
-        ) as locations:
+        ) as locations, patch.object(
+            portal_api.customer_portal_service,
+            "update_customer_portal_building_sop",
+            return_value={"status": "updated"},
+        ) as update_sop, patch.object(
+            portal_api.customer_portal_service,
+            "download_customer_portal_checklist_proof",
+            return_value=None,
+        ) as download_proof:
             self.assertEqual(portal_api.get_customer_portal_dashboard_data(), {"page_key": "overview"})
             self.assertEqual(portal_api.get_customer_portal_agreements_data(), {"page_key": "agreements"})
             self.assertEqual(portal_api.get_customer_portal_billing_data(), {"page_key": "billing"})
             self.assertEqual(portal_api.get_customer_portal_locations_data(), {"page_key": "locations"})
+            self.assertEqual(portal_api.update_customer_portal_building_sop(building_name="BUILD-1"), {"status": "updated"})
+            self.assertIsNone(portal_api.download_customer_portal_checklist_proof(proof="PROOF-1"))
 
         dashboard.assert_called_once_with()
         agreements.assert_called_once_with()
         billing.assert_called_once_with()
         locations.assert_called_once_with()
+        update_sop.assert_called_once()
+        download_proof.assert_called_once()
