@@ -332,6 +332,26 @@ class TestCustomerPortal(TestCase):
         portal.frappe.utils.get_datetime = lambda value: value if isinstance(value, datetime) else datetime.fromisoformat(str(value))
         portal.now_datetime = lambda: datetime(2026, 3, 25, 12, 0, 0)
 
+    def _portal_scope(self, **overrides):
+        payload = {
+            "session_user": "portal@example.com",
+            "customer_name": "CUST-1",
+            "customer_display": "Portal Customer LLC",
+            "portal_contact_name": "CONTACT-1",
+            "portal_contact_email": "portal@example.com",
+            "portal_contact_phone": "512-555-0101",
+            "portal_contact_designation": "Office Manager",
+            "portal_address_name": "ADDR-PORTAL",
+            "billing_contact_name": "CONTACT-BILLING",
+            "billing_contact_email": "billing@example.com",
+            "billing_contact_phone": "512-555-0133",
+            "billing_contact_designation": "Accounts Payable",
+            "billing_address_name": "ADDR-1",
+            "tax_id": "99-1234567",
+        }
+        payload.update(overrides)
+        return portal.PortalScope(**payload)
+
     def test_dashboard_data_is_scoped_to_customer(self):
         with patch.object(portal.public_quote_service, "find_contact_for_customer", return_value="CONTACT-BILLING"), patch.object(
             portal.public_quote_service, "find_address_for_customer", return_value="ADDR-1"
@@ -548,6 +568,143 @@ class TestCustomerPortal(TestCase):
         self.assertEqual(final_update[2]["phone"], "512-555-0111")
         self.assertEqual(final_update[2]["designation"], "Facilities Lead")
         self.assertEqual(final_update[2]["address"], "ADDR-PORTAL")
+
+    def test_billing_update_clears_explicit_blank_billing_phone(self):
+        scope = self._portal_scope()
+
+        with patch.object(portal.billing, "_require_portal_scope", return_value=scope), patch.object(
+            portal.billing, "_portal_contact_payload", return_value=types.SimpleNamespace(display_name="Pat Portal")
+        ), patch.object(portal.public_quote_service, "valid_email", return_value=True), patch.object(
+            portal.public_quote_service, "ensure_address", return_value="ADDR-UPDATED"
+        ), patch.object(
+            portal.public_quote_service, "ensure_contact", return_value="CONTACT-UPDATED"
+        ), patch.object(
+            portal.public_quote_service, "sync_customer"
+        ), patch.object(
+            portal.public_quote_service, "doc_db_set_values"
+        ) as doc_db_set_values:
+            portal.update_customer_portal_billing(
+                portal_contact_name="Pat Portal",
+                billing_contact_name="Billing Team",
+                billing_email="billing@example.com",
+                billing_contact_phone="",
+                billing_contact_title="Controller",
+                billing_address_line_1="456 Billing Ave",
+                billing_city="Austin",
+                billing_state="TX",
+                billing_postal_code="78702",
+                billing_country="United States",
+                tax_id="12-3456789",
+            )
+
+        billing_update = next(call.args for call in doc_db_set_values.call_args_list if call.args[1] == "CONTACT-UPDATED")
+        self.assertEqual(billing_update[2]["phone"], "")
+        self.assertEqual(billing_update[2]["mobile_no"], "")
+
+    def test_billing_update_clears_explicit_blank_portal_phone(self):
+        scope = self._portal_scope()
+
+        with patch.object(portal.billing, "_require_portal_scope", return_value=scope), patch.object(
+            portal.billing, "_portal_contact_payload", return_value=types.SimpleNamespace(display_name="Pat Portal")
+        ), patch.object(portal.public_quote_service, "valid_email", return_value=True), patch.object(
+            portal.public_quote_service, "ensure_address", return_value="ADDR-UPDATED"
+        ), patch.object(
+            portal.public_quote_service, "ensure_contact", return_value="CONTACT-UPDATED"
+        ), patch.object(
+            portal.public_quote_service, "sync_customer"
+        ), patch.object(
+            portal.public_quote_service, "doc_db_set_values"
+        ) as doc_db_set_values:
+            portal.update_customer_portal_billing(
+                portal_contact_name="Pat Portal",
+                portal_contact_phone="",
+                portal_contact_title="Facilities Lead",
+                billing_contact_name="Billing Team",
+                billing_email="billing@example.com",
+                billing_address_line_1="456 Billing Ave",
+                billing_city="Austin",
+                billing_state="TX",
+                billing_postal_code="78702",
+                billing_country="United States",
+                tax_id="12-3456789",
+            )
+
+        portal_update = next(call.args for call in doc_db_set_values.call_args_list if call.args[1] == "CONTACT-1")
+        self.assertEqual(portal_update[2]["phone"], "")
+        self.assertEqual(portal_update[2]["mobile_no"], "")
+
+    def test_billing_update_clears_shared_contact_phone_when_roles_match(self):
+        scope = self._portal_scope(
+            billing_contact_name="CONTACT-1",
+            billing_contact_email="portal@example.com",
+            billing_contact_phone="512-555-0101",
+            billing_contact_designation="Office Manager",
+        )
+
+        with patch.object(portal.billing, "_require_portal_scope", return_value=scope), patch.object(
+            portal.billing, "_portal_contact_payload", return_value=types.SimpleNamespace(display_name="Pat Portal")
+        ), patch.object(portal.public_quote_service, "valid_email", return_value=True), patch.object(
+            portal.public_quote_service, "ensure_address", return_value="ADDR-UPDATED"
+        ), patch.object(
+            portal.public_quote_service, "ensure_contact", return_value="CONTACT-1"
+        ), patch.object(
+            portal.public_quote_service, "sync_customer"
+        ), patch.object(
+            portal.public_quote_service, "doc_db_set_values"
+        ) as doc_db_set_values:
+            portal.update_customer_portal_billing(
+                portal_contact_name="Pat Portal",
+                portal_contact_phone="",
+                portal_contact_title="Office Manager",
+                billing_contact_name="Pat Portal",
+                billing_email="portal@example.com",
+                billing_contact_phone="",
+                billing_contact_title="Office Manager",
+                billing_address_line_1="456 Billing Ave",
+                billing_city="Austin",
+                billing_state="TX",
+                billing_postal_code="78702",
+                billing_country="United States",
+                tax_id="12-3456789",
+            )
+
+        shared_update = doc_db_set_values.call_args_list[-1].args
+        self.assertEqual(shared_update[1], "CONTACT-1")
+        self.assertEqual(shared_update[2]["phone"], "")
+        self.assertEqual(shared_update[2]["mobile_no"], "")
+
+    def test_billing_update_uses_scope_phones_when_fields_are_omitted(self):
+        scope = self._portal_scope()
+
+        with patch.object(portal.billing, "_require_portal_scope", return_value=scope), patch.object(
+            portal.billing, "_portal_contact_payload", return_value=types.SimpleNamespace(display_name="Pat Portal")
+        ), patch.object(portal.public_quote_service, "valid_email", return_value=True), patch.object(
+            portal.public_quote_service, "ensure_address", return_value="ADDR-UPDATED"
+        ), patch.object(
+            portal.public_quote_service, "ensure_contact", return_value="CONTACT-UPDATED"
+        ), patch.object(
+            portal.public_quote_service, "sync_customer"
+        ), patch.object(
+            portal.public_quote_service, "doc_db_set_values"
+        ) as doc_db_set_values:
+            portal.update_customer_portal_billing(
+                portal_contact_name="Pat Portal",
+                billing_contact_name="Billing Team",
+                billing_email="billing@example.com",
+                billing_address_line_1="456 Billing Ave",
+                billing_city="Austin",
+                billing_state="TX",
+                billing_postal_code="78702",
+                billing_country="United States",
+                tax_id="12-3456789",
+            )
+
+        billing_update = next(call.args for call in doc_db_set_values.call_args_list if call.args[1] == "CONTACT-UPDATED")
+        portal_update = next(call.args for call in doc_db_set_values.call_args_list if call.args[1] == "CONTACT-1")
+        self.assertEqual(billing_update[2]["phone"], "512-555-0133")
+        self.assertEqual(billing_update[2]["mobile_no"], "512-555-0133")
+        self.assertEqual(portal_update[2]["phone"], "512-555-0101")
+        self.assertEqual(portal_update[2]["mobile_no"], "512-555-0101")
 
     def test_location_update_marks_routes_dirty_after_save(self):
         scope = portal.PortalScope(

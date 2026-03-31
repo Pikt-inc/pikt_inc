@@ -12,6 +12,12 @@ from .scope import PortalAccessError, _require_portal_scope, _resolve_portal_sco
 from .shared import _contact_updates, _shared_contact_updates, _should_split_billing_contact, _throw, clean
 
 
+def _submitted_or_existing(payload: CustomerPortalBillingInput, fieldname: str, current_value: str) -> str:
+    if fieldname in payload.model_fields_set:
+        return getattr(payload, fieldname)
+    return current_value
+
+
 def get_customer_portal_billing_data() -> dict:
     try:
         scope = _resolve_portal_scope_or_error()
@@ -43,7 +49,7 @@ def update_customer_portal_billing(**kwargs):
         _throw(first_validation_message(exc))
 
     portal_contact_name = payload.portal_contact_name or _portal_contact_payload(scope).display_name or scope.portal_contact_name
-    portal_contact_phone = payload.portal_contact_phone or scope.portal_contact_phone
+    portal_contact_phone = _submitted_or_existing(payload, "portal_contact_phone", scope.portal_contact_phone)
     portal_contact_title = payload.portal_contact_title or scope.portal_contact_designation
 
     billing_contact_name = payload.billing_contact_name or payload.portal_contact_name or scope.customer_display
@@ -51,7 +57,7 @@ def update_customer_portal_billing(**kwargs):
     if not public_quote_service.valid_email(billing_email):
         _throw("Enter a valid billing email address.")
 
-    billing_phone = payload.billing_contact_phone or scope.billing_contact_phone
+    billing_phone = _submitted_or_existing(payload, "billing_contact_phone", scope.billing_contact_phone)
     billing_title = payload.billing_contact_title or scope.billing_contact_designation
 
     address_name = public_quote_service.ensure_address(
