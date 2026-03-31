@@ -176,6 +176,13 @@ class TestWebsiteFixtures(unittest.TestCase):
         self.assertIn('site_shell_header', blog_post)
         self.assertIn('site_shell_footer', blog_post)
 
+    def test_site_shell_mobile_actions_have_specific_color_rules(self):
+        site_shell = SITE_SHELL_MACROS_PATH.read_text(encoding="utf-8")
+
+        self.assertIn('.site-shell-mobile-panel .site-shell-mobile-quote', site_shell)
+        self.assertIn('.site-shell-mobile-panel .site-shell-mobile-login', site_shell)
+        self.assertIn('color:#fff', site_shell)
+
     def test_quote_schema_fixtures_are_exported(self):
         fixture_doctypes = [row["dt"] for row in app_hooks.fixtures]
 
