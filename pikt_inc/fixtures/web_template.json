@@ -1,0 +1,12 @@
+[
+  {
+    "doctype": "Web Template",
+    "name": "PIKT Footer",
+    "docstatus": 0,
+    "type": "Footer",
+    "standard": 0,
+    "module": null,
+    "template": "{% set footer_name = app_name or frappe.db.get_single_value('Website Settings', 'app_name') or 'Pikt, Inc.' %}\n{% set footer_logo = app_logo or frappe.db.get_single_value('Website Settings', 'app_logo') %}\n{% set footer_year = frappe.utils.now_datetime().year %}\n<style>\n.pikt-footer {\n  margin-top: 4rem;\n  border-top: 1px solid rgba(17, 24, 39, 0.08);\n  background: linear-gradient(180deg, #fbfaf8 0%, #f4efe6 100%);\n}\n.pikt-footer__wrap {\n  padding: 2rem 0;\n}\n.pikt-footer__brand {\n  display: inline-flex;\n  align-items: center;\n  gap: 0.9rem;\n  color: #1f2937;\n  text-decoration: none;\n}\n.pikt-footer__brand:hover,\n.pikt-footer__brand:focus {\n  color: #111827;\n  text-decoration: none;\n}\n.pikt-footer__logo {\n  max-height: 42px;\n  width: auto;\n  display: block;\n}\n.pikt-footer__name {\n  font-size: 1rem;\n  font-weight: 600;\n  letter-spacing: 0.02em;\n}\n.pikt-footer__tagline {\n  font-size: 0.82rem;\n  color: #6b7280;\n}\n.pikt-footer__meta {\n  color: #4b5563;\n  font-size: 0.9rem;\n}\n@media (max-width: 767.98px) {\n  .pikt-footer__meta {\n    margin-top: 1rem;\n    text-align: left;\n  }\n}\n</style>\n<footer class=\"web-footer pikt-footer\">\n  <div class=\"container pikt-footer__wrap\">\n    <div class=\"row align-items-center\">\n      <div class=\"col-md-7 col-12\">\n        <a class=\"pikt-footer__brand\" href=\"/\" aria-label=\"{{ footer_name }} home\">\n          {% if footer_logo %}\n            <img class=\"pikt-footer__logo\" src=\"{{ footer_logo }}\" alt=\"{{ footer_name }} logo\">\n          {% endif %}\n          <span>\n            <span class=\"pikt-footer__name\">{{ footer_name }}</span>\n            <span class=\"pikt-footer__tagline d-block\">Customer portal and account access.</span>\n          </span>\n        </a>\n      </div>\n      <div class=\"col-md-5 col-12 text-md-right pikt-footer__meta\">\n        <div>&copy; {{ footer_year }} {{ footer_name }}</div>\n        <div>All rights reserved.</div>\n      </div>\n    </div>\n  </div>\n</footer>",
+    "fields": []
+  }
+]

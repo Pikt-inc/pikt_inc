@@ -9,6 +9,7 @@
     "show_footer_on_login": 0,
     "app_logo": "https://piktparts.com/cdn/shop/files/PIKT_LOGO_OFFICIAL.png?v=1769528968&width=200",
     "website_theme": "Standard",
+    "footer_template": "PIKT Footer",
     "hide_login": 0,
     "navbar_search": 0,
     "show_language_picker": 0,

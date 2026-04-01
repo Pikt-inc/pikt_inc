@@ -22,6 +22,7 @@ CUSTOM_FIELD_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "
 CUSTOM_DOCPERM_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "custom_docperm.json"
 BUILDER_COMPONENT_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "builder_component.json"
 WEB_FORM_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "web_form.json"
+WEB_TEMPLATE_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "web_template.json"
 PORTAL_SETTINGS_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "portal_settings.json"
 WEBSITE_SETTINGS_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "website_settings.json"
 INSTANT_QUOTE_TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "www" / "instant-quote.html"
@@ -212,6 +213,11 @@ class TestWebsiteFixtures(unittest.TestCase):
             [["name", "in", ["master-service-agreement", "service-agreement-addendum"]]],
         )
 
+    def test_footer_web_template_fixture_is_exported(self):
+        web_template_fixture = next(row for row in app_hooks.fixtures if row["dt"] == "Web Template")
+
+        self.assertEqual(web_template_fixture["filters"], [["name", "in", ["PIKT Footer"]]])
+
     def test_portal_settings_fixture_is_exported(self):
         portal_settings_fixture = next(row for row in app_hooks.fixtures if row["dt"] == "Portal Settings")
 
@@ -233,6 +239,24 @@ class TestWebsiteFixtures(unittest.TestCase):
         self.assertEqual(website_settings["disable_signup"], 0)
         self.assertEqual(website_settings["app_name"], "Pikt, Inc.")
         self.assertEqual(website_settings["website_theme"], "Standard")
+        self.assertEqual(website_settings["footer_template"], "PIKT Footer")
+
+    def test_footer_web_template_fixture_contains_branded_footer_markup(self):
+        web_templates = json.loads(WEB_TEMPLATE_FIXTURE_PATH.read_text(encoding="utf-8"))
+
+        self.assertEqual(len(web_templates), 1)
+        web_template = web_templates[0]
+        self.assertEqual(web_template["doctype"], "Web Template")
+        self.assertEqual(web_template["name"], "PIKT Footer")
+        self.assertEqual(web_template["type"], "Footer")
+        self.assertEqual(web_template["standard"], 0)
+        self.assertEqual(web_template["fields"], [])
+
+        template = web_template["template"]
+        self.assertIn("frappe.db.get_single_value('Website Settings', 'app_name')", template)
+        self.assertIn("frappe.db.get_single_value('Website Settings', 'app_logo')", template)
+        self.assertIn("Customer portal and account access.", template)
+        self.assertIn("&copy; {{ footer_year }} {{ footer_name }}", template)
 
     def test_portal_settings_fixture_file_enables_customer_transaction_menu_and_stages_agreement_links(self):
         portal_settings_docs = json.loads(PORTAL_SETTINGS_FIXTURE_PATH.read_text(encoding="utf-8"))
