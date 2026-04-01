@@ -1,0 +1,198 @@
+[
+  {
+    "doctype": "Portal Settings",
+    "name": "Portal Settings",
+    "docstatus": 0,
+    "default_role": "Customer",
+    "default_portal_home": "/orders",
+    "hide_standard_menu": 1,
+    "menu": [
+      {
+        "title": "Projects",
+        "enabled": 0,
+        "route": "/project",
+        "reference_doctype": "Project",
+        "role": "Customer",
+        "target": null
+      },
+      {
+        "title": "Request for Quotations",
+        "enabled": 0,
+        "route": "/rfq",
+        "reference_doctype": "Request for Quotation",
+        "role": "Supplier",
+        "target": null
+      },
+      {
+        "title": "Supplier Quotation",
+        "enabled": 0,
+        "route": "/supplier-quotations",
+        "reference_doctype": "Supplier Quotation",
+        "role": "Supplier",
+        "target": null
+      },
+      {
+        "title": "Purchase Orders",
+        "enabled": 0,
+        "route": "/purchase-orders",
+        "reference_doctype": "Purchase Order",
+        "role": "Supplier",
+        "target": null
+      },
+      {
+        "title": "Purchase Invoices",
+        "enabled": 0,
+        "route": "/purchase-invoices",
+        "reference_doctype": "Purchase Invoice",
+        "role": "Supplier",
+        "target": null
+      },
+      {
+        "title": "Quotations",
+        "enabled": 0,
+        "route": "/quotations",
+        "reference_doctype": "Quotation",
+        "role": "Customer",
+        "target": null
+      },
+      {
+        "title": "Orders",
+        "enabled": 0,
+        "route": "/orders",
+        "reference_doctype": "Sales Order",
+        "role": "Customer",
+        "target": null
+      },
+      {
+        "title": "Invoices",
+        "enabled": 0,
+        "route": "/invoices",
+        "reference_doctype": "Sales Invoice",
+        "role": "Customer",
+        "target": null
+      },
+      {
+        "title": "Shipments",
+        "enabled": 0,
+        "route": "/shipments",
+        "reference_doctype": "Delivery Note",
+        "role": "Customer",
+        "target": null
+      },
+      {
+        "title": "Issues",
+        "enabled": 0,
+        "route": "/issues",
+        "reference_doctype": "Issue",
+        "role": "Customer",
+        "target": null
+      },
+      {
+        "title": "Addresses",
+        "enabled": 0,
+        "route": "/addresses",
+        "reference_doctype": "Address",
+        "role": "Customer",
+        "target": null
+      },
+      {
+        "title": "Timesheets",
+        "enabled": 0,
+        "route": "/timesheets",
+        "reference_doctype": "Timesheet",
+        "role": "Customer",
+        "target": null
+      },
+      {
+        "title": "Newsletter",
+        "enabled": 0,
+        "route": "/newsletters",
+        "reference_doctype": "Newsletter",
+        "role": null,
+        "target": null
+      },
+      {
+        "title": "Material Request",
+        "enabled": 0,
+        "route": "/material-requests",
+        "reference_doctype": "Material Request",
+        "role": "Customer",
+        "target": null
+      },
+      {
+        "title": "Appointment Booking",
+        "enabled": 0,
+        "route": "/book_appointment",
+        "reference_doctype": null,
+        "role": null,
+        "target": null
+      }
+    ],
+    "custom_menu": [
+      {
+        "title": "Quotations",
+        "enabled": 1,
+        "route": "/quotations",
+        "reference_doctype": "Quotation",
+        "role": "Customer",
+        "target": null
+      },
+      {
+        "title": "Orders",
+        "enabled": 1,
+        "route": "/orders",
+        "reference_doctype": "Sales Order",
+        "role": "Customer",
+        "target": null
+      },
+      {
+        "title": "Invoices",
+        "enabled": 1,
+        "route": "/invoices",
+        "reference_doctype": "Sales Invoice",
+        "role": "Customer",
+        "target": null
+      },
+      {
+        "title": "Issues",
+        "enabled": 1,
+        "route": "/issues",
+        "reference_doctype": "Issue",
+        "role": "Customer",
+        "target": null
+      },
+      {
+        "title": "Master Service Agreement",
+        "enabled": 0,
+        "route": "/master-service-agreement-form",
+        "reference_doctype": "Service Agreement",
+        "role": "Customer",
+        "target": null
+      },
+      {
+        "title": "Location Agreements",
+        "enabled": 0,
+        "route": "/service-agreement-addendum-form",
+        "reference_doctype": "Service Agreement Addendum",
+        "role": "Customer",
+        "target": null
+      },
+      {
+        "title": "Buildings",
+        "enabled": 0,
+        "route": "/building-form",
+        "reference_doctype": "Building",
+        "role": "Customer",
+        "target": null
+      },
+      {
+        "title": "Checklist Items",
+        "enabled": 0,
+        "route": "/building-sop-form",
+        "reference_doctype": "Building SOP",
+        "role": "Customer",
+        "target": null
+      }
+    ]
+  }
+]
