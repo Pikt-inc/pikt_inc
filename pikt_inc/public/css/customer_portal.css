@@ -982,6 +982,20 @@
     align-items:flex-start;
   }
 
+  .portal-section--documents,
+  .portal-stack--documents{
+    width:100%;
+    min-width:0;
+    display:flex;
+    flex-direction:column;
+    align-items:stretch;
+  }
+
+  .portal-stack--documents > .portal-card--document{
+    width:100%;
+    min-width:0;
+  }
+
   .portal-grid--stats,
   .portal-grid--overview,
   .portal-form__grid{

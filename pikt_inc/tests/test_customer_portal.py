@@ -1143,6 +1143,8 @@ class TestCustomerPortal(TestCase):
         self.assertIn("portal-history-visit", css)
         self.assertIn("portal-document-meta", css)
         self.assertIn("portal-section--documents", css)
+        self.assertIn(".portal-section--documents,\n  .portal-stack--documents{", css)
+        self.assertIn("align-items:stretch;", css)
 
     def test_portal_www_controllers_proxy_to_service(self):
         context = types.SimpleNamespace()
