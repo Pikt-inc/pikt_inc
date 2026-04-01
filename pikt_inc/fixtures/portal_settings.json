@@ -170,7 +170,7 @@
         "target": null
       },
       {
-        "title": "Location Agreements",
+        "title": "Business Agreements",
         "enabled": 0,
         "route": "/service-agreement-addendum-form",
         "reference_doctype": "Service Agreement Addendum",

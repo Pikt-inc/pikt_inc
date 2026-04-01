@@ -13,6 +13,7 @@ from pikt_inc import hooks as app_hooks
 
 BUILDER_PAGE_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "builder_page.json"
 BUILDING_DOCTYPE_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "00_building_doctype.json"
+BUILDING_SOP_DOCTYPE_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "00_building_sop_doctype.json"
 CONTACT_REQUEST_DOCTYPE_FIXTURE_PATH = (
     Path(__file__).resolve().parents[1] / "fixtures" / "03_contact_request_doctype.json"
 )
@@ -370,6 +371,9 @@ class TestWebsiteFixtures(unittest.TestCase):
 
         self.assertEqual(len(building_doctypes), 1)
         self.assertEqual(building_doctypes[0]["name"], "Building")
+        self.assertEqual(building_doctypes[0]["title_field"], "building_name")
+        self.assertEqual(building_doctypes[0]["search_fields"], "building_name,customer,city,state,postal_code")
+        self.assertEqual(building_doctypes[0]["show_title_field_in_link"], 1)
 
         base_field_names = {row["fieldname"] for row in building_doctypes[0]["fields"]}
         custom_field_names = {row["fieldname"] for row in building_custom_fields}
@@ -382,6 +386,15 @@ class TestWebsiteFixtures(unittest.TestCase):
         self.assertIn("supervisor_user", custom_field_names)
         self.assertIn("custom_service_agreement", custom_field_names)
         self.assertIn("custom_service_agreement_addendum", custom_field_names)
+
+    def test_building_sop_fixture_supports_portal_titles_and_search(self):
+        building_sop_doctypes = json.loads(BUILDING_SOP_DOCTYPE_FIXTURE_PATH.read_text(encoding="utf-8"))
+
+        self.assertEqual(len(building_sop_doctypes), 1)
+        self.assertEqual(building_sop_doctypes[0]["name"], "Building SOP")
+        self.assertEqual(building_sop_doctypes[0]["title_field"], "building")
+        self.assertEqual(building_sop_doctypes[0]["search_fields"], "building,customer,version_number")
+        self.assertEqual(building_sop_doctypes[0]["show_title_field_in_link"], 1)
 
     def test_contact_request_doctype_fixture_covers_public_contact_fields(self):
         doctypes = json.loads(CONTACT_REQUEST_DOCTYPE_FIXTURE_PATH.read_text(encoding="utf-8"))
@@ -407,8 +420,53 @@ class TestWebsiteFixtures(unittest.TestCase):
         custom_docperms = json.loads(CUSTOM_DOCPERM_FIXTURE_PATH.read_text(encoding="utf-8"))
 
         self.assertNotIn(("Building", "Accounts Manager"), {(row["parent"], row["role"]) for row in custom_docperms})
+        self.assertNotIn(("Building", "Customer Portal User"), {(row["parent"], row["role"]) for row in custom_docperms})
+        self.assertNotIn(("Service Agreement", "Customer Portal User"), {(row["parent"], row["role"]) for row in custom_docperms})
+        self.assertNotIn(("Service Agreement Addendum", "Customer Portal User"), {(row["parent"], row["role"]) for row in custom_docperms})
         self.assertIn("pikt_inc.migrate.ensure_building_custom_docperms", app_hooks.after_sync)
         self.assertIn("pikt_inc.migrate.ensure_building_custom_docperms", app_hooks.after_migrate)
+        self.assertIn("pikt_inc.migrate.ensure_building_sop_custom_docperms", app_hooks.after_sync)
+        self.assertIn("pikt_inc.migrate.ensure_service_agreement_custom_docperms", app_hooks.after_sync)
+        self.assertIn("pikt_inc.migrate.ensure_service_agreement_addendum_custom_docperms", app_hooks.after_sync)
+        self.assertIn("pikt_inc.migrate.ensure_customer_portal_doctype_metadata", app_hooks.after_sync)
+        self.assertIn("pikt_inc.migrate.ensure_building_sop_custom_docperms", app_hooks.after_migrate)
+        self.assertIn("pikt_inc.migrate.ensure_service_agreement_custom_docperms", app_hooks.after_migrate)
+        self.assertIn("pikt_inc.migrate.ensure_service_agreement_addendum_custom_docperms", app_hooks.after_migrate)
+        self.assertIn("pikt_inc.migrate.ensure_customer_portal_doctype_metadata", app_hooks.after_migrate)
+
+    def test_customer_portal_permission_hooks_cover_portal_doctypes(self):
+        self.assertEqual(
+            app_hooks.permission_query_conditions["Building"],
+            "pikt_inc.permissions.customer_portal.get_building_permission_query_conditions",
+        )
+        self.assertEqual(
+            app_hooks.permission_query_conditions["Building SOP"],
+            "pikt_inc.permissions.customer_portal.get_building_sop_permission_query_conditions",
+        )
+        self.assertEqual(
+            app_hooks.permission_query_conditions["Service Agreement"],
+            "pikt_inc.permissions.customer_portal.get_service_agreement_permission_query_conditions",
+        )
+        self.assertEqual(
+            app_hooks.permission_query_conditions["Service Agreement Addendum"],
+            "pikt_inc.permissions.customer_portal.get_service_agreement_addendum_permission_query_conditions",
+        )
+        self.assertEqual(
+            app_hooks.has_permission["Building"],
+            "pikt_inc.permissions.customer_portal.has_building_permission",
+        )
+        self.assertEqual(
+            app_hooks.has_permission["Building SOP"],
+            "pikt_inc.permissions.customer_portal.has_building_sop_permission",
+        )
+        self.assertEqual(
+            app_hooks.has_permission["Service Agreement"],
+            "pikt_inc.permissions.customer_portal.has_service_agreement_permission",
+        )
+        self.assertEqual(
+            app_hooks.has_permission["Service Agreement Addendum"],
+            "pikt_inc.permissions.customer_portal.has_service_agreement_addendum_permission",
+        )
 
     def test_quote_builder_pages_are_absent_from_fixture(self):
         builder_pages = json.loads(BUILDER_PAGE_FIXTURE_PATH.read_text(encoding="utf-8"))

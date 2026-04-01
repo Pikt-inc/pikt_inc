@@ -3,6 +3,29 @@ from __future__ import annotations
 import frappe
 
 
+_PORTAL_ROLE = "Customer Portal User"
+_PORTAL_DOCTYPE_METADATA = {
+	"Building": {
+		"title_field": "building_name",
+		"search_fields": "building_name,customer,city,state,postal_code",
+		"show_title_field_in_link": 1,
+	},
+	"Building SOP": {
+		"title_field": "building",
+		"search_fields": "building,customer,version_number",
+		"show_title_field_in_link": 1,
+	},
+	"Service Agreement": {
+		"title_field": "agreement_name",
+		"search_fields": "agreement_name,customer,template,signed_by_name,signed_by_email",
+		"show_title_field_in_link": 1,
+	},
+	"Service Agreement Addendum": {
+		"title_field": "addendum_name",
+		"search_fields": "addendum_name,customer,service_agreement,quotation,sales_order,building",
+		"show_title_field_in_link": 1,
+	},
+}
 _PERMISSION_FIELDS = (
 	"select",
 	"read",
@@ -22,6 +45,37 @@ _PERMISSION_FIELDS = (
 	"if_owner",
 	"impersonate",
 )
+
+
+def _clean(value) -> str:
+	if value is None:
+		return ""
+	return str(value).strip()
+
+
+def _portal_docperm_row(*, write: int = 0, print: int = 0) -> dict:
+	return {
+		"role": _PORTAL_ROLE,
+		"permlevel": 0,
+		"select": 1,
+		"read": 1,
+		"write": int(write),
+		"create": 0,
+		"delete": 0,
+		"submit": 0,
+		"cancel": 0,
+		"amend": 0,
+		"mask": 0,
+		"report": 0,
+		"export": 0,
+		"import": 0,
+		"share": 0,
+		"print": int(print),
+		"email": 0,
+		"if_owner": 0,
+		"impersonate": 0,
+	}
+
 
 _BUILDING_CUSTOM_DOCPERMS = (
 	{
@@ -234,6 +288,7 @@ _BUILDING_CUSTOM_DOCPERMS = (
 		"if_owner": 0,
 		"impersonate": 0,
 	},
+	_portal_docperm_row(write=1),
 )
 
 _BUILDING_SOP_CUSTOM_DOCPERMS = (
@@ -426,7 +481,11 @@ _BUILDING_SOP_CUSTOM_DOCPERMS = (
 		"if_owner": 0,
 		"impersonate": 0,
 	},
+	_portal_docperm_row(),
 )
+
+_SERVICE_AGREEMENT_CUSTOM_DOCPERMS = (_portal_docperm_row(print=1),)
+_SERVICE_AGREEMENT_ADDENDUM_CUSTOM_DOCPERMS = (_portal_docperm_row(print=1),)
 
 
 def _permission_fields() -> tuple[str, ...]:
@@ -440,6 +499,29 @@ def _permission_values(row: dict, permission_fields: tuple[str, ...]) -> dict:
 
 def _permission_key(row: dict) -> tuple[str, int]:
 	return (row["role"], int(row.get("permlevel") or 0))
+
+
+def _ensure_doctype_metadata(doctype_name: str, updates: dict[str, object]) -> None:
+	if not frappe.db.exists("DocType", doctype_name):
+		return
+
+	current = frappe.db.get_value("DocType", doctype_name, list(updates), as_dict=True) or {}
+	changed_values = {}
+	for fieldname, desired in updates.items():
+		current_value = current.get(fieldname)
+		if fieldname == "show_title_field_in_link":
+			if int(current_value or 0) != int(desired or 0):
+				changed_values[fieldname] = int(desired or 0)
+			continue
+
+		if _clean(current_value) != _clean(desired):
+			changed_values[fieldname] = desired
+
+	if not changed_values:
+		return
+
+	frappe.db.set_value("DocType", doctype_name, changed_values, update_modified=False)
+	frappe.clear_cache(doctype=doctype_name)
 
 
 def _ensure_custom_docperms(doctype_name: str, desired_rows: tuple[dict, ...]) -> None:
@@ -496,3 +578,16 @@ def ensure_building_custom_docperms() -> None:
 
 def ensure_building_sop_custom_docperms() -> None:
 	_ensure_custom_docperms("Building SOP", _BUILDING_SOP_CUSTOM_DOCPERMS)
+
+
+def ensure_service_agreement_custom_docperms() -> None:
+	_ensure_custom_docperms("Service Agreement", _SERVICE_AGREEMENT_CUSTOM_DOCPERMS)
+
+
+def ensure_service_agreement_addendum_custom_docperms() -> None:
+	_ensure_custom_docperms("Service Agreement Addendum", _SERVICE_AGREEMENT_ADDENDUM_CUSTOM_DOCPERMS)
+
+
+def ensure_customer_portal_doctype_metadata() -> None:
+	for doctype_name, updates in _PORTAL_DOCTYPE_METADATA.items():
+		_ensure_doctype_metadata(doctype_name, updates)
