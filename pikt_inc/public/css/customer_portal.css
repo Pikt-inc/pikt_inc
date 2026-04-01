@@ -518,6 +518,12 @@
   flex:1 1 auto;
 }
 
+.portal-document-meta{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+
 .portal-section-head h2,
 .portal-section-head strong{
   max-width:100%;

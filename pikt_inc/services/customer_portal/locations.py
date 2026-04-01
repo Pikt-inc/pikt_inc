@@ -108,11 +108,20 @@ def update_customer_portal_building_sop(**kwargs):
     if not building_row or clean(building_row.get("customer")) != scope.customer_name:
         _throw("That service location is not available in this portal account.")
 
-    building_sop_service.create_building_sop_version(
-        payload.building_name,
-        [item.model_dump(mode="python") for item in payload.items],
-        source="Portal",
-    )
+    try:
+        building_sop_service.create_building_sop_version(
+            payload.building_name,
+            [item.model_dump(mode="python") for item in payload.items],
+            source="Portal",
+        )
+    except Exception:
+        trace = frappe.get_traceback() if hasattr(frappe, "get_traceback") else "Unable to capture traceback."
+        frappe.log_error(
+            trace,
+            f"Portal Building SOP Update {clean(payload.building_name)} {clean(scope.session_user)}",
+        )
+        _throw("Unable to save the building checklist right now. Please try again.")
+
     response = _build_locations_response(
         scope,
         _get_buildings(scope.customer_name),

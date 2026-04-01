@@ -1,4 +1,6 @@
 (function(){
+  var hasBooted=false;
+
   function closeOpenPortalMenus(){
     document.querySelectorAll('.portal-shell-menu[open], [data-portal-mobile-nav] .site-shell-mobile[open]').forEach(function(menu){
       menu.removeAttribute('open');
@@ -223,7 +225,9 @@
     applyChecklistResponse(form,responsePayload||{});
   }
 
-  document.addEventListener('DOMContentLoaded',function(){
+  function boot(){
+    if(hasBooted){return;}
+    hasBooted=true;
     bindPortalMenus();
     document.querySelectorAll('form[data-portal-endpoint]:not([data-portal-checklist-form])').forEach(function(form){
       form.addEventListener('submit',function(event){
@@ -255,5 +259,11 @@
         submitChecklistForm(form).catch(function(){});
       });
     });
-  });
+  }
+
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',boot,{once:true});
+  }else{
+    boot();
+  }
 })();

@@ -33,16 +33,17 @@
       <section class="portal-hero">
         <p class="portal-note">Agreements</p>
         <h1>Service agreements</h1>
-        <p class="portal-copy">Review your master services agreement and each location exhibit on file for your account.</p>
+        <p class="portal-copy">Review your master services agreement and the building-specific schedules and exhibits on file for your account.</p>
       </section>
       {% if active_master %}
       <section class="portal-card portal-card--document">
         <div class="portal-section-head">
-          <div>
+          <div class="portal-document-meta">
             <p class="portal-kicker">Master services agreement</p>
             <h2>{{ active_master.title }}</h2>
+            <p class="portal-muted">This is the umbrella agreement for your account. Building-specific schedules and exhibits are listed separately below.</p>
           </div>
-          <a class="portal-button portal-button--ghost" href="{{ active_master.download_url }}">Download snapshot</a>
+          <a class="portal-button portal-button--ghost" href="{{ active_master.download_url }}">Download master agreement</a>
         </div>
         <div class="portal-inline-summary">
           <span>{{ active_master.status }}</span>
@@ -57,9 +58,10 @@
       {% endif %}
       <section class="portal-card">
         <div class="portal-section-head">
-          <div>
-            <p class="portal-kicker">Location exhibits</p>
-            <h2>Service locations on agreement</h2>
+          <div class="portal-document-meta">
+            <p class="portal-kicker">Building schedules and exhibits</p>
+            <h2>Documents by service location</h2>
+            <p class="portal-muted">Each document below applies to one service location under your master agreement.</p>
           </div>
         </div>
         {% if addenda %}
@@ -67,23 +69,34 @@
           {% for addendum in addenda %}
           <article class="portal-card portal-card--document">
             <div class="portal-section-head">
-              <div>
+              <div class="portal-document-meta">
+                <p class="portal-kicker">Service location</p>
                 <strong>{{ addendum.title }}</strong>
                 {% if addendum.location_address %}<p class="portal-muted">{{ addendum.location_address }}</p>{% endif %}
-                <p class="portal-muted">Service exhibit • {{ addendum.status }} • {{ addendum.term_model }}{% if addendum.start_date_label %} • Starts {{ addendum.start_date_label }}{% endif %}{% if addendum.end_date_label %} • Ends {{ addendum.end_date_label }}{% endif %}</p>
+                {% if addendum.document_title and addendum.document_title != addendum.title %}
+                <p class="portal-muted">Agreement document: {{ addendum.document_title }}</p>
+                {% endif %}
               </div>
-              <a class="portal-button portal-button--ghost" href="{{ addendum.download_url }}">Download snapshot</a>
+              <a class="portal-button portal-button--ghost" href="{{ addendum.download_url }}">Download exhibit</a>
             </div>
-            <div class="portal-inline-summary">
-              {% if addendum.signed_on_label %}<span>Signed {{ addendum.signed_on_label }}</span>{% endif %}
-              {% if addendum.billing_completed_on_label %}<span>Billing {{ addendum.billing_completed_on_label }}</span>{% endif %}
-              {% if addendum.access_completed_on_label %}<span>Access {{ addendum.access_completed_on_label }}</span>{% endif %}
+            <div class="portal-inline-stack">
+              <div class="portal-inline-summary">
+                <span>Location exhibit</span>
+                <span>{{ addendum.status }}</span>
+                <span>{{ addendum.term_model }}</span>
+                {% if addendum.start_date_label %}<span>Starts {{ addendum.start_date_label }}</span>{% endif %}
+                {% if addendum.end_date_label %}<span>Ends {{ addendum.end_date_label }}</span>{% endif %}
+              </div>
+              {% if addendum.signed_on_label or addendum.billing_completed_on_label or addendum.access_completed_on_label %}
+              <div class="portal-inline-summary">
+                {% if addendum.signed_on_label %}<span>Signed {{ addendum.signed_on_label }}</span>{% endif %}
+                {% if addendum.billing_completed_on_label %}<span>Billing {{ addendum.billing_completed_on_label }}</span>{% endif %}
+                {% if addendum.access_completed_on_label %}<span>Access {{ addendum.access_completed_on_label }}</span>{% endif %}
+              </div>
+              {% endif %}
             </div>
             <details class="portal-divider">
-              <summary class="portal-text-link">Preview location exhibit</summary>
-              {% if addendum.document_title and addendum.document_title != addendum.title %}
-              <p class="portal-muted">Legal document: {{ addendum.document_title }}</p>
-              {% endif %}
+              <summary class="portal-text-link">Preview exhibit</summary>
               <div class="portal-richtext">{{ addendum.preview_html | safe }}</div>
             </details>
           </article>

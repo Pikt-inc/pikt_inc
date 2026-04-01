@@ -57,6 +57,14 @@ class FakeDoc(dict):
         self["saved"] = True
 
 
+class FakeChildRow:
+    def __init__(self, **values):
+        self.__dict__.update(values)
+
+    def get(self, fieldname, default=None):
+        return getattr(self, fieldname, default)
+
+
 class TestBuildingSop(unittest.TestCase):
     def test_prepare_building_sop_for_insert_sets_customer_version_and_supersedes(self):
         doc = FakeDoc(
@@ -84,6 +92,49 @@ class TestBuildingSop(unittest.TestCase):
         self.assertEqual(doc.supersedes, "BSOP-1")
         self.assertEqual(doc["items"][0]["item_title"], "Restrooms sanitized")
         self.assertEqual(doc["items"][0]["requires_photo_proof"], 1)
+
+    def test_prepare_building_sop_for_insert_accepts_materialized_child_rows(self):
+        doc = FakeDoc(
+            {
+                "building": "BUILD-1",
+                "items": [
+                    FakeChildRow(
+                        sop_item_id="restrooms",
+                        item_title="Restrooms sanitized",
+                        item_description="Disinfect touchpoints.",
+                        requires_photo_proof=1,
+                        active=1,
+                    )
+                ],
+            }
+        )
+
+        with patch.object(building_sop, "_load_building_row", return_value={"name": "BUILD-1", "customer": "CUST-1", "current_sop": "BSOP-1"}), patch.object(
+            building_sop,
+            "_next_sop_version",
+            return_value=2,
+        ):
+            building_sop.prepare_building_sop_for_insert(doc)
+
+        self.assertEqual(doc["items"][0]["sop_item_id"], "restrooms")
+        self.assertEqual(doc["items"][0]["item_title"], "Restrooms sanitized")
+        self.assertEqual(doc["items"][0]["requires_photo_proof"], 1)
+
+    def test_normalize_sop_items_preserves_explicit_ids_and_empty_list(self):
+        normalized = building_sop.normalize_sop_items(
+            [
+                {
+                    "item_id": "restrooms",
+                    "title": "Restrooms sanitized",
+                    "description": "Disinfect touchpoints.",
+                    "requires_photo_proof": True,
+                }
+            ]
+        )
+
+        self.assertEqual(normalized[0]["sop_item_id"], "restrooms")
+        self.assertEqual(normalized[0]["requires_photo_proof"], 1)
+        self.assertEqual(building_sop.normalize_sop_items([]), [])
 
     def test_prevent_sop_mutation_blocks_existing_versions(self):
         doc = FakeDoc({"name": "BSOP-1"})
@@ -168,6 +219,56 @@ class TestBuildingSop(unittest.TestCase):
         self.assertEqual(requirement_doc.custom_checklist_items[0]["item_title"], "Restrooms sanitized")
         self.assertEqual(requirement_doc.custom_checklist_proofs, [])
         self.assertTrue(requirement_doc["saved"])
+
+    def test_create_building_sop_version_accepts_materialized_insert_rows(self):
+        inserted = {}
+
+        class FakeInsertDoc(FakeDoc):
+            def __init__(self, payload):
+                super().__init__(payload)
+                self.doctype = payload.get("doctype", "Building SOP")
+                self["items"] = [
+                    FakeChildRow(
+                        sop_item_id=row["sop_item_id"],
+                        item_title=row["item_title"],
+                        item_description=row["item_description"],
+                        requires_photo_proof=row["requires_photo_proof"],
+                        active=row["active"],
+                    )
+                    for row in payload.get("items", [])
+                ]
+
+            def insert(self, **_kwargs):
+                building_sop.prepare_building_sop_for_insert(self)
+                self.name = "BSOP-NEW"
+                inserted["items"] = list(self["items"])
+                return self
+
+        with patch.object(building_sop, "_load_building_row", return_value={"name": "BUILD-1", "customer": "CUST-1", "current_sop": "BSOP-1"}), patch.object(
+            building_sop.frappe,
+            "get_doc",
+            side_effect=lambda payload: FakeInsertDoc(payload),
+        ), patch.object(
+            building_sop,
+            "_load_sop_rows",
+            return_value=({"name": "BSOP-NEW", "version_number": 2}, []),
+        ):
+            sop_row, _item_rows = building_sop.create_building_sop_version(
+                "BUILD-1",
+                [
+                    {
+                        "item_id": "restrooms",
+                        "title": "Restrooms sanitized",
+                        "description": "Disinfect touchpoints.",
+                        "requires_photo_proof": True,
+                    }
+                ],
+                source="Portal",
+            )
+
+        self.assertEqual(sop_row["name"], "BSOP-NEW")
+        self.assertEqual(inserted["items"][0]["sop_item_id"], "restrooms")
+        self.assertEqual(inserted["items"][0]["requires_photo_proof"], 1)
 
 
 if __name__ == "__main__":

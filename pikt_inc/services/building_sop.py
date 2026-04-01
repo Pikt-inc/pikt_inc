@@ -55,8 +55,8 @@ def _today():
         return _now_datetime().date()
 
 
-def _copy_item_rows(item_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    return [dict(row) for row in item_rows or []]
+def _copy_item_rows(item_rows: list[Any]) -> list[Any]:
+    return list(item_rows or [])
 
 
 def _field_value(doc, fieldname: str, default=None):
@@ -68,21 +68,38 @@ def _field_value(doc, fieldname: str, default=None):
     return getattr(doc, fieldname, default)
 
 
-def normalize_sop_items(items: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+def _item_row_value(row: Any, fieldname: str, default=None):
+    if row is None:
+        return default
+    if isinstance(row, dict):
+        return row.get(fieldname, default)
+    if hasattr(row, "get"):
+        try:
+            value = row.get(fieldname)
+        except Exception:
+            value = default
+        if value is not None:
+            return value
+    return getattr(row, fieldname, default)
+
+
+def normalize_sop_items(items: list[Any] | None) -> list[dict[str, Any]]:
     normalized: list[dict[str, Any]] = []
     for raw in items or []:
-        title = clean((raw or {}).get("title") or (raw or {}).get("item_title"))
-        description = clean((raw or {}).get("description") or (raw or {}).get("item_description"))
+        title = clean(_item_row_value(raw, "title") or _item_row_value(raw, "item_title"))
+        description = clean(_item_row_value(raw, "description") or _item_row_value(raw, "item_description"))
         if not title:
             continue
-        item_id = clean((raw or {}).get("item_id") or (raw or {}).get("sop_item_id")) or uuid.uuid4().hex[:12]
+        item_id = clean(_item_row_value(raw, "item_id") or _item_row_value(raw, "sop_item_id")) or uuid.uuid4().hex[:12]
+        requires_photo_proof = _item_row_value(raw, "requires_photo_proof", 0)
+        active = _item_row_value(raw, "active", 1)
         normalized.append(
             {
                 "sop_item_id": item_id,
                 "item_title": title,
                 "item_description": description,
-                "requires_photo_proof": 1 if truthy((raw or {}).get("requires_photo_proof")) else 0,
-                "active": 1 if not (raw or {}).get("active") in (0, "0", False) else 0,
+                "requires_photo_proof": 1 if truthy(requires_photo_proof) else 0,
+                "active": 1 if active not in (0, "0", False) else 0,
             }
         )
     return normalized

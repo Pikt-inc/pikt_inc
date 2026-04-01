@@ -946,6 +946,26 @@ class TestCustomerPortal(TestCase):
         self.assertEqual(response["status"], "updated")
         self.assertEqual(response["message"], "Building checklist updated.")
 
+    def test_building_sop_update_logs_and_surfaces_clean_message_on_unexpected_save_error(self):
+        scope = self._portal_scope()
+
+        with patch.object(portal.locations, "_require_portal_scope", return_value=scope), patch.object(
+            portal.locations.building_sop_service,
+            "create_building_sop_version",
+            side_effect=TypeError("boom"),
+        ), patch.object(
+            portal.locations.frappe,
+            "get_traceback",
+            return_value="traceback",
+        ), patch.object(
+            portal.locations.frappe,
+            "log_error",
+        ) as log_error:
+            with self.assertRaisesRegex(Exception, "Unable to save the building checklist right now"):
+                portal.update_customer_portal_building_sop(building_name="BUILD-1", items=[])
+
+        log_error.assert_called_once()
+
     def test_building_sop_update_rejects_out_of_scope_building(self):
         scope = self._portal_scope()
 
@@ -1058,6 +1078,10 @@ class TestCustomerPortal(TestCase):
         self.assertIn("site-shell-mobile[open]", js)
         self.assertIn("setFormBusy", js)
         self.assertIn("portalSubmitting", js)
+        self.assertIn("function boot()", js)
+        self.assertIn("hasBooted", js)
+        self.assertIn("document.readyState==='loading'", js)
+        self.assertIn("document.addEventListener('DOMContentLoaded',boot,{once:true});", js)
         self.assertNotIn("window.location.reload()", js)
 
         for template in (overview, agreements, billing, billing_info, locations):
@@ -1075,9 +1099,15 @@ class TestCustomerPortal(TestCase):
         self.assertIn("Load older visits", locations)
         self.assertNotIn("buildings_json", locations)
         self.assertNotIn("portal-locations-data", locations)
+        self.assertIn("building-specific schedules and exhibits", agreements)
+        self.assertIn("Documents by service location", agreements)
+        self.assertIn("Download master agreement", agreements)
+        self.assertIn("Download exhibit", agreements)
+        self.assertNotIn("Service locations on agreement", agreements)
         self.assertIn("serializeChecklistForm", js)
         self.assertIn("portal-checklist-item", css)
         self.assertIn("portal-history-visit", css)
+        self.assertIn("portal-document-meta", css)
 
     def test_portal_www_controllers_proxy_to_service(self):
         context = types.SimpleNamespace()
