@@ -136,6 +136,26 @@ class TestBuildingSop(unittest.TestCase):
         self.assertEqual(normalized[0]["requires_photo_proof"], 1)
         self.assertEqual(building_sop.normalize_sop_items([]), [])
 
+    def test_normalize_sop_items_handles_fifty_and_hundred_item_payloads(self):
+        for count in (50, 100):
+            with self.subTest(count=count):
+                normalized = building_sop.normalize_sop_items(
+                    [
+                        {
+                            "item_id": f"item-{index}",
+                            "title": f"Checklist item {index}",
+                            "description": f"Description {index}",
+                            "requires_photo_proof": index % 10 == 0,
+                        }
+                        for index in range(1, count + 1)
+                    ]
+                )
+
+                self.assertEqual(len(normalized), count)
+                self.assertEqual(normalized[0]["sop_item_id"], "item-1")
+                self.assertEqual(normalized[-1]["sop_item_id"], f"item-{count}")
+                self.assertEqual(normalized[9]["requires_photo_proof"], 1)
+
     def test_prevent_sop_mutation_blocks_existing_versions(self):
         doc = FakeDoc({"name": "BSOP-1"})
 
@@ -220,6 +240,60 @@ class TestBuildingSop(unittest.TestCase):
         self.assertEqual(requirement_doc.custom_checklist_proofs, [])
         self.assertTrue(requirement_doc["saved"])
 
+    def test_refresh_future_requirement_snapshots_handles_large_requirement_sets(self):
+        rows = [{"name": f"SSR-{index:03d}"} for index in range(1, 101)]
+
+        with patch.object(building_sop.frappe, "get_all", return_value=rows), patch.object(
+            building_sop,
+            "sync_checklist_snapshot_for_requirement",
+            return_value=True,
+        ) as sync_snapshot, patch(
+            "pikt_inc.services.dispatch.routing.mark_routes_dirty_for_building"
+        ) as mark_routes_dirty:
+            result = building_sop.refresh_future_requirement_snapshots("BUILD-1")
+
+        self.assertEqual(result, {"visited": 100, "updated": 100})
+        self.assertEqual(sync_snapshot.call_count, 100)
+        mark_routes_dirty.assert_called_once_with("BUILD-1")
+
+    def test_get_building_service_history_falls_back_when_requirement_query_hits_parser_error(self):
+        sql_rows = [
+            {
+                "name": "SSR-1",
+                "service_date": "2026-04-02",
+                "arrival_window_start": "2020-00-00 00:00:00.000000",
+                "arrival_window_end": "2022-00-00 00:00:00.000000",
+                "status": "Open",
+                "completion_status": "",
+                "current_employee": "Crew A",
+                "custom_building_sop": "",
+                "modified": "2026-03-31 17:19:54.870534",
+            }
+        ]
+
+        with patch.object(building_sop.frappe, "get_all", side_effect=Exception("ParserError")), patch.object(
+            building_sop.frappe.db,
+            "sql",
+            return_value=sql_rows,
+        ) as sql, patch.object(
+            building_sop,
+            "shape_requirement_checklist",
+            return_value=[],
+        ), patch.object(
+            building_sop.frappe,
+            "log_error",
+        ) as log_error:
+            history = building_sop.get_building_service_history("BUILD-1")
+
+        self.assertEqual(history["page"], 1)
+        self.assertEqual(len(history["visits"]), 1)
+        self.assertEqual(history["visits"][0]["name"], "SSR-1")
+        self.assertEqual(history["visits"][0]["arrival_window_start"], "")
+        self.assertEqual(history["visits"][0]["arrival_window_end"], "")
+        self.assertEqual(history["visits"][0]["service_date"], "2026-04-02")
+        sql.assert_called_once()
+        log_error.assert_called_once()
+
     def test_create_building_sop_version_accepts_materialized_insert_rows(self):
         inserted = {}
 
@@ -269,6 +343,65 @@ class TestBuildingSop(unittest.TestCase):
         self.assertEqual(sop_row["name"], "BSOP-NEW")
         self.assertEqual(inserted["items"][0]["sop_item_id"], "restrooms")
         self.assertEqual(inserted["items"][0]["requires_photo_proof"], 1)
+
+    def test_create_building_sop_version_handles_repeated_calls(self):
+        inserted = []
+        counter = {"value": 0}
+
+        class FakeInsertDoc(FakeDoc):
+            def __init__(self, payload):
+                super().__init__(payload)
+                self.doctype = payload.get("doctype", "Building SOP")
+                self["items"] = [
+                    FakeChildRow(
+                        sop_item_id=row["sop_item_id"],
+                        item_title=row["item_title"],
+                        item_description=row["item_description"],
+                        requires_photo_proof=row["requires_photo_proof"],
+                        active=row["active"],
+                    )
+                    for row in payload.get("items", [])
+                ]
+
+            def insert(self, **_kwargs):
+                building_sop.prepare_building_sop_for_insert(self)
+                counter["value"] += 1
+                self.name = f"BSOP-{counter['value']}"
+                inserted.append({"name": self.name, "items": list(self["items"])})
+                return self
+
+        with patch.object(building_sop, "_load_building_row", return_value={"name": "BUILD-1", "customer": "CUST-1", "current_sop": "BSOP-1"}), patch.object(
+            building_sop,
+            "_next_sop_version",
+            side_effect=lambda _building_name: counter["value"] + 2,
+        ), patch.object(
+            building_sop.frappe,
+            "get_doc",
+            side_effect=lambda payload: FakeInsertDoc(payload),
+        ), patch.object(
+            building_sop,
+            "_load_sop_rows",
+            side_effect=lambda name: ({"name": name, "version_number": int(name.split("-")[-1])}, []),
+        ):
+            names = [
+                building_sop.create_building_sop_version(
+                    "BUILD-1",
+                    [
+                        {
+                            "item_id": "restrooms",
+                            "title": "Restrooms sanitized",
+                            "description": "Disinfect touchpoints.",
+                            "requires_photo_proof": True,
+                        }
+                    ],
+                    source="Portal",
+                )[0]["name"]
+                for _ in range(5)
+            ]
+
+        self.assertEqual(names, ["BSOP-1", "BSOP-2", "BSOP-3", "BSOP-4", "BSOP-5"])
+        self.assertEqual(len(inserted), 5)
+        self.assertTrue(all(entry["items"][0]["sop_item_id"] == "restrooms" for entry in inserted))
 
 
 if __name__ == "__main__":

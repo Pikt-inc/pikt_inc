@@ -220,7 +220,14 @@
   }
 
   async function submitChecklistForm(form){
-    var payload=serializeChecklistForm(form);
+    var messageBox=form.querySelector('[data-portal-message]');
+    var payload;
+    try{
+      payload=serializeChecklistForm(form);
+    }catch(error){
+      setMessage(messageBox,error.message||'Unable to save changes.',true);
+      throw error;
+    }
     var responsePayload=await submitPayload(form,payload);
     applyChecklistResponse(form,responsePayload||{});
   }

@@ -447,6 +447,16 @@
   box-shadow:var(--portal-shadow);
 }
 
+.portal-section{
+  display:flex;
+  flex-direction:column;
+  gap:20px;
+}
+
+.portal-section--documents{
+  margin-top:22px;
+}
+
 .portal-card--link{
   display:block;
   color:inherit;
@@ -544,6 +554,10 @@
   display:flex;
   flex-direction:column;
   gap:18px;
+}
+
+.portal-stack--documents{
+  gap:20px;
 }
 
 .portal-inline-stack{

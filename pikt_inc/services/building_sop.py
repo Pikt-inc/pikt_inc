@@ -55,6 +55,15 @@ def _today():
         return _now_datetime().date()
 
 
+def _safe_temporal_string(value: Any) -> str:
+    raw = clean(value)
+    if not raw:
+        return ""
+    if raw.startswith("0000-00-00") or "-00-" in raw:
+        return ""
+    return raw
+
+
 def _copy_item_rows(item_rows: list[Any]) -> list[Any]:
     return list(item_rows or [])
 
@@ -342,6 +351,54 @@ def refresh_future_requirement_snapshots(building_name: str) -> dict[str, int]:
     return {"visited": len(rows or []), "updated": updated}
 
 
+def _get_requirement_history_rows(building_name: str, *, start: int, page_size: int) -> list[dict[str, Any]]:
+    fields = [
+        "name",
+        "service_date",
+        "arrival_window_start",
+        "arrival_window_end",
+        "status",
+        "completion_status",
+        "current_employee",
+        SSR_SOP_FIELD,
+        "modified",
+    ]
+    try:
+        rows = frappe.get_all(
+            "Site Shift Requirement",
+            filters={"building": building_name},
+            fields=fields,
+            order_by="service_date desc, arrival_window_start desc, creation desc",
+            start=start,
+            limit=page_size + 1,
+        )
+        return list(rows or [])
+    except Exception as exc:
+        if hasattr(frappe, "log_error"):
+            frappe.log_error(str(exc), f"Building SOP history fallback {building_name}")
+        rows = frappe.db.sql(
+            f"""
+            select
+                name,
+                cast(service_date as char) as service_date,
+                cast(arrival_window_start as char) as arrival_window_start,
+                cast(arrival_window_end as char) as arrival_window_end,
+                status,
+                completion_status,
+                current_employee,
+                {SSR_SOP_FIELD},
+                cast(modified as char) as modified
+            from `tabSite Shift Requirement`
+            where building = %s
+            order by service_date desc, arrival_window_start desc, creation desc
+            limit %s, %s
+            """,
+            (building_name, int(start or 0), int(page_size or 0) + 1),
+            as_dict=True,
+        )
+        return list(rows or [])
+
+
 def _get_requirement_checklist_rows(requirement_name: str) -> list[dict[str, Any]]:
     requirement_name = clean(requirement_name)
     if not requirement_name:
@@ -516,24 +573,7 @@ def get_building_service_history(building_name: str, *, page: int = 1, page_size
     page_size = max(1, min(int(page_size or 5), 20))
     start = (page - 1) * page_size
 
-    rows = frappe.get_all(
-        "Site Shift Requirement",
-        filters={"building": building_name},
-        fields=[
-            "name",
-            "service_date",
-            "arrival_window_start",
-            "arrival_window_end",
-            "status",
-            "completion_status",
-            "current_employee",
-            SSR_SOP_FIELD,
-            "modified",
-        ],
-        order_by="service_date desc, arrival_window_start desc, creation desc",
-        start=start,
-        limit=page_size + 1,
-    )
+    rows = _get_requirement_history_rows(building_name, start=start, page_size=page_size)
     has_more = len(rows or []) > page_size
     rows = list(rows or [])[:page_size]
 
@@ -546,9 +586,9 @@ def get_building_service_history(building_name: str, *, page: int = 1, page_size
         visits.append(
             {
                 "name": clean(row.get("name")),
-                "service_date": row.get("service_date"),
-                "arrival_window_start": row.get("arrival_window_start"),
-                "arrival_window_end": row.get("arrival_window_end"),
+                "service_date": _safe_temporal_string(row.get("service_date")),
+                "arrival_window_start": _safe_temporal_string(row.get("arrival_window_start")),
+                "arrival_window_end": _safe_temporal_string(row.get("arrival_window_end")),
                 "status": clean(row.get("completion_status")) or clean(row.get("status")),
                 "raw_status": clean(row.get("status")),
                 "completion_status": clean(row.get("completion_status")),
@@ -556,7 +596,7 @@ def get_building_service_history(building_name: str, *, page: int = 1, page_size
                 "sop_name": clean(row.get(SSR_SOP_FIELD)),
                 "checklist_items": checklist,
                 "has_checklist": bool(checklist),
-                "modified": row.get("modified"),
+                "modified": _safe_temporal_string(row.get("modified")),
             }
         )
 

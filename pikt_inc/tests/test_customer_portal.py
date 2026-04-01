@@ -966,6 +966,38 @@ class TestCustomerPortal(TestCase):
 
         log_error.assert_called_once()
 
+    def test_locations_response_formats_service_history_when_history_loader_uses_safe_strings(self):
+        history_payload = {
+            "page": 1,
+            "has_more": False,
+            "visits": [
+                {
+                    "name": "SSR-0001",
+                    "service_date": "2026-04-02",
+                    "arrival_window_start": "",
+                    "arrival_window_end": "",
+                    "status": "Open",
+                    "employee_label": "Crew A",
+                    "sop_name": "",
+                    "has_checklist": False,
+                    "checklist_items": [],
+                }
+            ],
+        }
+
+        portal.frappe.form_dict = {"building": "BUILD-1"}
+
+        with patch.object(portal.payloads.building_sop_service, "shape_portal_sop_payload", return_value={"version": None, "items": []}), patch.object(
+            portal.payloads.building_sop_service,
+            "get_building_service_history",
+            return_value=history_payload,
+        ):
+            response = portal.get_customer_portal_locations_data()
+
+        self.assertEqual(response["service_history"][0]["name"], "SSR-0001")
+        self.assertEqual(response["service_history"][0]["service_date_label"], "Apr 02, 2026")
+        self.assertEqual(response["service_history"][0]["arrival_window_label"], "")
+
     def test_building_sop_update_rejects_out_of_scope_building(self):
         scope = self._portal_scope()
 
@@ -1103,11 +1135,14 @@ class TestCustomerPortal(TestCase):
         self.assertIn("Documents by service location", agreements)
         self.assertIn("Download master agreement", agreements)
         self.assertIn("Download exhibit", agreements)
+        self.assertIn("portal-section portal-section--documents", agreements)
         self.assertNotIn("Service locations on agreement", agreements)
         self.assertIn("serializeChecklistForm", js)
+        self.assertIn("setMessage(messageBox,error.message||'Unable to save changes.',true);", js)
         self.assertIn("portal-checklist-item", css)
         self.assertIn("portal-history-visit", css)
         self.assertIn("portal-document-meta", css)
+        self.assertIn("portal-section--documents", css)
 
     def test_portal_www_controllers_proxy_to_service(self):
         context = types.SimpleNamespace()
