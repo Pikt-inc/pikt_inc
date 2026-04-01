@@ -1064,7 +1064,7 @@ class TestCustomerPortal(TestCase):
         self.assertEqual(pdf, b"<html>invoice</html>")
 
     def test_hooks_include_customer_portal_home_and_patch(self):
-        self.assertEqual(app_hooks.role_home_page["Customer Portal User"], "portal")
+        self.assertEqual(app_hooks.role_home_page["Customer Portal User"], "orders")
         builder_fixture = next(fixture for fixture in app_hooks.fixtures if fixture["dt"] == "Builder Page")
         routes = builder_fixture["filters"][0][2]
         self.assertNotIn("portal", routes)
