@@ -134,6 +134,17 @@ class TestWebsiteFixtures(unittest.TestCase):
         self.assertTrue(INSTANT_QUOTE_TEMPLATE_PATH.exists())
         self.assertTrue(SITE_SHELL_MACROS_PATH.exists())
 
+    def test_instant_quote_selects_have_explicit_cross_browser_styling(self):
+        template = INSTANT_QUOTE_TEMPLATE_PATH.read_text(encoding="utf-8")
+
+        self.assertIn(".quote-field select{", template)
+        self.assertIn("-webkit-appearance:none;", template)
+        self.assertIn("appearance:none;", template)
+        self.assertIn("min-height:54px;", template)
+        self.assertIn("padding-right:48px;", template)
+        self.assertIn("background-image:", template)
+        self.assertIn("background-size:6px 6px;", template)
+
     def test_contact_page_files_exist(self):
         self.assertTrue(CONTACT_CONTROLLER_PATH.exists())
         self.assertTrue(CONTACT_TEMPLATE_PATH.exists())

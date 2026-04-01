@@ -29,6 +29,21 @@
 .quote-field{display:flex;flex-direction:column;gap:8px}
 .quote-field label{color:#171717;font-size:14px;font-weight:700;line-height:1.2}
 .quote-field input,.quote-field select{width:100%;padding:14px 16px;border:1px solid #d7d7d7;border-radius:16px;background:#fff;color:#171717;font:inherit;box-sizing:border-box}
+.quote-field select{
+  min-height:54px;
+  padding-right:48px;
+  line-height:1.4;
+  -webkit-appearance:none;
+  appearance:none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #171717 50%),
+    linear-gradient(135deg, #171717 50%, transparent 50%);
+  background-position:
+    calc(100% - 24px) calc(50% - 3px),
+    calc(100% - 18px) calc(50% - 3px);
+  background-repeat:no-repeat;
+  background-size:6px 6px;
+}
 .quote-field input:focus,.quote-field select:focus{border-color:#171717;outline:none;box-shadow:rgba(23,23,23,.08) 0 0 0 4px}
 .quote-field small{color:#737373;font-size:13px;line-height:1.5}
 .quote-actions{display:flex;flex-direction:column;gap:12px;margin-top:6px}
