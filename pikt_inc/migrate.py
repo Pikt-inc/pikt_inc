@@ -26,6 +26,8 @@ _PORTAL_DOCTYPE_METADATA = {
 		"show_title_field_in_link": 1,
 	},
 }
+
+_PORTAL_MENU_TABLE_FIELDS = ("menu", "custom_menu")
 _PERMISSION_FIELDS = (
 	"select",
 	"read",
@@ -524,6 +526,31 @@ def _ensure_doctype_metadata(doctype_name: str, updates: dict[str, object]) -> N
 	frappe.clear_cache(doctype=doctype_name)
 
 
+def _prune_invalid_portal_menu_references() -> None:
+	if not frappe.db.exists("DocType", "Portal Settings"):
+		return
+
+	settings = frappe.get_doc("Portal Settings")
+	changed = False
+	for fieldname in _PORTAL_MENU_TABLE_FIELDS:
+		rows = list(getattr(settings, fieldname, None) or [])
+		valid_rows = []
+		for row in rows:
+			reference_doctype = _clean(getattr(row, "reference_doctype", None))
+			if reference_doctype and not frappe.db.exists("DocType", reference_doctype):
+				changed = True
+				continue
+			valid_rows.append(row)
+		if len(valid_rows) != len(rows):
+			settings.set(fieldname, valid_rows)
+
+	if not changed:
+		return
+
+	settings.save(ignore_permissions=True)
+	frappe.clear_cache()
+
+
 def _ensure_custom_docperms(doctype_name: str, desired_rows: tuple[dict, ...]) -> None:
 	if not frappe.db.exists("DocType", doctype_name):
 		return
@@ -591,3 +618,7 @@ def ensure_service_agreement_addendum_custom_docperms() -> None:
 def ensure_customer_portal_doctype_metadata() -> None:
 	for doctype_name, updates in _PORTAL_DOCTYPE_METADATA.items():
 		_ensure_doctype_metadata(doctype_name, updates)
+
+
+def ensure_portal_settings_menu_references() -> None:
+	_prune_invalid_portal_menu_references()
