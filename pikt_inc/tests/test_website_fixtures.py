@@ -25,6 +25,19 @@ WEB_FORM_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "web_
 WEB_TEMPLATE_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "web_template.json"
 PORTAL_SETTINGS_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "portal_settings.json"
 WEBSITE_SETTINGS_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "website_settings.json"
+AGREEMENTS_TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "www" / "agreements.html"
+AGREEMENTS_CONTROLLER_PATH = Path(__file__).resolve().parents[1] / "www" / "agreements.py"
+AGREEMENT_DETAIL_TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "www" / "agreement-detail.html"
+AGREEMENT_DETAIL_CONTROLLER_PATH = Path(__file__).resolve().parents[1] / "www" / "agreement_detail.py"
+BUSINESS_AGREEMENTS_TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "www" / "business-agreements.html"
+BUSINESS_AGREEMENTS_CONTROLLER_PATH = Path(__file__).resolve().parents[1] / "www" / "business_agreements.py"
+BUSINESS_AGREEMENT_DETAIL_TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "www" / "business-agreement-detail.html"
+BUSINESS_AGREEMENT_DETAIL_CONTROLLER_PATH = Path(__file__).resolve().parents[1] / "www" / "business_agreement_detail.py"
+BUILDINGS_TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "www" / "buildings.html"
+BUILDINGS_CONTROLLER_PATH = Path(__file__).resolve().parents[1] / "www" / "buildings.py"
+BUILDING_DETAIL_TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "www" / "building-detail.html"
+BUILDING_DETAIL_CONTROLLER_PATH = Path(__file__).resolve().parents[1] / "www" / "building_detail.py"
+WEBSITE_RECORDS_SERVICE_PATH = Path(__file__).resolve().parents[1] / "services" / "customer_portal" / "website_records.py"
 INSTANT_QUOTE_TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "www" / "instant-quote.html"
 INSTANT_QUOTE_CONTROLLER_PATH = Path(__file__).resolve().parents[1] / "www" / "instant_quote.py"
 SITE_SHELL_MACROS_PATH = Path(__file__).resolve().parents[1] / "templates" / "includes" / "site_shell_macros.html"
@@ -115,6 +128,17 @@ class TestWebsiteFixtures(unittest.TestCase):
             with self.subTest(rule=rule):
                 self.assertIn(rule, app_hooks.website_route_rules)
 
+    def test_customer_portal_record_detail_routes_are_app_owned(self):
+        expected_rules = [
+            {"from_route": "/agreements/<slug>", "to_route": "agreement-detail"},
+            {"from_route": "/business-agreements/<slug>", "to_route": "business-agreement-detail"},
+            {"from_route": "/buildings/<slug>", "to_route": "building-detail"},
+        ]
+
+        for rule in expected_rules:
+            with self.subTest(rule=rule):
+                self.assertIn(rule, app_hooks.website_route_rules)
+
     def test_instant_quote_template_contains_submission_contract(self):
         template = INSTANT_QUOTE_TEMPLATE_PATH.read_text(encoding="utf-8")
 
@@ -177,6 +201,32 @@ class TestWebsiteFixtures(unittest.TestCase):
         ):
             with self.subTest(path=path.name):
                 self.assertTrue(path.exists())
+
+    def test_customer_portal_record_route_files_exist(self):
+        for path in (
+            AGREEMENTS_TEMPLATE_PATH,
+            AGREEMENTS_CONTROLLER_PATH,
+            AGREEMENT_DETAIL_TEMPLATE_PATH,
+            AGREEMENT_DETAIL_CONTROLLER_PATH,
+            BUSINESS_AGREEMENTS_TEMPLATE_PATH,
+            BUSINESS_AGREEMENTS_CONTROLLER_PATH,
+            BUSINESS_AGREEMENT_DETAIL_TEMPLATE_PATH,
+            BUSINESS_AGREEMENT_DETAIL_CONTROLLER_PATH,
+            BUILDINGS_TEMPLATE_PATH,
+            BUILDINGS_CONTROLLER_PATH,
+            BUILDING_DETAIL_TEMPLATE_PATH,
+            BUILDING_DETAIL_CONTROLLER_PATH,
+            WEBSITE_RECORDS_SERVICE_PATH,
+        ):
+            with self.subTest(path=path.name):
+                self.assertTrue(path.exists())
+
+    def test_customer_portal_agreement_detail_templates_sandbox_snapshot_iframes(self):
+        agreement_template = AGREEMENT_DETAIL_TEMPLATE_PATH.read_text(encoding="utf-8")
+        business_template = BUSINESS_AGREEMENT_DETAIL_TEMPLATE_PATH.read_text(encoding="utf-8")
+
+        self.assertIn('sandbox=""', agreement_template)
+        self.assertIn('sandbox=""', business_template)
 
     def test_blog_pages_use_canonical_site_shell(self):
         blog_macros = BLOG_MACROS_PATH.read_text(encoding="utf-8")
@@ -258,7 +308,7 @@ class TestWebsiteFixtures(unittest.TestCase):
         self.assertIn("Customer portal and account access.", template)
         self.assertIn("&copy; {{ footer_year }} {{ footer_name }}", template)
 
-    def test_portal_settings_fixture_file_enables_customer_transaction_menu_and_stages_agreement_links(self):
+    def test_portal_settings_fixture_file_enables_customer_transaction_menu_and_record_links(self):
         portal_settings_docs = json.loads(PORTAL_SETTINGS_FIXTURE_PATH.read_text(encoding="utf-8"))
 
         self.assertEqual(len(portal_settings_docs), 1)
@@ -284,25 +334,25 @@ class TestWebsiteFixtures(unittest.TestCase):
         self.assertEqual(custom_menu_by_title["Issues"]["enabled"], 1)
         self.assertEqual(
             custom_menu_by_title["Master Service Agreement"]["route"],
-            "/master-service-agreement-form",
+            "/agreements",
         )
         self.assertEqual(
             custom_menu_by_title["Master Service Agreement"]["reference_doctype"],
             "Service Agreement",
         )
-        self.assertEqual(custom_menu_by_title["Master Service Agreement"]["enabled"], 0)
+        self.assertEqual(custom_menu_by_title["Master Service Agreement"]["enabled"], 1)
         self.assertEqual(
             custom_menu_by_title["Business Agreements"]["route"],
-            "/service-agreement-addendum-form",
+            "/business-agreements",
         )
         self.assertEqual(
             custom_menu_by_title["Business Agreements"]["reference_doctype"],
             "Service Agreement Addendum",
         )
-        self.assertEqual(custom_menu_by_title["Business Agreements"]["enabled"], 0)
-        self.assertEqual(custom_menu_by_title["Buildings"]["route"], "/building-form")
+        self.assertEqual(custom_menu_by_title["Business Agreements"]["enabled"], 1)
+        self.assertEqual(custom_menu_by_title["Buildings"]["route"], "/buildings")
         self.assertEqual(custom_menu_by_title["Buildings"]["reference_doctype"], "Building")
-        self.assertEqual(custom_menu_by_title["Buildings"]["enabled"], 0)
+        self.assertEqual(custom_menu_by_title["Buildings"]["enabled"], 1)
         self.assertEqual(custom_menu_by_title["Checklist Items"]["route"], "/building-sop-form")
         self.assertEqual(custom_menu_by_title["Checklist Items"]["reference_doctype"], "Building SOP")
         self.assertEqual(custom_menu_by_title["Checklist Items"]["enabled"], 0)

@@ -155,24 +155,24 @@
       },
       {
         "title": "Master Service Agreement",
-        "enabled": 0,
-        "route": "/master-service-agreement-form",
+        "enabled": 1,
+        "route": "/agreements",
         "reference_doctype": "Service Agreement",
         "role": "Customer",
         "target": null
       },
       {
         "title": "Business Agreements",
-        "enabled": 0,
-        "route": "/service-agreement-addendum-form",
+        "enabled": 1,
+        "route": "/business-agreements",
         "reference_doctype": "Service Agreement Addendum",
         "role": "Customer",
         "target": null
       },
       {
         "title": "Buildings",
-        "enabled": 0,
-        "route": "/building-form",
+        "enabled": 1,
+        "route": "/buildings",
         "reference_doctype": "Building",
         "role": "Customer",
         "target": null
