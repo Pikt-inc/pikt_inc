@@ -1,0 +1,25 @@
+[
+  {
+    "doctype": "Website Settings",
+    "name": "Website Settings",
+    "docstatus": 0,
+    "home_page": "home",
+    "app_name": "Pikt, Inc.",
+    "disable_signup": 0,
+    "show_footer_on_login": 0,
+    "app_logo": "https://piktparts.com/cdn/shop/files/PIKT_LOGO_OFFICIAL.png?v=1769528968&width=200",
+    "website_theme": "Standard",
+    "hide_login": 0,
+    "navbar_search": 0,
+    "show_language_picker": 0,
+    "hide_footer_signup": 0,
+    "enable_view_tracking": 0,
+    "enable_google_indexing": 0,
+    "google_analytics_anonymize_ip": 1,
+    "auto_account_deletion": 72,
+    "show_account_deletion_link": 0,
+    "top_bar_items": [],
+    "footer_items": [],
+    "route_redirects": []
+  }
+]
