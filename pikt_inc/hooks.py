@@ -533,10 +533,6 @@ fixtures = [
 		"filters": [["name", "in", ["master-service-agreement", "service-agreement-addendum"]]],
 	},
 	{
-		"dt": "Web Template",
-		"filters": [["name", "in", ["PIKT Footer"]]],
-	},
-	{
 		"dt": "Portal Settings",
 	},
 	{
