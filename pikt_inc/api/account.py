@@ -16,5 +16,10 @@ def get_account_summary(**_kwargs):
 
 
 @frappe.whitelist()
+def get_portal_access(**_kwargs):
+    return account_service.get_portal_access()
+
+
+@frappe.whitelist()
 def log_employee_checkin(**kwargs):
     return account_service.log_employee_checkin(**_payload(kwargs))

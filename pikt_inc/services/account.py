@@ -7,9 +7,30 @@ import frappe
 
 
 EMPLOYEE_ROLE = "Employee"
+CUSTOMER_ROLE = "Customer"
+CLEANER_ROLE = "Cleaner"
+SYSTEM_MANAGER_ROLE = "System Manager"
 CLOCK_IN_ACTION = "clock_in"
 CLOCK_OUT_ACTION = "clock_out"
 DEVICE_ID = "Web Account Page"
+
+PORTAL_ROLE_CONFIG = {
+    CUSTOMER_ROLE: {
+        "portal_persona": "customer",
+        "allowed_sections": ["client", "account"],
+        "home_path": "/portal/client",
+    },
+    CLEANER_ROLE: {
+        "portal_persona": "cleaner",
+        "allowed_sections": ["checklist", "account"],
+        "home_path": "/portal/checklist",
+    },
+    SYSTEM_MANAGER_ROLE: {
+        "portal_persona": "system_manager",
+        "allowed_sections": ["admin", "account"],
+        "home_path": "/portal/admin",
+    },
+}
 
 
 def clean(value: Any) -> str:
@@ -144,6 +165,42 @@ def _build_geolocation(latitude: float, longitude: float) -> str:
             ],
         }
     )
+
+
+def _build_portal_access(roles: list[str]) -> dict[str, Any]:
+    matched_roles = [role for role in roles if role in PORTAL_ROLE_CONFIG]
+
+    if len(matched_roles) == 1:
+        config = PORTAL_ROLE_CONFIG[matched_roles[0]]
+        return {
+            "portal_persona": config["portal_persona"],
+            "allowed_sections": list(config["allowed_sections"]),
+            "home_path": config["home_path"],
+        }
+
+    if len(matched_roles) > 1:
+        return {
+            "portal_persona": "mixed",
+            "allowed_sections": [],
+            "home_path": "/desk",
+        }
+
+    return {
+        "portal_persona": "none",
+        "allowed_sections": [],
+        "home_path": "/desk",
+    }
+
+
+def get_portal_access() -> dict[str, Any]:
+    session_user = _require_session_user()
+    roles = _get_roles(session_user)
+
+    return {
+        "user_id": session_user,
+        "roles": roles,
+        **_build_portal_access(roles),
+    }
 
 
 def get_account_summary() -> dict[str, Any]:
