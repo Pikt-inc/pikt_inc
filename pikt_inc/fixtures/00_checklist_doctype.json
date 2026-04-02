@@ -1,0 +1,339 @@
+[
+  {
+    "doctype": "DocType",
+    "name": "Checklist Template",
+    "module": "Custom",
+    "custom": 1,
+    "track_changes": 1,
+    "document_type": "Document",
+    "istable": 0,
+    "issingle": 0,
+    "is_submittable": 0,
+    "autoname": "hash",
+    "engine": "InnoDB",
+    "allow_copy": 0,
+    "allow_import": 1,
+    "allow_rename": 1,
+    "title_field": "template_name",
+    "show_title_field_in_link": 1,
+    "search_fields": "template_name,building,status",
+    "sort_field": "modified",
+    "sort_order": "DESC",
+    "permissions": [
+      {
+        "role": "System Manager",
+        "read": 1,
+        "write": 1,
+        "create": 1,
+        "delete": 1,
+        "report": 1,
+        "export": 1,
+        "print": 1,
+        "email": 1,
+        "share": 1
+      }
+    ],
+    "fields": [
+      {
+        "fieldname": "building",
+        "label": "Building",
+        "fieldtype": "Link",
+        "options": "Building",
+        "reqd": 1,
+        "in_list_view": 1
+      },
+      {
+        "fieldname": "template_name",
+        "label": "Template Name",
+        "fieldtype": "Data",
+        "reqd": 1,
+        "in_list_view": 1
+      },
+      {
+        "fieldname": "status",
+        "label": "Status",
+        "fieldtype": "Select",
+        "options": "Draft\nActive\nArchived",
+        "reqd": 1,
+        "default": "Draft",
+        "in_list_view": 1
+      },
+      {
+        "fieldname": "version_number",
+        "label": "Version Number",
+        "fieldtype": "Int",
+        "in_list_view": 1
+      },
+      {
+        "fieldname": "published_at",
+        "label": "Published At",
+        "fieldtype": "Datetime"
+      },
+      {
+        "fieldname": "change_summary",
+        "label": "Change Summary",
+        "fieldtype": "Small Text"
+      },
+      {
+        "fieldname": "items",
+        "label": "Items",
+        "fieldtype": "Table",
+        "options": "Checklist Template Item"
+      }
+    ]
+  },
+  {
+    "doctype": "DocType",
+    "name": "Checklist Template Item",
+    "module": "Custom",
+    "custom": 1,
+    "track_changes": 0,
+    "document_type": "Document",
+    "istable": 1,
+    "issingle": 0,
+    "engine": "InnoDB",
+    "editable_grid": 1,
+    "fields": [
+      {
+        "fieldname": "item_key",
+        "label": "Item Key",
+        "fieldtype": "Data",
+        "reqd": 1,
+        "in_list_view": 1
+      },
+      {
+        "fieldname": "category",
+        "label": "Category",
+        "fieldtype": "Select",
+        "options": "access\njob_completion\nrearm_security",
+        "reqd": 1,
+        "in_list_view": 1
+      },
+      {
+        "fieldname": "sort_order",
+        "label": "Sort Order",
+        "fieldtype": "Int",
+        "reqd": 1,
+        "in_list_view": 1
+      },
+      {
+        "fieldname": "title",
+        "label": "Title",
+        "fieldtype": "Data",
+        "reqd": 1,
+        "in_list_view": 1
+      },
+      {
+        "fieldname": "description",
+        "label": "Description",
+        "fieldtype": "Small Text"
+      },
+      {
+        "fieldname": "requires_image",
+        "label": "Requires Image",
+        "fieldtype": "Check",
+        "default": "0"
+      },
+      {
+        "fieldname": "allow_notes",
+        "label": "Allow Notes",
+        "fieldtype": "Check",
+        "default": "1"
+      },
+      {
+        "fieldname": "is_required",
+        "label": "Is Required",
+        "fieldtype": "Check",
+        "default": "1"
+      },
+      {
+        "fieldname": "active",
+        "label": "Active",
+        "fieldtype": "Check",
+        "default": "1"
+      }
+    ]
+  },
+  {
+    "doctype": "DocType",
+    "name": "Checklist Session",
+    "module": "Custom",
+    "custom": 1,
+    "track_changes": 1,
+    "document_type": "Document",
+    "istable": 0,
+    "issingle": 0,
+    "is_submittable": 0,
+    "autoname": "hash",
+    "engine": "InnoDB",
+    "allow_copy": 0,
+    "allow_import": 1,
+    "allow_rename": 1,
+    "search_fields": "building,service_date,status",
+    "sort_field": "modified",
+    "sort_order": "DESC",
+    "permissions": [
+      {
+        "role": "System Manager",
+        "read": 1,
+        "write": 1,
+        "create": 1,
+        "delete": 1,
+        "report": 1,
+        "export": 1,
+        "print": 1,
+        "email": 1,
+        "share": 1
+      }
+    ],
+    "fields": [
+      {
+        "fieldname": "building",
+        "label": "Building",
+        "fieldtype": "Link",
+        "options": "Building",
+        "reqd": 1,
+        "in_list_view": 1
+      },
+      {
+        "fieldname": "service_date",
+        "label": "Service Date",
+        "fieldtype": "Date",
+        "reqd": 1,
+        "in_list_view": 1
+      },
+      {
+        "fieldname": "checklist_template",
+        "label": "Checklist Template",
+        "fieldtype": "Link",
+        "options": "Checklist Template",
+        "reqd": 1,
+        "in_list_view": 1
+      },
+      {
+        "fieldname": "status",
+        "label": "Status",
+        "fieldtype": "Select",
+        "options": "in_progress\ncompleted",
+        "reqd": 1,
+        "default": "in_progress",
+        "in_list_view": 1
+      },
+      {
+        "fieldname": "started_at",
+        "label": "Started At",
+        "fieldtype": "Datetime"
+      },
+      {
+        "fieldname": "completed_at",
+        "label": "Completed At",
+        "fieldtype": "Datetime"
+      },
+      {
+        "fieldname": "worker",
+        "label": "Worker",
+        "fieldtype": "Link",
+        "options": "Employee"
+      },
+      {
+        "fieldname": "session_notes",
+        "label": "Session Notes",
+        "fieldtype": "Small Text"
+      },
+      {
+        "fieldname": "items",
+        "label": "Items",
+        "fieldtype": "Table",
+        "options": "Checklist Session Item"
+      }
+    ]
+  },
+  {
+    "doctype": "DocType",
+    "name": "Checklist Session Item",
+    "module": "Custom",
+    "custom": 1,
+    "track_changes": 0,
+    "document_type": "Document",
+    "istable": 1,
+    "issingle": 0,
+    "engine": "InnoDB",
+    "editable_grid": 1,
+    "fields": [
+      {
+        "fieldname": "item_key",
+        "label": "Item Key",
+        "fieldtype": "Data",
+        "reqd": 1,
+        "in_list_view": 1
+      },
+      {
+        "fieldname": "category",
+        "label": "Category",
+        "fieldtype": "Select",
+        "options": "access\njob_completion\nrearm_security",
+        "reqd": 1,
+        "in_list_view": 1
+      },
+      {
+        "fieldname": "sort_order",
+        "label": "Sort Order",
+        "fieldtype": "Int",
+        "reqd": 1,
+        "in_list_view": 1
+      },
+      {
+        "fieldname": "title_snapshot",
+        "label": "Title Snapshot",
+        "fieldtype": "Data",
+        "reqd": 1,
+        "in_list_view": 1
+      },
+      {
+        "fieldname": "description_snapshot",
+        "label": "Description Snapshot",
+        "fieldtype": "Small Text"
+      },
+      {
+        "fieldname": "requires_image",
+        "label": "Requires Image",
+        "fieldtype": "Check",
+        "default": "0"
+      },
+      {
+        "fieldname": "allow_notes",
+        "label": "Allow Notes",
+        "fieldtype": "Check",
+        "default": "1"
+      },
+      {
+        "fieldname": "is_required",
+        "label": "Is Required",
+        "fieldtype": "Check",
+        "default": "1"
+      },
+      {
+        "fieldname": "completed",
+        "label": "Completed",
+        "fieldtype": "Check",
+        "default": "0",
+        "in_list_view": 1
+      },
+      {
+        "fieldname": "completed_at",
+        "label": "Completed At",
+        "fieldtype": "Datetime"
+      },
+      {
+        "fieldname": "note",
+        "label": "Note",
+        "fieldtype": "Small Text"
+      },
+      {
+        "fieldname": "proof_image",
+        "label": "Proof Image",
+        "fieldtype": "Attach Image"
+      }
+    ]
+  }
+]

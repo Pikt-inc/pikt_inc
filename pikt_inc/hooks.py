@@ -117,7 +117,6 @@ website_redirects = [
 
 after_sync = [
 	"pikt_inc.migrate.ensure_building_custom_docperms",
-	"pikt_inc.migrate.ensure_building_sop_custom_docperms",
 ]
 
 # Integration Cleanup
@@ -160,6 +159,15 @@ doc_events = {
 	"Building": {
 		"after_insert": "pikt_inc.events.building.after_insert",
 		"on_update": "pikt_inc.events.building.on_update",
+	},
+	"Checklist Template": {
+		"before_save": "pikt_inc.events.checklist_template.before_save",
+		"after_insert": "pikt_inc.events.checklist_template.after_insert",
+		"on_update": "pikt_inc.events.checklist_template.on_update",
+	},
+	"Checklist Session": {
+		"before_insert": "pikt_inc.events.checklist_session.before_insert",
+		"before_save": "pikt_inc.events.checklist_session.before_save",
 	},
 	"Building SOP": {
 		"before_insert": "pikt_inc.events.building_sop.before_insert",
@@ -241,16 +249,16 @@ fixtures = [
 	},
 	{
 		"dt": "DocType",
-		"prefix": "00_building_sop",
+		"prefix": "00_checklist",
 		"filters": [
 			[
 				"name",
 				"in",
 				[
-					"Building SOP",
-					"Building SOP Item",
-					"Site Shift Requirement Checklist Item",
-					"Site Shift Requirement Checklist Proof",
+					"Checklist Template",
+					"Checklist Template Item",
+					"Checklist Session",
+					"Checklist Session Item",
 				],
 			]
 		],
@@ -301,30 +309,6 @@ fixtures = [
 				"=",
 				"Building",
 			]
-		],
-	},
-	{
-		"dt": "Custom Field",
-		"prefix": "02_sop",
-		"filters": [
-			[
-				"dt",
-				"in",
-				[
-					"Building",
-					"Site Shift Requirement",
-				],
-			],
-			[
-				"fieldname",
-				"in",
-				[
-					"current_sop",
-					"custom_building_sop",
-					"custom_checklist_items",
-					"custom_checklist_proofs",
-				],
-			],
 		],
 	},
 	{
@@ -562,7 +546,6 @@ override_whitelisted_methods = {
 
 after_migrate = [
 	"pikt_inc.migrate.ensure_building_custom_docperms",
-	"pikt_inc.migrate.ensure_building_sop_custom_docperms",
 ]
 
 # Job Events

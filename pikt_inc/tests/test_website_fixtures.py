@@ -13,6 +13,7 @@ from pikt_inc import hooks as app_hooks
 
 BUILDER_PAGE_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "builder_page.json"
 BUILDING_DOCTYPE_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "00_building_doctype.json"
+CHECKLIST_DOCTYPE_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "00_checklist_doctype.json"
 CONTACT_REQUEST_DOCTYPE_FIXTURE_PATH = (
     Path(__file__).resolve().parents[1] / "fixtures" / "03_contact_request_doctype.json"
 )
@@ -295,6 +296,11 @@ class TestWebsiteFixtures(unittest.TestCase):
             for row in app_hooks.fixtures
             if row["dt"] == "DocType" and row.get("prefix") == "00_building"
         )
+        checklist_doctype_fixture = next(
+            row
+            for row in app_hooks.fixtures
+            if row["dt"] == "DocType" and row.get("prefix") == "00_checklist"
+        )
         building_custom_field_fixture = next(
             row
             for row in app_hooks.fixtures
@@ -302,6 +308,14 @@ class TestWebsiteFixtures(unittest.TestCase):
         )
 
         self.assertEqual(building_doctype_fixture["filters"], [["name", "in", ["Building"]]])
+        self.assertEqual(
+            checklist_doctype_fixture["filters"],
+            [[
+                "name",
+                "in",
+                ["Checklist Template", "Checklist Template Item", "Checklist Session", "Checklist Session Item"],
+            ]],
+        )
         self.assertEqual(building_custom_field_fixture["filters"], [["dt", "=", "Building"]])
 
         contact_request_fixture = next(
@@ -322,12 +336,39 @@ class TestWebsiteFixtures(unittest.TestCase):
 
         self.assertIn("building_name", base_field_names)
         self.assertIn("customer", base_field_names)
-        self.assertIn("alarm_notes", base_field_names)
-        self.assertIn("access_method", custom_field_names)
-        self.assertIn("access_entry_details", custom_field_names)
+        self.assertIn("current_checklist_template", base_field_names)
+        self.assertIn("access_method", base_field_names)
+        self.assertIn("access_summary", base_field_names)
+        self.assertIn("lockbox_location", base_field_names)
+        self.assertIn("alarm_panel_location", base_field_names)
         self.assertIn("supervisor_user", custom_field_names)
         self.assertIn("custom_service_agreement", custom_field_names)
         self.assertIn("custom_service_agreement_addendum", custom_field_names)
+
+    def test_checklist_schema_fixture_files_exist_and_cover_new_doctypes(self):
+        doctypes = json.loads(CHECKLIST_DOCTYPE_FIXTURE_PATH.read_text(encoding="utf-8"))
+
+        self.assertEqual(
+            {doc["name"] for doc in doctypes},
+            {"Checklist Template", "Checklist Template Item", "Checklist Session", "Checklist Session Item"},
+        )
+
+        template = next(doc for doc in doctypes if doc["name"] == "Checklist Template")
+        template_item = next(doc for doc in doctypes if doc["name"] == "Checklist Template Item")
+        session = next(doc for doc in doctypes if doc["name"] == "Checklist Session")
+        session_item = next(doc for doc in doctypes if doc["name"] == "Checklist Session Item")
+
+        template_fields = {row["fieldname"]: row for row in template["fields"]}
+        template_item_fields = {row["fieldname"]: row for row in template_item["fields"]}
+        session_fields = {row["fieldname"]: row for row in session["fields"]}
+        session_item_fields = {row["fieldname"]: row for row in session_item["fields"]}
+
+        self.assertEqual(template_fields["status"]["options"], "Draft\nActive\nArchived")
+        self.assertEqual(template_fields["items"]["options"], "Checklist Template Item")
+        self.assertEqual(template_item_fields["category"]["options"], "access\njob_completion\nrearm_security")
+        self.assertEqual(session_fields["status"]["options"], "in_progress\ncompleted")
+        self.assertEqual(session_fields["items"]["options"], "Checklist Session Item")
+        self.assertEqual(session_item_fields["proof_image"]["fieldtype"], "Attach Image")
 
     def test_contact_request_doctype_fixture_covers_public_contact_fields(self):
         doctypes = json.loads(CONTACT_REQUEST_DOCTYPE_FIXTURE_PATH.read_text(encoding="utf-8"))
