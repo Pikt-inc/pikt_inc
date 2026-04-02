@@ -56,35 +56,17 @@ try:
     portal_api = importlib.import_module("pikt_inc.api.customer_portal")
     portal_contracts = importlib.import_module("pikt_inc.services.contracts.customer_portal")
     portal_payloads = importlib.import_module("pikt_inc.services.customer_portal.payloads")
-    portal_page_helper = importlib.import_module("pikt_inc.www._portal_page")
-    portal_www_index = importlib.import_module("pikt_inc.www.portal.index")
-    portal_www_agreements = importlib.import_module("pikt_inc.www.portal.agreements")
-    portal_www_billing = importlib.import_module("pikt_inc.www.portal.billing")
-    portal_www_billing_info = importlib.import_module("pikt_inc.www.portal.billing_info")
-    portal_www_locations = importlib.import_module("pikt_inc.www.portal.locations")
 except ModuleNotFoundError:
     app_hooks = importlib.import_module("pikt_inc.pikt_inc.hooks")
     portal = importlib.import_module("pikt_inc.pikt_inc.services.customer_portal")
     portal_api = importlib.import_module("pikt_inc.pikt_inc.api.customer_portal")
     portal_contracts = importlib.import_module("pikt_inc.pikt_inc.services.contracts.customer_portal")
     portal_payloads = importlib.import_module("pikt_inc.pikt_inc.services.customer_portal.payloads")
-    portal_page_helper = importlib.import_module("pikt_inc.pikt_inc.www._portal_page")
-    portal_www_index = importlib.import_module("pikt_inc.pikt_inc.www.portal.index")
-    portal_www_agreements = importlib.import_module("pikt_inc.pikt_inc.www.portal.agreements")
-    portal_www_billing = importlib.import_module("pikt_inc.pikt_inc.www.portal.billing")
-    portal_www_billing_info = importlib.import_module("pikt_inc.pikt_inc.www.portal.billing_info")
-    portal_www_locations = importlib.import_module("pikt_inc.pikt_inc.www.portal.locations")
 
 
 PATCHES_PATH = Path(__file__).resolve().parents[1] / "patches.txt"
-PORTAL_MACROS_PATH = Path(__file__).resolve().parents[1] / "templates" / "includes" / "customer_portal_macros.html"
 PORTAL_CSS_PATH = Path(__file__).resolve().parents[1] / "public" / "css" / "customer_portal.css"
 PORTAL_FORMS_JS_PATH = Path(__file__).resolve().parents[1] / "public" / "js" / "customer_portal_forms.js"
-PORTAL_OVERVIEW_TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "www" / "portal" / "index.html"
-PORTAL_AGREEMENTS_TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "www" / "portal" / "agreements.html"
-PORTAL_BILLING_TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "www" / "portal" / "billing.html"
-PORTAL_BILLING_INFO_TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "www" / "portal" / "billing-info.html"
-PORTAL_LOCATIONS_TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "www" / "portal" / "locations.html"
 
 
 class FakeDB:
@@ -1063,8 +1045,8 @@ class TestCustomerPortal(TestCase):
         self.assertFalse(portal.frappe.local.flags.ignore_print_permissions)
         self.assertEqual(pdf, b"<html>invoice</html>")
 
-    def test_hooks_include_customer_portal_home_and_patch(self):
-        self.assertEqual(app_hooks.role_home_page["Customer Portal User"], "portal")
+    def test_hooks_include_customer_portal_cleanup_patch(self):
+        self.assertFalse(hasattr(app_hooks, "role_home_page"))
         builder_fixture = next(fixture for fixture in app_hooks.fixtures if fixture["dt"] == "Builder Page")
         routes = builder_fixture["filters"][0][2]
         self.assertNotIn("portal", routes)
@@ -1084,193 +1066,6 @@ class TestCustomerPortal(TestCase):
         patches = PATCHES_PATH.read_text(encoding="utf-8")
         self.assertIn("pikt_inc.patches.post_model_sync.ensure_customer_portal_role", patches)
         self.assertIn("pikt_inc.patches.post_model_sync.remove_legacy_customer_portal_builder_artifacts", patches)
-
-    def test_portal_www_templates_use_shared_shell_and_assets(self):
-        macros = PORTAL_MACROS_PATH.read_text(encoding="utf-8")
-        overview = PORTAL_OVERVIEW_TEMPLATE_PATH.read_text(encoding="utf-8")
-        agreements = PORTAL_AGREEMENTS_TEMPLATE_PATH.read_text(encoding="utf-8")
-        billing = PORTAL_BILLING_TEMPLATE_PATH.read_text(encoding="utf-8")
-        billing_info = PORTAL_BILLING_INFO_TEMPLATE_PATH.read_text(encoding="utf-8")
-        locations = PORTAL_LOCATIONS_TEMPLATE_PATH.read_text(encoding="utf-8")
-        css = PORTAL_CSS_PATH.read_text(encoding="utf-8")
-        js = PORTAL_FORMS_JS_PATH.read_text(encoding="utf-8")
-
-        self.assertIn("customer_portal_header", macros)
-        self.assertIn("customer_portal_footer", macros)
-        self.assertIn("/assets/pikt_inc/css/customer_portal.css", macros)
-        self.assertIn("site_shell_head", macros)
-        self.assertIn("site_shell_mobile_menu", macros)
-        self.assertIn("data-portal-mobile-nav", macros)
-        self.assertIn("portal-shell-header", css)
-        self.assertIn(".portal-shell-menu__backdrop", css)
-        self.assertIn("position:absolute", css)
-        self.assertIn("data-portal-endpoint", js)
-        self.assertIn("closeOpenPortalMenus", js)
-        self.assertIn("data-portal-mobile-nav", js)
-        self.assertIn("site-shell-mobile[open]", js)
-        self.assertIn("setFormBusy", js)
-        self.assertIn("portalSubmitting", js)
-        self.assertIn("function boot()", js)
-        self.assertIn("hasBooted", js)
-        self.assertIn("document.readyState==='loading'", js)
-        self.assertIn("document.addEventListener('DOMContentLoaded',boot,{once:true});", js)
-        self.assertNotIn("window.location.reload()", js)
-
-        for template in (overview, agreements, billing, billing_info, locations):
-            self.assertIn("customer_portal_header", template)
-            self.assertIn("customer_portal_footer", template)
-            self.assertIn("customer_portal_head", template)
-
-        self.assertIn("/assets/pikt_inc/js/customer_portal_forms.js", billing_info)
-        self.assertIn("/assets/pikt_inc/js/customer_portal_forms.js", locations)
-        self.assertIn("/api/method/pikt_inc.api.customer_portal.update_customer_portal_billing", billing_info)
-        self.assertNotIn("/api/method/pikt_inc.api.customer_portal.update_customer_portal_billing", billing)
-        self.assertIn("/api/method/pikt_inc.api.customer_portal.update_customer_portal_location", locations)
-        self.assertIn("/api/method/pikt_inc.api.customer_portal.update_customer_portal_building_sop", locations)
-        self.assertIn("data-portal-checklist-form", locations)
-        self.assertIn("Load older visits", locations)
-        self.assertNotIn("buildings_json", locations)
-        self.assertNotIn("portal-locations-data", locations)
-        self.assertIn("building-specific schedules and exhibits", agreements)
-        self.assertIn("Documents by service location", agreements)
-        self.assertIn("Download master agreement", agreements)
-        self.assertIn("Download exhibit", agreements)
-        self.assertIn("portal-section portal-section--documents", agreements)
-        self.assertNotIn("Service locations on agreement", agreements)
-        self.assertIn("serializeChecklistForm", js)
-        self.assertIn("setMessage(messageBox,error.message||'Unable to save changes.',true);", js)
-        self.assertIn("portal-checklist-item", css)
-        self.assertIn("portal-history-visit", css)
-        self.assertIn("portal-document-meta", css)
-        self.assertIn("portal-section--documents", css)
-        self.assertIn(".portal-section--documents,\n  .portal-stack--documents{", css)
-        self.assertIn("align-items:stretch;", css)
-
-    def test_portal_www_controllers_proxy_to_service(self):
-        context = types.SimpleNamespace()
-        with patch.object(portal_www_index, "build_context", return_value=context) as overview_helper:
-            result = portal_www_index.get_context(context)
-
-        self.assertIs(result, context)
-        overview_helper.assert_called_once()
-
-        context = types.SimpleNamespace()
-        with patch.object(portal_www_agreements, "build_context", return_value=context) as agreements_helper:
-            result = portal_www_agreements.get_context(context)
-        self.assertIs(result, context)
-        agreements_helper.assert_called_once()
-
-        context = types.SimpleNamespace()
-        with patch.object(portal_www_billing, "build_context", return_value=context) as billing_helper:
-            result = portal_www_billing.get_context(context)
-        self.assertIs(result, context)
-        billing_helper.assert_called_once()
-
-        context = types.SimpleNamespace()
-        with patch.object(portal_www_billing_info, "build_context", return_value=context) as billing_info_helper:
-            result = portal_www_billing_info.get_context(context)
-        self.assertIs(result, context)
-        billing_info_helper.assert_called_once()
-
-        context = types.SimpleNamespace()
-        with patch.object(portal_www_locations, "build_context", return_value=context) as locations_helper:
-            result = portal_www_locations.get_context(context)
-        self.assertIs(result, context)
-        locations_helper.assert_called_once()
-
-    def test_portal_page_helper_shapes_shell_context(self):
-        context = types.SimpleNamespace()
-        result = portal_page_helper.build_context(
-            context,
-            page_loader=lambda: {
-                "page_title": "Billing",
-                "portal_title": "Customer Portal",
-                "portal_description": "Desc",
-                "portal_nav": [
-                    {"key": "overview", "label": "Overview", "url": "/portal", "is_active": True},
-                    {"key": "contact", "label": "Contact", "url": "/contact", "is_active": False},
-                    {"key": "logout", "label": "Log out", "url": "/logout", "is_active": False},
-                ],
-                "metatags": {"title": "Billing | Customer Portal", "description": "Secure portal"},
-            },
-        )
-
-        self.assertIs(result, context)
-        self.assertEqual(context.page_title, "Billing | Customer Portal")
-        self.assertEqual(context.meta_description, "Secure portal")
-        self.assertEqual(context.description, "Secure portal")
-        self.assertEqual(context.body_class, "no-web-page-sections")
-        self.assertEqual(context.http_status_code, 200)
-        self.assertEqual([item["key"] for item in context.primary_nav], ["overview"])
-        self.assertEqual([item["key"] for item in context.utility_nav], ["contact", "logout"])
-
-    def test_portal_page_helper_preserves_http_status_code(self):
-        context = types.SimpleNamespace()
-        result = portal_page_helper.build_context(
-            context,
-            page_loader=lambda: {
-                "page_title": "Billing",
-                "portal_title": "Customer Portal",
-                "portal_description": "Desc",
-                "portal_nav": [],
-                "metatags": {"title": "Billing | Customer Portal", "description": "Secure portal"},
-                "http_status_code": 403,
-            },
-        )
-
-        self.assertIs(result, context)
-        self.assertEqual(context.http_status_code, 403)
-
-    def test_portal_page_helper_sets_redirect_response(self):
-        context = types.SimpleNamespace()
-        portal_page_helper.frappe.local.response = {}
-        portal_page_helper.frappe.local.flags = types.SimpleNamespace(redirect_location="")
-
-        with self.assertRaises(portal_page_helper.frappe.Redirect) as exc:
-            portal_page_helper.build_context(
-                context,
-                page_loader=lambda: {
-                    "page_title": "Overview",
-                    "portal_title": "Customer Portal",
-                    "portal_description": "Desc",
-                    "portal_nav": [],
-                    "metatags": {"title": "Customer Portal", "description": "Secure portal"},
-                    "http_status_code": 302,
-                    "redirect_to": "/login?redirect-to=/portal",
-                },
-            )
-
-        self.assertEqual(exc.exception.http_status_code, 302)
-        self.assertEqual(portal_page_helper.frappe.local.response["type"], "redirect")
-        self.assertEqual(portal_page_helper.frappe.local.response["location"], "/login?redirect-to=/portal")
-        self.assertEqual(portal_page_helper.frappe.local.response["http_status_code"], 302)
-        self.assertEqual(portal_page_helper.frappe.local.flags.redirect_location, "/login?redirect-to=/portal")
-
-    def test_portal_page_helper_normalizes_model_like_context_values(self):
-        context = types.SimpleNamespace()
-
-        result = portal_page_helper.build_context(
-            context,
-            page_loader=lambda: {
-                "page_title": "Overview",
-                "portal_title": "Customer Portal",
-                "portal_description": "Secure portal",
-                "portal_nav": [
-                    portal_contracts.PortalNavItem(key="overview", label="Overview", url="/portal", is_active=True),
-                    portal_contracts.PortalNavItem(key="contact", label="Contact", url="/contact", is_active=False),
-                ],
-                "metatags": portal_contracts.PortalMetaTags(
-                    title="Customer Portal",
-                    description="Secure portal",
-                    canonical="https://example.test/portal",
-                ),
-            },
-        )
-
-        self.assertIs(result, context)
-        self.assertEqual(context.page_title, "Customer Portal")
-        self.assertEqual([item["key"] for item in context.primary_nav], ["overview"])
-        self.assertEqual([item["key"] for item in context.utility_nav], ["contact"])
 
     def test_api_getters_proxy_to_service(self):
         with patch.object(portal_api.customer_portal_service, "get_customer_portal_dashboard_data", return_value={"page_key": "overview"}) as dashboard, patch.object(

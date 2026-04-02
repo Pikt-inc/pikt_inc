@@ -60,7 +60,7 @@ app_license = "mit"
 home_page = "home"
 
 # website user home page (by Role)
-role_home_page = {"Customer Portal User": "portal"}
+# role_home_page = {}
 
 website_route_rules = [
 	{"from_route": "/contact", "to_route": "contact-page"},

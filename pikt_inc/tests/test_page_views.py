@@ -15,10 +15,6 @@ from pikt_inc.views.pages.blog.post import BlogPostPageView
 from pikt_inc.views.pages.blog.rss import BlogRssPageView
 from pikt_inc.views.pages.blog.sitemap import BlogSitemapPageView
 from pikt_inc.views.pages.contact import ContactPageView
-from pikt_inc.views.pages.portal.agreements import PortalAgreementsPageView
-from pikt_inc.views.pages.portal.billing import PortalBillingPageView
-from pikt_inc.views.pages.portal.locations import PortalLocationsPageView
-from pikt_inc.views.pages.portal.overview import PortalOverviewPageView
 from pikt_inc.views.pages.quote.billing_complete import QuoteBillingCompletePageView
 from pikt_inc.views.pages.quote.digital_walkthrough import QuoteDigitalWalkthroughPageView
 from pikt_inc.views.pages.quote.digital_walkthrough_received import QuoteDigitalWalkthroughReceivedPageView
@@ -29,7 +25,6 @@ from pikt_inc.views.pages.quote.thank_you import QuoteThankYouPageView
 from pikt_inc.views.blog import BlogPageView
 from pikt_inc.views.blog import FeedPageView
 from pikt_inc.views.quote import QuotePageView
-from pikt_inc.views.portal import PortalPageView
 
 
 class ExamplePageView(BasePageView):
@@ -109,31 +104,6 @@ class TestPageViews(TestCase):
                 self.assertEqual(view_class.sitemap, 0)
                 self.assertEqual(context.page_title, title)
                 self.assertEqual(context.meta_description, description)
-
-    def test_portal_page_view_normalizes_nested_models(self):
-        context = SimpleNamespace()
-
-        result = PortalPageView(
-            page_loader=lambda: {
-                "portal_title": "Customer Portal",
-                "portal_description": "Secure portal",
-                "portal_nav": [
-                    PortalNavItem(key="overview", label="Overview", url="/portal", is_active=True),
-                    PortalNavItem(key="contact", label="Contact", url="/contact", is_active=False),
-                ],
-                "metatags": PortalMetaTags(
-                    title="Account Overview | Customer Portal",
-                    description="Secure portal",
-                    canonical="https://example.test/portal",
-                ),
-            }
-        ).build_context(context)
-
-        self.assertIs(result, context)
-        self.assertEqual(context.page_title, "Account Overview | Customer Portal")
-        self.assertEqual(context.meta_description, "Secure portal")
-        self.assertEqual([item["key"] for item in context.primary_nav], ["overview"])
-        self.assertEqual([item["key"] for item in context.utility_nav], ["contact"])
 
     def test_contact_page_view_builds_public_contact_context(self):
         context = SimpleNamespace()
@@ -250,112 +220,3 @@ class TestPageViews(TestCase):
                 self.assertIs(result, context)
                 self.assertEqual(view_class.sitemap, 0)
                 self.assertEqual(getattr(context, key), payload[key])
-
-    def test_portal_overview_page_view_uses_class_level_loader(self):
-        context = SimpleNamespace()
-        original_loader = PortalOverviewPageView.page_loader
-        PortalOverviewPageView.page_loader = staticmethod(
-            lambda: {
-                "portal_title": "Customer Portal",
-                "portal_description": "Secure portal",
-                "portal_nav": [
-                    {"key": "overview", "label": "Overview", "url": "/portal", "is_active": True},
-                ],
-                "metatags": {
-                    "title": "Account Overview | Customer Portal",
-                    "description": "Secure portal",
-                },
-                "customer_display": "Portal Customer LLC",
-            }
-        )
-        try:
-            result = PortalOverviewPageView().build_context(context)
-        finally:
-            PortalOverviewPageView.page_loader = original_loader
-
-        self.assertIs(result, context)
-        self.assertEqual(PortalOverviewPageView.sitemap, 0)
-        self.assertEqual(context.customer_display, "Portal Customer LLC")
-
-    def test_portal_billing_page_view_uses_class_level_loader(self):
-        context = SimpleNamespace()
-        original_loader = PortalBillingPageView.page_loader
-        PortalBillingPageView.page_loader = staticmethod(
-            lambda: {
-                "portal_title": "Customer Portal",
-                "portal_description": "Secure portal",
-                "portal_nav": [
-                    {"key": "billing", "label": "Billing", "url": "/portal/billing", "is_active": True},
-                    {"key": "logout", "label": "Log out", "url": "/logout", "is_active": False},
-                ],
-                "metatags": {
-                    "title": "Billing | Customer Portal",
-                    "description": "Secure billing portal",
-                },
-                "tax_id": "12-3456789",
-            }
-        )
-        try:
-            result = PortalBillingPageView().build_context(context)
-        finally:
-            PortalBillingPageView.page_loader = original_loader
-
-        self.assertIs(result, context)
-        self.assertEqual(PortalBillingPageView.sitemap, 0)
-        self.assertEqual(context.tax_id, "12-3456789")
-        self.assertEqual([item["key"] for item in context.primary_nav], ["billing"])
-        self.assertEqual([item["key"] for item in context.utility_nav], ["logout"])
-
-    def test_portal_agreements_page_view_uses_class_level_loader(self):
-        context = SimpleNamespace()
-        original_loader = PortalAgreementsPageView.page_loader
-        PortalAgreementsPageView.page_loader = staticmethod(
-            lambda: {
-                "portal_title": "Customer Portal",
-                "portal_description": "Secure portal",
-                "portal_nav": [
-                    {"key": "agreements", "label": "Agreements", "url": "/portal/agreements", "is_active": True},
-                ],
-                "metatags": {
-                    "title": "Agreements | Customer Portal",
-                    "description": "Secure agreements portal",
-                },
-                "addenda": [{"name": "ADD-1"}],
-            }
-        )
-        try:
-            result = PortalAgreementsPageView().build_context(context)
-        finally:
-            PortalAgreementsPageView.page_loader = original_loader
-
-        self.assertIs(result, context)
-        self.assertEqual(PortalAgreementsPageView.sitemap, 0)
-        self.assertEqual(context.addenda, [{"name": "ADD-1"}])
-        self.assertEqual([item["key"] for item in context.primary_nav], ["agreements"])
-
-    def test_portal_locations_page_view_uses_class_level_loader(self):
-        context = SimpleNamespace()
-        original_loader = PortalLocationsPageView.page_loader
-        PortalLocationsPageView.page_loader = staticmethod(
-            lambda: {
-                "portal_title": "Customer Portal",
-                "portal_description": "Secure portal",
-                "portal_nav": [
-                    {"key": "locations", "label": "Locations", "url": "/portal/locations", "is_active": True},
-                ],
-                "metatags": {
-                    "title": "Locations | Customer Portal",
-                    "description": "Secure locations portal",
-                },
-                "buildings": [{"name": "BUILD-1"}],
-            }
-        )
-        try:
-            result = PortalLocationsPageView().build_context(context)
-        finally:
-            PortalLocationsPageView.page_loader = original_loader
-
-        self.assertIs(result, context)
-        self.assertEqual(PortalLocationsPageView.sitemap, 0)
-        self.assertEqual(context.buildings, [{"name": "BUILD-1"}])
-        self.assertEqual([item["key"] for item in context.primary_nav], ["locations"])
