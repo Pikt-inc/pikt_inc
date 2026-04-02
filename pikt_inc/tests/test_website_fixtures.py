@@ -23,7 +23,6 @@ CUSTOM_DOCPERM_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" /
 BUILDER_COMPONENT_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "builder_component.json"
 WEB_FORM_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "web_form.json"
 PORTAL_SETTINGS_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "portal_settings.json"
-WEBSITE_SETTINGS_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "website_settings.json"
 INSTANT_QUOTE_TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "www" / "instant-quote.html"
 INSTANT_QUOTE_CONTROLLER_PATH = Path(__file__).resolve().parents[1] / "www" / "instant_quote.py"
 SITE_SHELL_MACROS_PATH = Path(__file__).resolve().parents[1] / "templates" / "includes" / "site_shell_macros.html"
@@ -216,23 +215,6 @@ class TestWebsiteFixtures(unittest.TestCase):
         portal_settings_fixture = next(row for row in app_hooks.fixtures if row["dt"] == "Portal Settings")
 
         self.assertEqual(portal_settings_fixture, {"dt": "Portal Settings"})
-
-    def test_website_settings_fixture_is_exported(self):
-        website_settings_fixture = next(row for row in app_hooks.fixtures if row["dt"] == "Website Settings")
-
-        self.assertEqual(website_settings_fixture, {"dt": "Website Settings"})
-
-    def test_website_settings_fixture_enables_signup(self):
-        website_settings_docs = json.loads(WEBSITE_SETTINGS_FIXTURE_PATH.read_text(encoding="utf-8"))
-
-        self.assertEqual(len(website_settings_docs), 1)
-        website_settings = website_settings_docs[0]
-        self.assertEqual(website_settings["doctype"], "Website Settings")
-        self.assertEqual(website_settings["name"], "Website Settings")
-        self.assertEqual(website_settings["home_page"], "home")
-        self.assertEqual(website_settings["disable_signup"], 0)
-        self.assertEqual(website_settings["app_name"], "Pikt, Inc.")
-        self.assertEqual(website_settings["website_theme"], "Standard")
 
     def test_portal_settings_fixture_file_enables_customer_transaction_menu_and_stages_agreement_links(self):
         portal_settings_docs = json.loads(PORTAL_SETTINGS_FIXTURE_PATH.read_text(encoding="utf-8"))

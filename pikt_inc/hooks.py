@@ -535,9 +535,6 @@ fixtures = [
 	{
 		"dt": "Portal Settings",
 	},
-	{
-		"dt": "Website Settings",
-	},
 ]
 
 # Extend DocType Class
