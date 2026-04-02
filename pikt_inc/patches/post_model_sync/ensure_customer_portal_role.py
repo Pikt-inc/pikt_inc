@@ -4,7 +4,7 @@ import frappe
 
 
 ROLE_NAME = "Customer Portal User"
-ROLE_HOME = "orders"
+ROLE_HOME = "portal"
 
 
 def clean(value):

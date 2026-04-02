@@ -60,8 +60,7 @@ app_license = "mit"
 home_page = "home"
 
 # website user home page (by Role)
-# Route customer website users into the stock ERPNext portal.
-role_home_page = {"Customer Portal User": "orders"}
+role_home_page = {"Customer Portal User": "portal"}
 
 website_route_rules = [
 	{"from_route": "/contact", "to_route": "contact-page"},

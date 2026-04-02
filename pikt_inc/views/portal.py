@@ -14,8 +14,6 @@ class PortalPageView(PublicPageView):
 
     noindex_meta = 1
     page_loader: Callable[[], dict[str, Any]] | None = None
-    retired_redirect_to: str | None = None
-    retired_http_status_code: int = 302
 
     def __init__(self, *, page_loader: Callable[[], dict[str, Any]] | None = None):
         """Initialize a portal page view.
@@ -34,11 +32,6 @@ class PortalPageView(PublicPageView):
 
         :returns: A portal page payload dictionary.
         """
-        if self.retired_redirect_to:
-            return {
-                "redirect_to": self.retired_redirect_to,
-                "http_status_code": self.retired_http_status_code,
-            }
         return self.page_loader() or {}
 
     def resolve_page_title(self, data: dict[str, Any]) -> str:

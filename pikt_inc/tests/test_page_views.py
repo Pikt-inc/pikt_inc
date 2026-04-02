@@ -7,8 +7,6 @@ from pikt_inc.tests._frappe_harness import install_test_frappe
 
 install_test_frappe()
 
-import frappe
-
 from pikt_inc.services.contracts.customer_portal import PortalMetaTags
 from pikt_inc.services.contracts.customer_portal import PortalNavItem
 from pikt_inc.views.base import BasePageView
@@ -49,25 +47,6 @@ class ExamplePageView(BasePageView):
 
 
 class TestPageViews(TestCase):
-    def assert_retired_portal_view_redirects(self, view_class):
-        context = SimpleNamespace()
-        original_loader = view_class.page_loader
-        view_class.page_loader = staticmethod(
-            lambda: self.fail("Retired portal routes should redirect before loading legacy portal data.")
-        )
-        frappe.local.response = {}
-        frappe.local.flags = SimpleNamespace(redirect_location="")
-        try:
-            with self.assertRaises(frappe.Redirect) as exc:
-                view_class().build_context(context)
-        finally:
-            view_class.page_loader = original_loader
-
-        self.assertEqual(exc.exception.http_status_code, 302)
-        self.assertEqual(frappe.local.response["type"], "redirect")
-        self.assertEqual(frappe.local.response["location"], "/orders")
-        self.assertEqual(frappe.local.flags.redirect_location, "/orders")
-
     def test_base_page_view_applies_defaults_and_payload(self):
         context = SimpleNamespace()
 
@@ -273,17 +252,110 @@ class TestPageViews(TestCase):
                 self.assertEqual(getattr(context, key), payload[key])
 
     def test_portal_overview_page_view_uses_class_level_loader(self):
-        self.assert_retired_portal_view_redirects(PortalOverviewPageView)
+        context = SimpleNamespace()
+        original_loader = PortalOverviewPageView.page_loader
+        PortalOverviewPageView.page_loader = staticmethod(
+            lambda: {
+                "portal_title": "Customer Portal",
+                "portal_description": "Secure portal",
+                "portal_nav": [
+                    {"key": "overview", "label": "Overview", "url": "/portal", "is_active": True},
+                ],
+                "metatags": {
+                    "title": "Account Overview | Customer Portal",
+                    "description": "Secure portal",
+                },
+                "customer_display": "Portal Customer LLC",
+            }
+        )
+        try:
+            result = PortalOverviewPageView().build_context(context)
+        finally:
+            PortalOverviewPageView.page_loader = original_loader
+
+        self.assertIs(result, context)
         self.assertEqual(PortalOverviewPageView.sitemap, 0)
+        self.assertEqual(context.customer_display, "Portal Customer LLC")
 
     def test_portal_billing_page_view_uses_class_level_loader(self):
-        self.assert_retired_portal_view_redirects(PortalBillingPageView)
+        context = SimpleNamespace()
+        original_loader = PortalBillingPageView.page_loader
+        PortalBillingPageView.page_loader = staticmethod(
+            lambda: {
+                "portal_title": "Customer Portal",
+                "portal_description": "Secure portal",
+                "portal_nav": [
+                    {"key": "billing", "label": "Billing", "url": "/portal/billing", "is_active": True},
+                    {"key": "logout", "label": "Log out", "url": "/logout", "is_active": False},
+                ],
+                "metatags": {
+                    "title": "Billing | Customer Portal",
+                    "description": "Secure billing portal",
+                },
+                "tax_id": "12-3456789",
+            }
+        )
+        try:
+            result = PortalBillingPageView().build_context(context)
+        finally:
+            PortalBillingPageView.page_loader = original_loader
+
+        self.assertIs(result, context)
         self.assertEqual(PortalBillingPageView.sitemap, 0)
+        self.assertEqual(context.tax_id, "12-3456789")
+        self.assertEqual([item["key"] for item in context.primary_nav], ["billing"])
+        self.assertEqual([item["key"] for item in context.utility_nav], ["logout"])
 
     def test_portal_agreements_page_view_uses_class_level_loader(self):
-        self.assert_retired_portal_view_redirects(PortalAgreementsPageView)
+        context = SimpleNamespace()
+        original_loader = PortalAgreementsPageView.page_loader
+        PortalAgreementsPageView.page_loader = staticmethod(
+            lambda: {
+                "portal_title": "Customer Portal",
+                "portal_description": "Secure portal",
+                "portal_nav": [
+                    {"key": "agreements", "label": "Agreements", "url": "/portal/agreements", "is_active": True},
+                ],
+                "metatags": {
+                    "title": "Agreements | Customer Portal",
+                    "description": "Secure agreements portal",
+                },
+                "addenda": [{"name": "ADD-1"}],
+            }
+        )
+        try:
+            result = PortalAgreementsPageView().build_context(context)
+        finally:
+            PortalAgreementsPageView.page_loader = original_loader
+
+        self.assertIs(result, context)
         self.assertEqual(PortalAgreementsPageView.sitemap, 0)
+        self.assertEqual(context.addenda, [{"name": "ADD-1"}])
+        self.assertEqual([item["key"] for item in context.primary_nav], ["agreements"])
 
     def test_portal_locations_page_view_uses_class_level_loader(self):
-        self.assert_retired_portal_view_redirects(PortalLocationsPageView)
+        context = SimpleNamespace()
+        original_loader = PortalLocationsPageView.page_loader
+        PortalLocationsPageView.page_loader = staticmethod(
+            lambda: {
+                "portal_title": "Customer Portal",
+                "portal_description": "Secure portal",
+                "portal_nav": [
+                    {"key": "locations", "label": "Locations", "url": "/portal/locations", "is_active": True},
+                ],
+                "metatags": {
+                    "title": "Locations | Customer Portal",
+                    "description": "Secure locations portal",
+                },
+                "buildings": [{"name": "BUILD-1"}],
+            }
+        )
+        try:
+            result = PortalLocationsPageView().build_context(context)
+        finally:
+            PortalLocationsPageView.page_loader = original_loader
+
+        self.assertIs(result, context)
         self.assertEqual(PortalLocationsPageView.sitemap, 0)
+        self.assertEqual(context.buildings, [{"name": "BUILD-1"}])
+        self.assertEqual([item["key"] for item in context.primary_nav], ["locations"])

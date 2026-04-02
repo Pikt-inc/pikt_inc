@@ -8,5 +8,4 @@ class PortalBillingInfoPageView(PortalPageView):
     """Concrete portal billing-info page view."""
 
     sitemap = 0
-    retired_redirect_to = "/orders"
     page_loader = staticmethod(customer_portal.get_customer_portal_billing_info_data)
