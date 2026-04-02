@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import importlib
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 import sys
 from unittest import TestCase
@@ -41,8 +41,11 @@ try:
     app_hooks = importlib.import_module("pikt_inc.hooks")
     portal = importlib.import_module("pikt_inc.services.customer_portal")
     portal_api = importlib.import_module("pikt_inc.api.customer_portal")
+    portal_building_repo = importlib.import_module("pikt_inc.services.customer_portal.building_repo")
+    portal_checklist_repo = importlib.import_module("pikt_inc.services.customer_portal.checklist_repo")
     portal_client = importlib.import_module("pikt_inc.services.customer_portal.client")
     portal_context = importlib.import_module("pikt_inc.services.customer_portal.context")
+    portal_mappers = importlib.import_module("pikt_inc.services.customer_portal.mappers")
     retire_legacy_customer_portal_role = importlib.import_module(
         "pikt_inc.patches.post_model_sync.retire_legacy_customer_portal_role"
     )
@@ -50,8 +53,11 @@ except ModuleNotFoundError:
     app_hooks = importlib.import_module("pikt_inc.pikt_inc.hooks")
     portal = importlib.import_module("pikt_inc.pikt_inc.services.customer_portal")
     portal_api = importlib.import_module("pikt_inc.pikt_inc.api.customer_portal")
+    portal_building_repo = importlib.import_module("pikt_inc.pikt_inc.services.customer_portal.building_repo")
+    portal_checklist_repo = importlib.import_module("pikt_inc.pikt_inc.services.customer_portal.checklist_repo")
     portal_client = importlib.import_module("pikt_inc.pikt_inc.services.customer_portal.client")
     portal_context = importlib.import_module("pikt_inc.pikt_inc.services.customer_portal.context")
+    portal_mappers = importlib.import_module("pikt_inc.pikt_inc.services.customer_portal.mappers")
     retire_legacy_customer_portal_role = importlib.import_module(
         "pikt_inc.pikt_inc.patches.post_model_sync.retire_legacy_customer_portal_role"
     )
@@ -187,7 +193,7 @@ class TestCustomerPortal(TestCase):
                     "name": "BUILD-1",
                     "customer": "CUST-1",
                     "building_name": "Headquarters",
-                    "active": 1,
+                    "active": "1",
                     "current_checklist_template": "CHK-TPL-1",
                     "address_line_1": "123 Market St",
                     "address_line_2": "Suite 300",
@@ -195,14 +201,14 @@ class TestCustomerPortal(TestCase):
                     "state": "TX",
                     "postal_code": "78701",
                     "site_notes": "Front entrance only.",
-                    "creation": datetime(2026, 3, 1, 8, 0, 0),
-                    "modified": datetime(2026, 3, 6, 12, 0, 0),
+                    "creation": "2026-03-01 08:00:00",
+                    "modified": "2026-03-06 12:00:00",
                 },
                 "BUILD-OTHER": {
                     "name": "BUILD-OTHER",
                     "customer": "CUST-2",
                     "building_name": "Other Site",
-                    "active": 1,
+                    "active": "1",
                     "current_checklist_template": "CHK-TPL-2",
                     "address_line_1": "999 Elsewhere",
                     "address_line_2": "",
@@ -210,8 +216,8 @@ class TestCustomerPortal(TestCase):
                     "state": "TX",
                     "postal_code": "75001",
                     "site_notes": "Out of scope.",
-                    "creation": datetime(2026, 3, 2, 8, 0, 0),
-                    "modified": datetime(2026, 3, 7, 12, 0, 0),
+                    "creation": "2026-03-02 08:00:00",
+                    "modified": "2026-03-07 12:00:00",
                 },
             },
             "Building_list": [
@@ -219,7 +225,7 @@ class TestCustomerPortal(TestCase):
                     "name": "BUILD-1",
                     "customer": "CUST-1",
                     "building_name": "Headquarters",
-                    "active": 1,
+                    "active": "1",
                     "current_checklist_template": "CHK-TPL-1",
                     "address_line_1": "123 Market St",
                     "address_line_2": "Suite 300",
@@ -227,14 +233,14 @@ class TestCustomerPortal(TestCase):
                     "state": "TX",
                     "postal_code": "78701",
                     "site_notes": "Front entrance only.",
-                    "creation": datetime(2026, 3, 1, 8, 0, 0),
-                    "modified": datetime(2026, 3, 6, 12, 0, 0),
+                    "creation": "2026-03-01 08:00:00",
+                    "modified": "2026-03-06 12:00:00",
                 },
                 {
                     "name": "BUILD-OTHER",
                     "customer": "CUST-2",
                     "building_name": "Other Site",
-                    "active": 1,
+                    "active": "1",
                     "current_checklist_template": "CHK-TPL-2",
                     "address_line_1": "999 Elsewhere",
                     "address_line_2": "",
@@ -242,90 +248,90 @@ class TestCustomerPortal(TestCase):
                     "state": "TX",
                     "postal_code": "75001",
                     "site_notes": "Out of scope.",
-                    "creation": datetime(2026, 3, 2, 8, 0, 0),
-                    "modified": datetime(2026, 3, 7, 12, 0, 0),
+                    "creation": "2026-03-02 08:00:00",
+                    "modified": "2026-03-07 12:00:00",
                 },
             ],
             "Checklist Session": {
                 "CS-1": {
                     "name": "CS-1",
                     "building": "BUILD-1",
-                    "service_date": datetime(2026, 3, 9, 0, 0, 0),
+                    "service_date": "2026-03-09",
                     "checklist_template": "CHK-TPL-1",
                     "status": "completed",
-                    "started_at": datetime(2026, 3, 9, 18, 0, 0),
-                    "completed_at": datetime(2026, 3, 9, 19, 15, 0),
+                    "started_at": "2026-03-09 18:00:00",
+                    "completed_at": "2026-03-09 19:15:00",
                     "worker": "Jordan Tech",
                     "session_notes": "Completed without issues.",
-                    "creation": datetime(2026, 3, 9, 17, 55, 0),
-                    "modified": datetime(2026, 3, 9, 19, 15, 0),
+                    "creation": "2026-03-09 17:55:00",
+                    "modified": "2026-03-09 19:15:00",
                 },
                 "CS-IN-PROGRESS": {
                     "name": "CS-IN-PROGRESS",
                     "building": "BUILD-1",
-                    "service_date": datetime(2026, 3, 10, 0, 0, 0),
+                    "service_date": "2026-03-10",
                     "checklist_template": "CHK-TPL-1",
                     "status": "in_progress",
-                    "started_at": datetime(2026, 3, 10, 18, 0, 0),
+                    "started_at": "2026-03-10 18:00:00",
                     "completed_at": None,
                     "worker": "Jordan Tech",
                     "session_notes": "Still open.",
-                    "creation": datetime(2026, 3, 10, 17, 55, 0),
-                    "modified": datetime(2026, 3, 10, 18, 30, 0),
+                    "creation": "2026-03-10 17:55:00",
+                    "modified": "2026-03-10 18:30:00",
                 },
                 "CS-OTHER": {
                     "name": "CS-OTHER",
                     "building": "BUILD-OTHER",
-                    "service_date": datetime(2026, 3, 11, 0, 0, 0),
+                    "service_date": "2026-03-11",
                     "checklist_template": "CHK-TPL-2",
                     "status": "completed",
-                    "started_at": datetime(2026, 3, 11, 18, 0, 0),
-                    "completed_at": datetime(2026, 3, 11, 19, 15, 0),
+                    "started_at": "2026-03-11 18:00:00",
+                    "completed_at": "2026-03-11 19:15:00",
                     "worker": "Other Tech",
                     "session_notes": "Out of scope.",
-                    "creation": datetime(2026, 3, 11, 17, 55, 0),
-                    "modified": datetime(2026, 3, 11, 19, 15, 0),
+                    "creation": "2026-03-11 17:55:00",
+                    "modified": "2026-03-11 19:15:00",
                 },
             },
             "Checklist Session_list": [
                 {
                     "name": "CS-1",
                     "building": "BUILD-1",
-                    "service_date": datetime(2026, 3, 9, 0, 0, 0),
+                    "service_date": "2026-03-09",
                     "checklist_template": "CHK-TPL-1",
                     "status": "completed",
-                    "started_at": datetime(2026, 3, 9, 18, 0, 0),
-                    "completed_at": datetime(2026, 3, 9, 19, 15, 0),
+                    "started_at": "2026-03-09 18:00:00",
+                    "completed_at": "2026-03-09 19:15:00",
                     "worker": "Jordan Tech",
                     "session_notes": "Completed without issues.",
-                    "creation": datetime(2026, 3, 9, 17, 55, 0),
-                    "modified": datetime(2026, 3, 9, 19, 15, 0),
+                    "creation": "2026-03-09 17:55:00",
+                    "modified": "2026-03-09 19:15:00",
                 },
                 {
                     "name": "CS-IN-PROGRESS",
                     "building": "BUILD-1",
-                    "service_date": datetime(2026, 3, 10, 0, 0, 0),
+                    "service_date": "2026-03-10",
                     "checklist_template": "CHK-TPL-1",
                     "status": "in_progress",
-                    "started_at": datetime(2026, 3, 10, 18, 0, 0),
+                    "started_at": "2026-03-10 18:00:00",
                     "completed_at": None,
                     "worker": "Jordan Tech",
                     "session_notes": "Still open.",
-                    "creation": datetime(2026, 3, 10, 17, 55, 0),
-                    "modified": datetime(2026, 3, 10, 18, 30, 0),
+                    "creation": "2026-03-10 17:55:00",
+                    "modified": "2026-03-10 18:30:00",
                 },
                 {
                     "name": "CS-OTHER",
                     "building": "BUILD-OTHER",
-                    "service_date": datetime(2026, 3, 11, 0, 0, 0),
+                    "service_date": "2026-03-11",
                     "checklist_template": "CHK-TPL-2",
                     "status": "completed",
-                    "started_at": datetime(2026, 3, 11, 18, 0, 0),
-                    "completed_at": datetime(2026, 3, 11, 19, 15, 0),
+                    "started_at": "2026-03-11 18:00:00",
+                    "completed_at": "2026-03-11 19:15:00",
                     "worker": "Other Tech",
                     "session_notes": "Out of scope.",
-                    "creation": datetime(2026, 3, 11, 17, 55, 0),
-                    "modified": datetime(2026, 3, 11, 19, 15, 0),
+                    "creation": "2026-03-11 17:55:00",
+                    "modified": "2026-03-11 19:15:00",
                 },
             ],
             "Checklist Session Item_list": [
@@ -334,17 +340,17 @@ class TestCustomerPortal(TestCase):
                     "parent": "CS-1",
                     "parenttype": "Checklist Session",
                     "parentfield": "items",
-                    "idx": 1,
+                    "idx": "1",
                     "item_key": "restrooms",
                     "category": "job_completion",
-                    "sort_order": 1,
+                    "sort_order": "1",
                     "title_snapshot": "Restrooms sanitized",
                     "description_snapshot": "Disinfect restroom touchpoints.",
-                    "requires_image": 1,
-                    "allow_notes": 1,
-                    "is_required": 1,
-                    "completed": 1,
-                    "completed_at": datetime(2026, 3, 9, 18, 45, 0),
+                    "requires_image": "1",
+                    "allow_notes": "1",
+                    "is_required": "1",
+                    "completed": "1",
+                    "completed_at": "2026-03-09 18:45:00",
                     "note": "Verification complete.",
                     "proof_image": "/private/files/restroom-proof.jpg",
                 },
@@ -353,17 +359,17 @@ class TestCustomerPortal(TestCase):
                     "parent": "CS-1",
                     "parenttype": "Checklist Session",
                     "parentfield": "items",
-                    "idx": 2,
+                    "idx": "2",
                     "item_key": "trash",
                     "category": "job_completion",
-                    "sort_order": 2,
+                    "sort_order": "2",
                     "title_snapshot": "Trash removed",
                     "description_snapshot": "Empty all cans and replace liners.",
-                    "requires_image": 0,
-                    "allow_notes": 1,
-                    "is_required": 1,
-                    "completed": 1,
-                    "completed_at": datetime(2026, 3, 9, 19, 0, 0),
+                    "requires_image": "0",
+                    "allow_notes": "1",
+                    "is_required": "1",
+                    "completed": "1",
+                    "completed_at": "2026-03-09 19:00:00",
                     "note": "All clear.",
                     "proof_image": "",
                 },
@@ -372,17 +378,17 @@ class TestCustomerPortal(TestCase):
                     "parent": "CS-OTHER",
                     "parenttype": "Checklist Session",
                     "parentfield": "items",
-                    "idx": 1,
+                    "idx": "1",
                     "item_key": "other",
                     "category": "job_completion",
-                    "sort_order": 1,
+                    "sort_order": "1",
                     "title_snapshot": "Other task",
                     "description_snapshot": "Out of scope.",
-                    "requires_image": 1,
-                    "allow_notes": 1,
-                    "is_required": 1,
-                    "completed": 1,
-                    "completed_at": datetime(2026, 3, 11, 18, 30, 0),
+                    "requires_image": "1",
+                    "allow_notes": "1",
+                    "is_required": "1",
+                    "completed": "1",
+                    "completed_at": "2026-03-11 18:30:00",
                     "note": "Nope.",
                     "proof_image": "/private/files/other-proof.jpg",
                 },
@@ -396,13 +402,6 @@ class TestCustomerPortal(TestCase):
         self.frappe.local = types.SimpleNamespace(response={}, request=types.SimpleNamespace(get_json=lambda silent=True: None))
         self.frappe.request = types.SimpleNamespace(data=None)
         self.frappe.form_dict = {}
-
-    def _patch_customer_links(self):
-        return patch.object(portal_context.public_quote_service, "find_contact_for_customer", return_value="CONTACT-BILLING"), patch.object(
-            portal_context.public_quote_service,
-            "find_address_for_customer",
-            return_value="ADDR-1",
-        )
 
     def test_package_surface_is_reduced_and_explicit(self):
         self.assertEqual(
@@ -419,7 +418,7 @@ class TestCustomerPortal(TestCase):
                 "ClientSessionItem",
                 "ClientSessionSummary",
                 "CustomerPortalAccessError",
-                "CustomerPortalContext",
+                "CustomerPortalPrincipal",
                 "CustomerPortalNotFoundError",
                 "FileDownload",
                 "download_client_job_proof",
@@ -428,17 +427,16 @@ class TestCustomerPortal(TestCase):
                 "get_client_overview",
             ],
         )
+        self.assertFalse(hasattr(portal, "CustomerPortalContext"))
 
-    def test_resolve_context_returns_typed_context_for_linked_customer_user(self):
-        link_contact, link_address = self._patch_customer_links()
-        with link_contact, link_address:
-            context = portal_context.resolve_context()
+    def test_resolve_context_returns_principal_only_for_linked_customer_user(self):
+        context = portal_context.resolve_context()
 
+        self.assertIsInstance(context, portal.CustomerPortalPrincipal)
+        self.assertEqual(set(context.model_dump().keys()), {"session_user", "customer_name", "customer_display"})
+        self.assertEqual(context.session_user, "portal@example.com")
         self.assertEqual(context.customer_name, "CUST-1")
         self.assertEqual(context.customer_display, "Portal Customer LLC")
-        self.assertEqual(context.portal_contact_name, "CONTACT-1")
-        self.assertEqual(context.billing_contact_name, "CONTACT-BILLING")
-        self.assertEqual(context.billing_address_name, "ADDR-1")
 
     def test_resolve_context_rejects_invalid_portal_users(self):
         with self.assertRaisesRegex(portal.CustomerPortalAccessError, "Sign in to access your customer portal"):
@@ -455,26 +453,69 @@ class TestCustomerPortal(TestCase):
             self.frappe.get_roles = lambda _user=None: ["Customer"]
             portal_context.resolve_context()
 
+        with self.assertRaisesRegex(portal.CustomerPortalAccessError, "linked customer record could not be loaded"):
+            self.dataset["User"]["portal@example.com"]["custom_customer"] = "MISSING"
+            self.frappe.session = types.SimpleNamespace(user="portal@example.com")
+            self.frappe.get_roles = lambda _user=None: ["Customer"]
+            portal_context.resolve_context()
+
+    def test_repo_records_normalize_flags_and_temporals(self):
+        building = portal_building_repo.get_building("BUILD-1")
+        session = portal_checklist_repo.get_session("CS-1")
+        item = portal_checklist_repo.get_session_items("CS-1")[0]
+
+        self.assertIsNotNone(building)
+        self.assertTrue(building.active)
+        self.assertIsInstance(building.creation, datetime)
+        self.assertIsInstance(building.modified, datetime)
+
+        self.assertIsNotNone(session)
+        self.assertIsInstance(session.service_date, date)
+        self.assertIsInstance(session.started_at, datetime)
+        self.assertIsInstance(session.completed_at, datetime)
+
+        self.assertEqual(item.idx, 1)
+        self.assertEqual(item.sort_order, 1)
+        self.assertTrue(item.requires_image)
+        self.assertTrue(item.allow_notes)
+        self.assertTrue(item.is_required)
+        self.assertTrue(item.completed)
+        self.assertIsInstance(item.completed_at, datetime)
+
+    def test_mappers_preserve_public_shape_and_defaults(self):
+        building = portal_building_repo.get_building("BUILD-1")
+        session = portal_checklist_repo.get_session("CS-1")
+        item = portal_checklist_repo.get_session_items("CS-1")[0]
+
+        building_summary = portal_mappers.map_building_summary(building)
+        session_summary = portal_mappers.map_session_summary(session)
+        session_item = portal_mappers.map_session_item(item, "CS-1")
+        fallback_item = portal_mappers.map_session_item(item.model_copy(update={"category": "unexpected"}), "CS-1")
+
+        self.assertEqual(building_summary.address, "123 Market St, Suite 300, Austin, TX 78701")
+        self.assertEqual(building_summary.created_at, "2026-03-01 08:00:00")
+        self.assertEqual(session_summary.service_date, "2026-03-09")
+        self.assertEqual(session_summary.started_at, "2026-03-09 18:00:00")
+        self.assertEqual(
+            session_item.proof_image,
+            "/api/method/pikt_inc.api.customer_portal.download_customer_portal_client_job_proof?session=CS-1&item_key=restrooms",
+        )
+        self.assertEqual(fallback_item.category, "job_completion")
+
     def test_get_client_overview_returns_only_scoped_completed_data(self):
-        link_contact, link_address = self._patch_customer_links()
-        with link_contact, link_address:
-            response = portal.get_client_overview(portal.ClientOverviewRequest())
+        response = portal.get_client_overview(portal.ClientOverviewRequest())
 
         self.assertEqual([building.id for building in response.buildings], ["BUILD-1"])
         self.assertEqual([session.id for session in response.completed_sessions], ["CS-1"])
 
     def test_get_client_building_returns_scoped_history_only(self):
-        link_contact, link_address = self._patch_customer_links()
-        with link_contact, link_address:
-            response = portal.get_client_building(portal.ClientBuildingRequest.model_validate({"building": "BUILD-1"}))
+        response = portal.get_client_building(portal.ClientBuildingRequest.model_validate({"building": "BUILD-1"}))
 
         self.assertEqual(response.building.id, "BUILD-1")
         self.assertEqual([session.id for session in response.completed_sessions], ["CS-1"])
 
     def test_get_client_job_returns_job_detail_with_proof_urls(self):
-        link_contact, link_address = self._patch_customer_links()
-        with link_contact, link_address:
-            response = portal.get_client_job(portal.ClientJobRequest.model_validate({"session": "CS-1"}))
+        response = portal.get_client_job(portal.ClientJobRequest.model_validate({"session": "CS-1"}))
 
         self.assertEqual(response.building.id, "BUILD-1")
         self.assertEqual(response.session.id, "CS-1")
@@ -485,8 +526,7 @@ class TestCustomerPortal(TestCase):
         )
 
     def test_download_client_job_proof_returns_file_download(self):
-        link_contact, link_address = self._patch_customer_links()
-        with link_contact, link_address, patch.object(
+        with patch.object(
             portal_client.building_sop_service,
             "get_proof_file_content",
             return_value=("restroom-proof.jpg", b"IMG", "image/jpeg"),
@@ -501,12 +541,10 @@ class TestCustomerPortal(TestCase):
         self.assertFalse(response.as_attachment)
 
     def test_download_client_job_proof_rejects_out_of_scope_job(self):
-        link_contact, link_address = self._patch_customer_links()
-        with link_contact, link_address:
-            with self.assertRaisesRegex(portal.CustomerPortalNotFoundError, "job report is not available"):
-                portal.download_client_job_proof(
-                    portal.ClientJobProofRequest.model_validate({"session": "CS-OTHER", "item_key": "other"})
-                )
+        with self.assertRaisesRegex(portal.CustomerPortalNotFoundError, "job report is not available"):
+            portal.download_client_job_proof(
+                portal.ClientJobProofRequest.model_validate({"session": "CS-OTHER", "item_key": "other"})
+            )
 
     def test_api_wrappers_validate_request_models_and_preserve_shape(self):
         expected_building = portal.ClientBuildingResponse(

@@ -13,7 +13,7 @@ from .models import (
     ClientOverviewResponse,
     ClientSessionItem,
     ClientSessionSummary,
-    CustomerPortalContext,
+    CustomerPortalPrincipal,
     FileDownload,
 )
 
@@ -29,7 +29,7 @@ __all__ = [
     "ClientSessionItem",
     "ClientSessionSummary",
     "CustomerPortalAccessError",
-    "CustomerPortalContext",
+    "CustomerPortalPrincipal",
     "CustomerPortalNotFoundError",
     "FileDownload",
     "download_client_job_proof",

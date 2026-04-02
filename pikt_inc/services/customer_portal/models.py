@@ -11,21 +11,10 @@ StepCategory = Literal["access", "job_completion", "rearm_security"]
 JobStatus = Literal["in_progress", "completed"]
 
 
-class CustomerPortalContext(ResponseModel):
+class CustomerPortalPrincipal(ResponseModel):
     session_user: str
     customer_name: str
     customer_display: str
-    portal_contact_name: str
-    portal_contact_email: str
-    portal_contact_phone: str
-    portal_contact_designation: str
-    portal_address_name: str
-    billing_contact_name: str
-    billing_contact_email: str
-    billing_contact_phone: str
-    billing_contact_designation: str
-    billing_address_name: str
-    tax_id: str
 
 
 class ClientOverviewRequest(RequestModel):

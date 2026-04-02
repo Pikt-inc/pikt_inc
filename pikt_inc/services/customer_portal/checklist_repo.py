@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from typing import Any
+from datetime import date, datetime
 
 import frappe
+from pydantic import field_validator
 
-from ..contracts.common import ResponseModel, clean_str
+from ..contracts.common import ResponseModel, clean_str, truthy
 from .building_repo import get_building, get_customer_buildings
 
 
@@ -43,15 +44,27 @@ CHECKLIST_SESSION_ITEM_FIELDS = [
 class ChecklistSessionRecord(ResponseModel):
     name: str = ""
     building: str = ""
-    service_date: Any = None
+    service_date: date | None = None
     checklist_template: str = ""
     status: str = ""
-    started_at: Any = None
-    completed_at: Any = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
     worker: str = ""
     session_notes: str = ""
-    creation: Any = None
-    modified: Any = None
+    creation: datetime | None = None
+    modified: datetime | None = None
+
+    @field_validator("name", "building", "checklist_template", "status", "worker", "session_notes", mode="before")
+    @classmethod
+    def clean_strings(cls, value: object) -> str:
+        return clean_str(value)
+
+    @field_validator("service_date", "started_at", "completed_at", "creation", "modified", mode="before")
+    @classmethod
+    def empty_temporal_to_none(cls, value: object):
+        if value in (None, ""):
+            return None
+        return value
 
 
 class ChecklistSessionItemRecord(ResponseModel):
@@ -62,13 +75,57 @@ class ChecklistSessionItemRecord(ResponseModel):
     sort_order: int = 0
     title_snapshot: str = ""
     description_snapshot: str = ""
-    requires_image: Any = None
-    allow_notes: Any = None
-    is_required: Any = None
-    completed: Any = None
-    completed_at: Any = None
+    requires_image: bool = False
+    allow_notes: bool | None = None
+    is_required: bool | None = None
+    completed: bool = False
+    completed_at: datetime | None = None
     note: str = ""
     proof_image: str = ""
+
+    @field_validator(
+        "name",
+        "item_key",
+        "category",
+        "title_snapshot",
+        "description_snapshot",
+        "note",
+        "proof_image",
+        mode="before",
+    )
+    @classmethod
+    def clean_item_strings(cls, value: object) -> str:
+        return clean_str(value)
+
+    @field_validator("idx", "sort_order", mode="before")
+    @classmethod
+    def normalize_ints(cls, value: object) -> int:
+        return int(value or 0)
+
+    @field_validator("requires_image", "completed", mode="before")
+    @classmethod
+    def normalize_required_flags(cls, value: object) -> bool:
+        if value in (None, ""):
+            return False
+        if isinstance(value, bool):
+            return value
+        return truthy(value)
+
+    @field_validator("allow_notes", "is_required", mode="before")
+    @classmethod
+    def normalize_optional_flags(cls, value: object):
+        if value in (None, ""):
+            return None
+        if isinstance(value, bool):
+            return value
+        return truthy(value)
+
+    @field_validator("completed_at", mode="before")
+    @classmethod
+    def empty_completed_at_to_none(cls, value: object):
+        if value in (None, ""):
+            return None
+        return value
 
 
 def _session_sort_value(row: ChecklistSessionRecord) -> str:

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from typing import Any
+from datetime import datetime
 
 import frappe
+from pydantic import field_validator
 
-from ..contracts.common import ResponseModel, clean_str
+from ..contracts.common import ResponseModel, clean_str, truthy
 
 
 BUILDING_FIELDS = [
@@ -28,7 +29,7 @@ class BuildingRecord(ResponseModel):
     name: str = ""
     customer: str = ""
     building_name: str = ""
-    active: Any = None
+    active: bool = False
     current_checklist_template: str = ""
     address_line_1: str = ""
     address_line_2: str = ""
@@ -36,8 +37,39 @@ class BuildingRecord(ResponseModel):
     state: str = ""
     postal_code: str = ""
     site_notes: str = ""
-    creation: Any = None
-    modified: Any = None
+    creation: datetime | None = None
+    modified: datetime | None = None
+
+    @field_validator(
+        "name",
+        "customer",
+        "building_name",
+        "current_checklist_template",
+        "address_line_1",
+        "address_line_2",
+        "city",
+        "state",
+        "postal_code",
+        "site_notes",
+        mode="before",
+    )
+    @classmethod
+    def clean_strings(cls, value: object) -> str:
+        return clean_str(value)
+
+    @field_validator("active", mode="before")
+    @classmethod
+    def normalize_active(cls, value: object) -> bool:
+        if isinstance(value, bool):
+            return value
+        return truthy(value)
+
+    @field_validator("creation", "modified", mode="before")
+    @classmethod
+    def empty_temporal_to_none(cls, value: object):
+        if value in (None, ""):
+            return None
+        return value
 
 
 def get_building(building_name: str) -> BuildingRecord | None:
