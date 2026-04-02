@@ -406,12 +406,9 @@ def _build_agreements_response(
 def _build_billing_response(
     scope: PortalScope,
     invoices: list[dict[str, Any]],
-    *,
-    page_key: str = "billing",
-    nav_active_key: str | None = None,
 ) -> PortalBillingResponse:
     shaped_invoices, unpaid_total = _shape_invoice_rows(invoices)
-    data = _base_page_kwargs(page_key, nav_active_key=nav_active_key)
+    data = _base_page_kwargs("billing")
     data.update(
         {
             "customer_display": scope.customer_display,

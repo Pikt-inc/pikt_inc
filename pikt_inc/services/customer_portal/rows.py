@@ -138,39 +138,6 @@ class BuildingRow(TypedDict, total=False):
     modified: Any
 
 
-class BuildingSopRow(TypedDict, total=False):
-    name: str
-    building: str
-    customer: str
-    version_number: int
-    supersedes: str
-    modified: Any
-    owner: str
-
-
-class BuildingSopItemRow(TypedDict, total=False):
-    name: str
-    idx: int
-    sop_item_id: str
-    item_title: str
-    item_description: str
-    requires_photo_proof: int
-    active: int
-
-
-class SiteShiftRequirementHistoryRow(TypedDict, total=False):
-    name: str
-    building: str
-    service_date: Any
-    arrival_window_start: Any
-    arrival_window_end: Any
-    status: str
-    completion_status: str
-    current_employee: str
-    custom_building_sop: str
-    modified: Any
-
-
 class ChecklistSessionRow(TypedDict, total=False):
     name: str
     building: str

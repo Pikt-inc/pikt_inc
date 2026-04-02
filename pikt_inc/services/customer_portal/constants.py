@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 from .. import public_quote as public_quote_service
-from ..contracts.customer_portal import LOCATION_ACCESS_METHOD_OPTIONS, LOCATION_ALARM_OPTIONS
 
 
-PORTAL_HOME = "portal"
 PORTAL_HOME_PATH = "/portal"
 PORTAL_SUPPORT_PATH = "/contact"
 PORTAL_TITLE = "Customer Portal"
@@ -14,14 +12,12 @@ PORTAL_PAGE_TITLES = {
     "overview": "Account Overview",
     "agreements": "Agreements",
     "billing": "Billing",
-    "billing_info": "Billing Information",
     "locations": "Locations",
 }
 PORTAL_PAGE_PATHS = {
     "overview": PORTAL_HOME_PATH,
     "agreements": "/portal/agreements",
     "billing": "/portal/billing",
-    "billing_info": "/portal/billing-info",
     "locations": "/portal/locations",
 }
 PORTAL_NAV_KEYS = ("overview", "agreements", "billing", "locations")

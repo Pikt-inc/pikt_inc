@@ -71,8 +71,6 @@ except ModuleNotFoundError:
 
 
 PATCHES_PATH = Path(__file__).resolve().parents[1] / "patches.txt"
-PORTAL_CSS_PATH = Path(__file__).resolve().parents[1] / "public" / "css" / "customer_portal.css"
-PORTAL_FORMS_JS_PATH = Path(__file__).resolve().parents[1] / "public" / "js" / "customer_portal_forms.js"
 
 
 class FakeDB:
@@ -602,7 +600,6 @@ class TestCustomerPortal(TestCase):
         portal.frappe.form_dict = {}
         portal.frappe.utils.get_url = lambda path="": f"https://example.test{path}"
         portal.frappe.utils.get_datetime = lambda value: value if isinstance(value, datetime) else datetime.fromisoformat(str(value))
-        portal.now_datetime = lambda: datetime(2026, 3, 25, 12, 0, 0)
 
     def _portal_scope(self, **overrides):
         payload = {

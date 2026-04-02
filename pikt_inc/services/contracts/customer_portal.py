@@ -11,14 +11,6 @@ from .common import RequestModel, ResponseModel, clean_optional_str, clean_str, 
 DEFAULT_COUNTRY = "United States"
 
 
-class PortalPageKey(str, Enum):
-    OVERVIEW = "overview"
-    AGREEMENTS = "agreements"
-    BILLING = "billing"
-    BILLING_INFO = "billing_info"
-    LOCATIONS = "locations"
-
-
 class LocationAccessMethod(str, Enum):
     DOOR_CODE = "Door code / keypad"
     LOCKBOX = "Lockbox"
