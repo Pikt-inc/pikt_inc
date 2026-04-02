@@ -1,0 +1,12 @@
+[
+  {
+    "doctype": "Custom Field",
+    "dt": "User",
+    "name": "User-custom_customer",
+    "fieldname": "custom_customer",
+    "label": "Customer",
+    "fieldtype": "Link",
+    "options": "Customer",
+    "description": "Customer account used to scope customer-portal access for this user."
+  }
+]

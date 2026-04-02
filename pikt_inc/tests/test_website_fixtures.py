@@ -18,6 +18,7 @@ CONTACT_REQUEST_DOCTYPE_FIXTURE_PATH = (
     Path(__file__).resolve().parents[1] / "fixtures" / "03_contact_request_doctype.json"
 )
 BUILDING_CUSTOM_FIELD_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "01_building_custom_field.json"
+USER_CUSTOM_FIELD_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "02_user_custom_field.json"
 CUSTOM_FIELD_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "custom_field.json"
 CUSTOM_DOCPERM_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "custom_docperm.json"
 BUILDER_COMPONENT_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "builder_component.json"
@@ -288,6 +289,7 @@ class TestWebsiteFixtures(unittest.TestCase):
     def test_building_schema_fixture_files_exist(self):
         self.assertTrue(BUILDING_DOCTYPE_FIXTURE_PATH.exists())
         self.assertTrue(BUILDING_CUSTOM_FIELD_FIXTURE_PATH.exists())
+        self.assertTrue(USER_CUSTOM_FIELD_FIXTURE_PATH.exists())
         self.assertTrue(CONTACT_REQUEST_DOCTYPE_FIXTURE_PATH.exists())
 
     def test_building_schema_fixture_entries_are_exported_in_safe_order(self):
@@ -306,6 +308,11 @@ class TestWebsiteFixtures(unittest.TestCase):
             for row in app_hooks.fixtures
             if row["dt"] == "Custom Field" and row.get("prefix") == "01_building"
         )
+        user_custom_field_fixture = next(
+            row
+            for row in app_hooks.fixtures
+            if row["dt"] == "Custom Field" and row.get("prefix") == "02_user"
+        )
 
         self.assertEqual(building_doctype_fixture["filters"], [["name", "in", ["Building"]]])
         self.assertEqual(
@@ -317,6 +324,10 @@ class TestWebsiteFixtures(unittest.TestCase):
             ]],
         )
         self.assertEqual(building_custom_field_fixture["filters"], [["dt", "=", "Building"]])
+        self.assertEqual(
+            user_custom_field_fixture["filters"],
+            [["dt", "=", "User"], ["fieldname", "in", ["custom_customer"]]],
+        )
 
         contact_request_fixture = next(
             row
@@ -344,6 +355,15 @@ class TestWebsiteFixtures(unittest.TestCase):
         self.assertIn("supervisor_user", custom_field_names)
         self.assertIn("custom_service_agreement", custom_field_names)
         self.assertIn("custom_service_agreement_addendum", custom_field_names)
+
+    def test_user_customer_scope_fixture_exports_direct_customer_link(self):
+        user_custom_fields = json.loads(USER_CUSTOM_FIELD_FIXTURE_PATH.read_text(encoding="utf-8"))
+
+        self.assertEqual(len(user_custom_fields), 1)
+        self.assertEqual(user_custom_fields[0]["dt"], "User")
+        self.assertEqual(user_custom_fields[0]["fieldname"], "custom_customer")
+        self.assertEqual(user_custom_fields[0]["fieldtype"], "Link")
+        self.assertEqual(user_custom_fields[0]["options"], "Customer")
 
     def test_checklist_schema_fixture_files_exist_and_cover_new_doctypes(self):
         doctypes = json.loads(CHECKLIST_DOCTYPE_FIXTURE_PATH.read_text(encoding="utf-8"))

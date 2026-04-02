@@ -3,18 +3,10 @@ from __future__ import annotations
 from typing import Any, TypedDict
 
 
-class PortalContactLinkRow(TypedDict, total=False):
-    contact_name: str
-    first_name: str
-    last_name: str
-    email_id: str
-    phone: str
-    mobile_no: str
-    designation: str
-    address_name: str
-    is_primary_contact: int
-    is_billing_contact: int
-    customer_name: str
+class UserRow(TypedDict, total=False):
+    name: str
+    email: str
+    custom_customer: str
 
 
 class CustomerRow(TypedDict, total=False):
@@ -113,6 +105,7 @@ class BuildingRow(TypedDict, total=False):
     customer: str
     building_name: str
     current_sop: str
+    current_checklist_template: str
     active: int
     address_line_1: str
     address_line_2: str
@@ -141,6 +134,7 @@ class BuildingRow(TypedDict, total=False):
     access_details_completed_on: Any
     custom_service_agreement: str
     custom_service_agreement_addendum: str
+    creation: Any
     modified: Any
 
 
@@ -175,3 +169,34 @@ class SiteShiftRequirementHistoryRow(TypedDict, total=False):
     current_employee: str
     custom_building_sop: str
     modified: Any
+
+
+class ChecklistSessionRow(TypedDict, total=False):
+    name: str
+    building: str
+    service_date: Any
+    checklist_template: str
+    status: str
+    started_at: Any
+    completed_at: Any
+    worker: str
+    session_notes: str
+    creation: Any
+    modified: Any
+
+
+class ChecklistSessionItemRow(TypedDict, total=False):
+    name: str
+    idx: int
+    item_key: str
+    category: str
+    sort_order: int
+    title_snapshot: str
+    description_snapshot: str
+    requires_image: int
+    allow_notes: int
+    is_required: int
+    completed: int
+    completed_at: Any
+    note: str
+    proof_image: str

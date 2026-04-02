@@ -3,9 +3,10 @@ from __future__ import annotations
 import frappe
 
 from .. import public_quote as public_quote_service
-from . import agreements, billing, dashboard, downloads, formatters, locations, payloads, queries, scope, shared
+from . import agreements, billing, checklist, dashboard, downloads, formatters, locations, payloads, queries, scope, shared
 from .agreements import *
 from .billing import *
+from .checklist import *
 from .constants import *
 from .dashboard import *
 from .downloads import *

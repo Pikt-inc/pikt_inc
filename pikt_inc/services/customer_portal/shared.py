@@ -77,6 +77,13 @@ def _checklist_proof_download_url(proof_name: str) -> str:
     )
 
 
+def _job_checklist_proof_download_url(session_name: str, item_key: str) -> str:
+    return (
+        "/api/method/pikt_inc.api.customer_portal.download_customer_portal_client_job_proof"
+        f"?session={clean(session_name)}&item_key={clean(item_key)}"
+    )
+
+
 def _contact_updates(display_name: str, phone: str, designation: str, address_name: str = "") -> dict[str, Any]:
     name_parts = public_quote_service.split_name(display_name)
     updates = {
@@ -138,7 +145,13 @@ def _should_split_billing_contact(
     return portal_signature != billing_signature
 
 
-def _set_download_response(filename: str, content: Any, content_type: str = "application/octet-stream"):
+def _set_file_response(
+    filename: str,
+    content: Any,
+    content_type: str = "application/octet-stream",
+    *,
+    as_attachment: bool,
+):
     local = getattr(frappe, "local", None)
     if local is None:
         return
@@ -148,5 +161,9 @@ def _set_download_response(filename: str, content: Any, content_type: str = "app
         response = local.response
     response["filename"] = clean(filename)
     response["filecontent"] = content
-    response["type"] = "download"
+    response["type"] = "download" if as_attachment else "binary"
     response["content_type"] = clean(content_type) or "application/octet-stream"
+
+
+def _set_download_response(filename: str, content: Any, content_type: str = "application/octet-stream"):
+    _set_file_response(filename, content, content_type, as_attachment=True)

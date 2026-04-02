@@ -31,6 +31,27 @@ def get_customer_portal_locations_data(**kwargs):
 
 
 @frappe.whitelist()
+def get_customer_portal_client_overview(**kwargs):
+    return customer_portal_service.get_customer_portal_client_overview(**_payload(kwargs))
+
+
+@frappe.whitelist()
+def get_customer_portal_client_building(building=None, **kwargs):
+    payload = _payload(kwargs)
+    if building is not None:
+        payload["building"] = building
+    return customer_portal_service.get_customer_portal_client_building(**payload)
+
+
+@frappe.whitelist()
+def get_customer_portal_client_job(session=None, **kwargs):
+    payload = _payload(kwargs)
+    if session is not None:
+        payload["session"] = session
+    return customer_portal_service.get_customer_portal_client_job(**payload)
+
+
+@frappe.whitelist()
 def update_customer_portal_billing(**kwargs):
     return customer_portal_service.update_customer_portal_billing(**_payload(kwargs))
 
@@ -69,3 +90,13 @@ def download_customer_portal_checklist_proof(proof=None, **kwargs):
     if proof is not None:
         payload["proof"] = proof
     return customer_portal_service.download_customer_portal_checklist_proof(**payload)
+
+
+@frappe.whitelist()
+def download_customer_portal_client_job_proof(session=None, item_key=None, **kwargs):
+    payload = _payload(kwargs)
+    if session is not None:
+        payload["session"] = session
+    if item_key is not None:
+        payload["item_key"] = item_key
+    return customer_portal_service.download_customer_portal_client_job_proof(**payload)

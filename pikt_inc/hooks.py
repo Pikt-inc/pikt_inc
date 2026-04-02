@@ -313,6 +313,24 @@ fixtures = [
 	},
 	{
 		"dt": "Custom Field",
+		"prefix": "02_user",
+		"filters": [
+			[
+				"dt",
+				"=",
+				"User",
+			],
+			[
+				"fieldname",
+				"in",
+				[
+					"custom_customer",
+				],
+			],
+		],
+	},
+	{
+		"dt": "Custom Field",
 		"filters": [
 			[
 				"dt",

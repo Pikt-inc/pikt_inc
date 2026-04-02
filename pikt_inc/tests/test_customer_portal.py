@@ -74,8 +74,19 @@ class FakeDB:
         self.dataset = dataset
 
     def sql(self, _query, params=None, as_dict=False):
-        session_user = (params or [""])[0]
-        return [dict(row) for row in self.dataset.get("contact_links", []) if row.get("session_user") == session_user]
+        params = list(params or [])
+        if len(params) >= 2:
+            customer_name = params[0]
+            email_id = str(params[1] or "").strip().lower()
+            rows = []
+            for row in self.dataset.get("contact_links", []):
+                if row.get("customer_name") != customer_name:
+                    continue
+                if str(row.get("email_id") or "").strip().lower() != email_id:
+                    continue
+                rows.append({"name": row.get("contact_name")})
+            return rows
+        return []
 
     def get_value(self, doctype, name, fields, as_dict=False):
         source = self.dataset.get(doctype, {})
@@ -149,6 +160,14 @@ class TestCustomerPortal(TestCase):
                     "tax_id": "99-1234567",
                 }
             },
+            "User": {
+                "portal@example.com": {
+                    "name": "portal@example.com",
+                    "full_name": "Pat Portal",
+                    "email": "portal@example.com",
+                    "custom_customer": "CUST-1",
+                }
+            },
             "Contact": {
                 "CONTACT-1": {
                     "name": "CONTACT-1",
@@ -196,8 +215,23 @@ class TestCustomerPortal(TestCase):
                 "SINV-OTHER": {"name": "SINV-OTHER", "customer": "CUST-2", "docstatus": 1},
             },
             "Building": {
-                "BUILD-1": {"name": "BUILD-1", "customer": "CUST-1", "access_details_completed_on": None, "current_sop": "BSOP-1"},
-                "BUILD-OTHER": {"name": "BUILD-OTHER", "customer": "CUST-2", "access_details_completed_on": None},
+                "BUILD-1": {
+                    "name": "BUILD-1",
+                    "customer": "CUST-1",
+                    "access_details_completed_on": None,
+                    "current_sop": "BSOP-1",
+                    "current_checklist_template": "CHK-TPL-1",
+                    "creation": datetime(2026, 3, 1, 8, 0, 0),
+                    "modified": datetime(2026, 3, 6, 12, 0, 0),
+                },
+                "BUILD-OTHER": {
+                    "name": "BUILD-OTHER",
+                    "customer": "CUST-2",
+                    "access_details_completed_on": None,
+                    "current_checklist_template": "CHK-TPL-2",
+                    "creation": datetime(2026, 3, 1, 8, 0, 0),
+                    "modified": datetime(2026, 3, 6, 12, 0, 0),
+                },
             },
             "Building SOP": {
                 "BSOP-1": {
@@ -277,6 +311,7 @@ class TestCustomerPortal(TestCase):
                     "customer": "CUST-1",
                     "building_name": "Headquarters",
                     "current_sop": "BSOP-1",
+                    "current_checklist_template": "CHK-TPL-1",
                     "active": 1,
                     "address_line_1": "123 Market St",
                     "address_line_2": "Suite 300",
@@ -305,8 +340,124 @@ class TestCustomerPortal(TestCase):
                     "access_details_completed_on": datetime(2026, 3, 4, 9, 0, 0),
                     "custom_service_agreement": "SAG-1",
                     "custom_service_agreement_addendum": "ADD-1",
+                    "creation": datetime(2026, 3, 1, 8, 0, 0),
                     "modified": datetime(2026, 3, 6, 12, 0, 0),
                 }
+            ],
+            "Checklist Session": {
+                "CS-1": {
+                    "name": "CS-1",
+                    "building": "BUILD-1",
+                    "service_date": datetime(2026, 3, 9, 0, 0, 0),
+                    "checklist_template": "CHK-TPL-1",
+                    "status": "completed",
+                    "started_at": datetime(2026, 3, 9, 18, 0, 0),
+                    "completed_at": datetime(2026, 3, 9, 19, 15, 0),
+                    "worker": "Jordan Tech",
+                    "session_notes": "Completed without issues.",
+                    "creation": datetime(2026, 3, 9, 17, 55, 0),
+                    "modified": datetime(2026, 3, 9, 19, 15, 0),
+                },
+                "CS-OTHER": {
+                    "name": "CS-OTHER",
+                    "building": "BUILD-OTHER",
+                    "service_date": datetime(2026, 3, 10, 0, 0, 0),
+                    "checklist_template": "CHK-TPL-2",
+                    "status": "completed",
+                    "started_at": datetime(2026, 3, 10, 18, 0, 0),
+                    "completed_at": datetime(2026, 3, 10, 19, 15, 0),
+                    "worker": "Other Tech",
+                    "session_notes": "Out of scope.",
+                    "creation": datetime(2026, 3, 10, 17, 55, 0),
+                    "modified": datetime(2026, 3, 10, 19, 15, 0),
+                },
+            },
+            "Checklist Session_list": [
+                {
+                    "name": "CS-1",
+                    "building": "BUILD-1",
+                    "service_date": datetime(2026, 3, 9, 0, 0, 0),
+                    "checklist_template": "CHK-TPL-1",
+                    "status": "completed",
+                    "started_at": datetime(2026, 3, 9, 18, 0, 0),
+                    "completed_at": datetime(2026, 3, 9, 19, 15, 0),
+                    "worker": "Jordan Tech",
+                    "session_notes": "Completed without issues.",
+                    "creation": datetime(2026, 3, 9, 17, 55, 0),
+                    "modified": datetime(2026, 3, 9, 19, 15, 0),
+                },
+                {
+                    "name": "CS-OTHER",
+                    "building": "BUILD-OTHER",
+                    "service_date": datetime(2026, 3, 10, 0, 0, 0),
+                    "checklist_template": "CHK-TPL-2",
+                    "status": "completed",
+                    "started_at": datetime(2026, 3, 10, 18, 0, 0),
+                    "completed_at": datetime(2026, 3, 10, 19, 15, 0),
+                    "worker": "Other Tech",
+                    "session_notes": "Out of scope.",
+                    "creation": datetime(2026, 3, 10, 17, 55, 0),
+                    "modified": datetime(2026, 3, 10, 19, 15, 0),
+                },
+            ],
+            "Checklist Session Item_list": [
+                {
+                    "name": "CSI-1",
+                    "parent": "CS-1",
+                    "parenttype": "Checklist Session",
+                    "parentfield": "items",
+                    "idx": 1,
+                    "item_key": "restrooms",
+                    "category": "job_completion",
+                    "sort_order": 1,
+                    "title_snapshot": "Restrooms sanitized",
+                    "description_snapshot": "Disinfect all restroom touchpoints and restock consumables.",
+                    "requires_image": 1,
+                    "allow_notes": 1,
+                    "is_required": 1,
+                    "completed": 1,
+                    "completed_at": datetime(2026, 3, 9, 18, 45, 0),
+                    "note": "Verification complete.",
+                    "proof_image": "/private/files/restroom-proof.jpg",
+                },
+                {
+                    "name": "CSI-2",
+                    "parent": "CS-1",
+                    "parenttype": "Checklist Session",
+                    "parentfield": "items",
+                    "idx": 2,
+                    "item_key": "trash",
+                    "category": "job_completion",
+                    "sort_order": 2,
+                    "title_snapshot": "Trash removed",
+                    "description_snapshot": "Empty all cans and replace liners.",
+                    "requires_image": 0,
+                    "allow_notes": 1,
+                    "is_required": 1,
+                    "completed": 1,
+                    "completed_at": datetime(2026, 3, 9, 19, 0, 0),
+                    "note": "All clear.",
+                    "proof_image": "",
+                },
+                {
+                    "name": "CSI-OTHER",
+                    "parent": "CS-OTHER",
+                    "parenttype": "Checklist Session",
+                    "parentfield": "items",
+                    "idx": 1,
+                    "item_key": "other",
+                    "category": "job_completion",
+                    "sort_order": 1,
+                    "title_snapshot": "Other task",
+                    "description_snapshot": "",
+                    "requires_image": 0,
+                    "allow_notes": 1,
+                    "is_required": 1,
+                    "completed": 1,
+                    "completed_at": datetime(2026, 3, 10, 19, 0, 0),
+                    "note": "",
+                    "proof_image": "",
+                },
             ],
             "Building SOP Item_list": [
                 {
@@ -429,6 +580,8 @@ class TestCustomerPortal(TestCase):
                 "Service Agreement Addendum": self.dataset["Service Agreement Addendum"],
                 "Sales Invoice": self.dataset["Sales Invoice_list"],
                 "Building": self.dataset["Building_list"],
+                "Checklist Session": self.dataset["Checklist Session_list"],
+                "Checklist Session Item": self.dataset["Checklist Session Item_list"],
                 "Building SOP": list(self.dataset["Building SOP"].values()),
                 "Building SOP Item": self.dataset["Building SOP Item_list"],
                 "Site Shift Requirement": self.dataset["Site Shift Requirement_list"],
@@ -437,6 +590,7 @@ class TestCustomerPortal(TestCase):
                 "File": self.dataset["File_list"],
             }
         )
+        portal.frappe.get_roles = lambda _user=None: ["Customer"]
         portal.frappe.session.user = "portal@example.com"
         portal.frappe.local.response = {}
         portal.frappe.form_dict = {}
@@ -480,6 +634,17 @@ class TestCustomerPortal(TestCase):
         self.assertEqual(data["active_master"]["title"], "Portal Customer Master Agreement")
         self.assertEqual(data["latest_locations"][0]["title"], "Headquarters")
         self.assertEqual(data["latest_locations"][0]["agreement_status_label"], "Location exhibit on file")
+
+    def test_scope_no_longer_depends_on_contact_user_link(self):
+        self.dataset["contact_links"][0]["session_user"] = "someone-else@example.com"
+
+        with patch.object(portal.public_quote_service, "find_contact_for_customer", return_value="CONTACT-BILLING"), patch.object(
+            portal.public_quote_service, "find_address_for_customer", return_value="ADDR-1"
+        ):
+            data = portal.get_customer_portal_dashboard_data()
+
+        self.assertFalse(data["access_denied"])
+        self.assertEqual(data["customer_display"], "Portal Customer LLC")
 
     def test_agreements_page_shapes_addenda_around_location_identity(self):
         data = portal.get_customer_portal_agreements_data()
@@ -559,19 +724,12 @@ class TestCustomerPortal(TestCase):
         self.assertEqual(payload.items[0].item_id, "restrooms")
         self.assertTrue(payload.items[0].requires_photo_proof)
 
-    def test_ambiguous_scope_returns_branded_error_page(self):
-        self.dataset["contact_links"].append(
-            {
-                "session_user": "portal@example.com",
-                "contact_name": "CONTACT-2",
-                "customer_name": "CUST-2",
-            }
-        )
-
+    def test_missing_user_customer_link_returns_branded_error_page(self):
+        self.dataset["User"]["portal@example.com"]["custom_customer"] = ""
         data = portal.get_customer_portal_billing_data()
 
         self.assertTrue(data["access_denied"])
-        self.assertIn("multiple customers", data["error_message"])
+        self.assertIn("missing a linked customer", data["error_message"])
         self.assertEqual(portal.frappe.local.response["http_status_code"], 403)
         self.assertEqual(data["login_path"], "")
 
@@ -598,6 +756,46 @@ class TestCustomerPortal(TestCase):
         self.assertIsInstance(data["metatags"], dict)
         self.assertEqual(data["metatags"]["title"], "Account Overview | Customer Portal")
         self.assertTrue(all(isinstance(item, dict) for item in data["portal_nav"]))
+
+    def test_client_overview_is_scoped_to_user_customer(self):
+        data = portal.get_customer_portal_client_overview()
+
+        self.assertEqual([row["id"] for row in data["buildings"]], ["BUILD-1"])
+        self.assertEqual([row["id"] for row in data["completed_sessions"]], ["CS-1"])
+        self.assertEqual(data["completed_sessions"][0]["building_id"], "BUILD-1")
+        self.assertEqual(data["completed_sessions"][0]["items"], [])
+
+    def test_client_building_returns_scoped_history(self):
+        data = portal.get_customer_portal_client_building("BUILD-1")
+
+        self.assertEqual(data["building"]["id"], "BUILD-1")
+        self.assertEqual(data["building"]["current_checklist_template_id"], "CHK-TPL-1")
+        self.assertEqual([row["id"] for row in data["completed_sessions"]], ["CS-1"])
+
+    def test_client_job_returns_scoped_proof_url(self):
+        data = portal.get_customer_portal_client_job("CS-1")
+
+        self.assertEqual(data["building"]["id"], "BUILD-1")
+        self.assertEqual(data["session"]["id"], "CS-1")
+        self.assertEqual(data["session"]["items"][0]["item_key"], "restrooms")
+        self.assertEqual(
+            data["session"]["items"][0]["proof_image"],
+            "/api/method/pikt_inc.api.customer_portal.download_customer_portal_client_job_proof?session=CS-1&item_key=restrooms",
+        )
+
+    def test_client_job_download_sets_inline_response(self):
+        portal.frappe.local.response = {}
+
+        with patch.object(
+            portal.checklist.building_sop_service,
+            "get_proof_file_content",
+            return_value=("restroom-proof.jpg", b"IMG", "image/jpeg"),
+        ):
+            portal.download_customer_portal_client_job_proof("CS-1", "restrooms")
+
+        self.assertEqual(portal.frappe.local.response["filename"], "restroom-proof.jpg")
+        self.assertEqual(portal.frappe.local.response["type"], "binary")
+        self.assertEqual(portal.frappe.local.response["content_type"], "image/jpeg")
 
     def test_billing_update_uses_scoped_customer_helpers(self):
         scope = portal.PortalScope(
@@ -1082,23 +1280,47 @@ class TestCustomerPortal(TestCase):
             return_value={"page_key": "locations"},
         ) as locations, patch.object(
             portal_api.customer_portal_service,
+            "get_customer_portal_client_overview",
+            return_value={"buildings": []},
+        ) as client_overview, patch.object(
+            portal_api.customer_portal_service,
+            "get_customer_portal_client_building",
+            return_value={"building": {"id": "BUILD-1"}},
+        ) as client_building, patch.object(
+            portal_api.customer_portal_service,
+            "get_customer_portal_client_job",
+            return_value={"session": {"id": "CS-1"}},
+        ) as client_job, patch.object(
+            portal_api.customer_portal_service,
             "update_customer_portal_building_sop",
             return_value={"status": "updated"},
         ) as update_sop, patch.object(
             portal_api.customer_portal_service,
             "download_customer_portal_checklist_proof",
             return_value=None,
-        ) as download_proof:
+        ) as download_proof, patch.object(
+            portal_api.customer_portal_service,
+            "download_customer_portal_client_job_proof",
+            return_value=None,
+        ) as download_client_proof:
             self.assertEqual(portal_api.get_customer_portal_dashboard_data(), {"page_key": "overview"})
             self.assertEqual(portal_api.get_customer_portal_agreements_data(), {"page_key": "agreements"})
             self.assertEqual(portal_api.get_customer_portal_billing_data(), {"page_key": "billing"})
             self.assertEqual(portal_api.get_customer_portal_locations_data(), {"page_key": "locations"})
+            self.assertEqual(portal_api.get_customer_portal_client_overview(), {"buildings": []})
+            self.assertEqual(portal_api.get_customer_portal_client_building(building="BUILD-1"), {"building": {"id": "BUILD-1"}})
+            self.assertEqual(portal_api.get_customer_portal_client_job(session="CS-1"), {"session": {"id": "CS-1"}})
             self.assertEqual(portal_api.update_customer_portal_building_sop(building_name="BUILD-1"), {"status": "updated"})
             self.assertIsNone(portal_api.download_customer_portal_checklist_proof(proof="PROOF-1"))
+            self.assertIsNone(portal_api.download_customer_portal_client_job_proof(session="CS-1", item_key="restrooms"))
 
         dashboard.assert_called_once_with()
         agreements.assert_called_once_with()
         billing.assert_called_once_with()
         locations.assert_called_once_with()
+        client_overview.assert_called_once_with()
+        client_building.assert_called_once()
+        client_job.assert_called_once()
         update_sop.assert_called_once()
         download_proof.assert_called_once()
+        download_client_proof.assert_called_once()

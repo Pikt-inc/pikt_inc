@@ -29,6 +29,7 @@ if not hasattr(sys.modules["frappe"].db, "commit"):
     sys.modules["frappe"].db.commit = lambda: None
 
 from pikt_inc import hooks as app_hooks
+from pikt_inc.events import user as user_events
 from pikt_inc.patches.post_model_sync import ensure_ssr_unique_index
 from pikt_inc.services import walkthrough_review
 
@@ -154,6 +155,23 @@ class TestWalkthroughReview(unittest.TestCase):
         self.assertIsNone(doc.module_profile)
         self.assertIsNone(doc.default_workspace)
         self.assertIsNone(doc.default_app)
+
+    @patch.object(user_events.walkthrough_review, "apply_reviewer_module_profile")
+    def test_user_before_save_requires_customer_link_for_customer_role(self, mock_apply_profile):
+        doc = FakeDoc({"roles": [SimpleNamespace(role="Customer")], "custom_customer": ""})
+
+        with self.assertRaisesRegex(Exception, "linked Customer"):
+            user_events.before_save(doc)
+
+        mock_apply_profile.assert_called_once_with(doc)
+
+    @patch.object(user_events.walkthrough_review, "apply_reviewer_module_profile")
+    def test_user_before_save_allows_customer_role_when_customer_link_exists(self, mock_apply_profile):
+        doc = FakeDoc({"roles": [SimpleNamespace(role="Customer")], "custom_customer": "CUST-1"})
+
+        user_events.before_save(doc)
+
+        mock_apply_profile.assert_called_once_with(doc)
 
     @patch.object(ensure_ssr_unique_index.frappe.db, "commit")
     @patch.object(ensure_ssr_unique_index.frappe.db, "sql")

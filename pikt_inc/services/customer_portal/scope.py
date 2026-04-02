@@ -5,7 +5,7 @@ from dataclasses import dataclass
 import frappe
 
 from .. import public_quote as public_quote_service
-from .queries import _get_customer_row, _get_portal_contact_links, _load_contact_row
+from .queries import _find_customer_contact_by_email, _get_customer_row, _load_contact_row, _load_user_row
 from .shared import _throw, clean
 
 
@@ -31,6 +31,9 @@ class PortalScope:
     tax_id: str
 
 
+CUSTOMER_ROLE = "Customer"
+
+
 def _is_guest_session() -> bool:
     return clean(getattr(getattr(frappe, "session", None), "user", None)) in {"", "Guest"}
 
@@ -40,27 +43,37 @@ def _resolve_portal_scope_or_error() -> PortalScope:
     if not session_user or session_user == "Guest":
         raise PortalAccessError("Sign in to access your customer portal.")
 
-    rows = _get_portal_contact_links(session_user)
-    if not rows:
-        raise PortalAccessError("This portal account is not linked to a customer contact yet.")
+    get_roles = getattr(frappe, "get_roles", None)
+    role_values = get_roles(session_user) if callable(get_roles) else []
+    roles = {clean(role) for role in role_values or [] if clean(role)}
+    if CUSTOMER_ROLE not in roles:
+        raise PortalAccessError("This account does not have customer portal access.")
 
-    customer_names = {clean(row.get("customer_name")) for row in rows if clean(row.get("customer_name"))}
-    if not customer_names:
-        raise PortalAccessError("This portal account is missing a customer link.")
-    if len(customer_names) != 1:
-        raise PortalAccessError("This portal account is linked to multiple customers. Contact support.")
+    user_row = _load_user_row(session_user)
+    customer_name = clean(user_row.get("custom_customer"))
+    if not customer_name:
+        raise PortalAccessError("This customer portal account is missing a linked customer.")
 
-    customer_name = next(iter(customer_names))
     customer_row = _get_customer_row(customer_name)
     if not customer_row:
         raise PortalAccessError("The linked customer record could not be loaded.")
 
-    portal_row = dict(rows[0])
-    portal_contact_name = clean(portal_row.get("contact_name"))
-    portal_contact_email = clean(portal_row.get("email_id")) or session_user
-    portal_phone = clean(portal_row.get("phone")) or clean(portal_row.get("mobile_no"))
+    portal_contact_email = clean(user_row.get("email")) or session_user
+    portal_contact_name = _find_customer_contact_by_email(customer_name, portal_contact_email)
+    if not portal_contact_name:
+        portal_contact_name = clean(customer_row.get("customer_primary_contact"))
+    portal_contact_row = _load_contact_row(portal_contact_name)
+    if clean(portal_contact_row.get("email_id")) and not portal_contact_email:
+        portal_contact_email = clean(portal_contact_row.get("email_id"))
+
+    portal_phone = (
+        clean(portal_contact_row.get("phone"))
+        or clean(portal_contact_row.get("mobile_no"))
+    )
 
     billing_contact_name = clean(public_quote_service.find_contact_for_customer(customer_name, portal_contact_email))
+    if not billing_contact_name:
+        billing_contact_name = clean(customer_row.get("customer_primary_contact")) or portal_contact_name
     billing_contact_row = _load_contact_row(billing_contact_name)
     billing_contact_email = clean(billing_contact_row.get("email_id")) or portal_contact_email
     billing_phone = clean(billing_contact_row.get("phone")) or clean(billing_contact_row.get("mobile_no"))
@@ -73,8 +86,8 @@ def _resolve_portal_scope_or_error() -> PortalScope:
         portal_contact_name=portal_contact_name,
         portal_contact_email=portal_contact_email,
         portal_contact_phone=portal_phone,
-        portal_contact_designation=clean(portal_row.get("designation")),
-        portal_address_name=clean(portal_row.get("address_name")),
+        portal_contact_designation=clean(portal_contact_row.get("designation")),
+        portal_address_name=clean(portal_contact_row.get("address")),
         billing_contact_name=billing_contact_name,
         billing_contact_email=billing_contact_email,
         billing_contact_phone=billing_phone,
