@@ -122,9 +122,6 @@ website_redirects = [
 after_sync = [
 	"pikt_inc.migrate.ensure_building_custom_docperms",
 	"pikt_inc.migrate.ensure_building_sop_custom_docperms",
-	"pikt_inc.migrate.ensure_service_agreement_custom_docperms",
-	"pikt_inc.migrate.ensure_service_agreement_addendum_custom_docperms",
-	"pikt_inc.migrate.ensure_customer_portal_doctype_metadata",
 ]
 
 # Integration Cleanup
@@ -144,20 +141,6 @@ after_sync = [
 # Permissions
 # -----------
 # Permissions evaluated in scripted ways
-
-permission_query_conditions = {
-	"Building": "pikt_inc.permissions.customer_portal.get_building_permission_query_conditions",
-	"Building SOP": "pikt_inc.permissions.customer_portal.get_building_sop_permission_query_conditions",
-	"Service Agreement": "pikt_inc.permissions.customer_portal.get_service_agreement_permission_query_conditions",
-	"Service Agreement Addendum": "pikt_inc.permissions.customer_portal.get_service_agreement_addendum_permission_query_conditions",
-}
-
-has_permission = {
-	"Building": "pikt_inc.permissions.customer_portal.has_building_permission",
-	"Building SOP": "pikt_inc.permissions.customer_portal.has_building_sop_permission",
-	"Service Agreement": "pikt_inc.permissions.customer_portal.has_service_agreement_permission",
-	"Service Agreement Addendum": "pikt_inc.permissions.customer_portal.has_service_agreement_addendum_permission",
-}
 
 # Document Events
 # ---------------
@@ -587,9 +570,6 @@ override_whitelisted_methods = {
 after_migrate = [
 	"pikt_inc.migrate.ensure_building_custom_docperms",
 	"pikt_inc.migrate.ensure_building_sop_custom_docperms",
-	"pikt_inc.migrate.ensure_service_agreement_custom_docperms",
-	"pikt_inc.migrate.ensure_service_agreement_addendum_custom_docperms",
-	"pikt_inc.migrate.ensure_customer_portal_doctype_metadata",
 ]
 
 # Job Events

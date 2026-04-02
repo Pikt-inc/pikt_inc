@@ -13,9 +13,6 @@
     "engine": "InnoDB",
     "allow_copy": 0,
     "allow_rename": 0,
-    "title_field": "building",
-    "search_fields": "building,customer,version_number",
-    "show_title_field_in_link": 1,
     "sort_field": "creation",
     "sort_order": "DESC",
     "permissions": [
