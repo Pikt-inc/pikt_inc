@@ -75,9 +75,6 @@ website_route_rules = [
 	{"from_route": "/blog", "to_route": "blog-home"},
 	{"from_route": "/blog/rss.xml", "to_route": "blog-rss.xml"},
 	{"from_route": "/blog/<slug>", "to_route": "blog-post"},
-	{"from_route": "/agreements/<slug>", "to_route": "agreement-detail"},
-	{"from_route": "/business-agreements/<slug>", "to_route": "business-agreement-detail"},
-	{"from_route": "/buildings/<slug>", "to_route": "building-detail"},
 ]
 
 website_redirects = [
