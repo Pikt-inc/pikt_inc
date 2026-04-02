@@ -125,7 +125,6 @@ after_sync = [
 	"pikt_inc.migrate.ensure_service_agreement_custom_docperms",
 	"pikt_inc.migrate.ensure_service_agreement_addendum_custom_docperms",
 	"pikt_inc.migrate.ensure_customer_portal_doctype_metadata",
-	"pikt_inc.migrate.ensure_portal_settings_menu_references",
 ]
 
 # Integration Cleanup
@@ -591,7 +590,6 @@ after_migrate = [
 	"pikt_inc.migrate.ensure_service_agreement_custom_docperms",
 	"pikt_inc.migrate.ensure_service_agreement_addendum_custom_docperms",
 	"pikt_inc.migrate.ensure_customer_portal_doctype_metadata",
-	"pikt_inc.migrate.ensure_portal_settings_menu_references",
 ]
 
 # Job Events

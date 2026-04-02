@@ -233,7 +233,6 @@ class TestWebsiteFixtures(unittest.TestCase):
         self.assertEqual(menu_by_title["Projects"]["enabled"], 0)
         self.assertEqual(menu_by_title["Shipments"]["enabled"], 0)
         self.assertEqual(menu_by_title["Appointment Booking"]["enabled"], 0)
-        self.assertNotIn("Newsletter", menu_by_title)
 
         custom_menu_by_title = {row["title"]: row for row in portal_settings["custom_menu"]}
         self.assertEqual(custom_menu_by_title["Quotations"]["enabled"], 1)
@@ -430,12 +429,10 @@ class TestWebsiteFixtures(unittest.TestCase):
         self.assertIn("pikt_inc.migrate.ensure_service_agreement_custom_docperms", app_hooks.after_sync)
         self.assertIn("pikt_inc.migrate.ensure_service_agreement_addendum_custom_docperms", app_hooks.after_sync)
         self.assertIn("pikt_inc.migrate.ensure_customer_portal_doctype_metadata", app_hooks.after_sync)
-        self.assertIn("pikt_inc.migrate.ensure_portal_settings_menu_references", app_hooks.after_sync)
         self.assertIn("pikt_inc.migrate.ensure_building_sop_custom_docperms", app_hooks.after_migrate)
         self.assertIn("pikt_inc.migrate.ensure_service_agreement_custom_docperms", app_hooks.after_migrate)
         self.assertIn("pikt_inc.migrate.ensure_service_agreement_addendum_custom_docperms", app_hooks.after_migrate)
         self.assertIn("pikt_inc.migrate.ensure_customer_portal_doctype_metadata", app_hooks.after_migrate)
-        self.assertIn("pikt_inc.migrate.ensure_portal_settings_menu_references", app_hooks.after_migrate)
 
     def test_customer_portal_permission_hooks_cover_portal_doctypes(self):
         self.assertEqual(

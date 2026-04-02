@@ -104,6 +104,14 @@
         "target": null
       },
       {
+        "title": "Newsletter",
+        "enabled": 0,
+        "route": "/newsletters",
+        "reference_doctype": "Newsletter",
+        "role": null,
+        "target": null
+      },
+      {
         "title": "Material Request",
         "enabled": 0,
         "route": "/material-requests",

@@ -61,46 +61,6 @@ class TestCustomerPortalDocumentSync(unittest.TestCase):
             {"Building", "Building SOP", "Service Agreement", "Service Agreement Addendum"},
         )
 
-    def test_portal_settings_menu_reference_cleanup_drops_missing_doctypes(self):
-        saved = []
-        cleared = []
-
-        class MenuRow:
-            def __init__(self, title, reference_doctype=""):
-                self.title = title
-                self.reference_doctype = reference_doctype
-
-        class FakePortalSettings:
-            def __init__(self):
-                self.menu = [MenuRow("Projects", "Project"), MenuRow("Newsletter", "Newsletter")]
-                self.custom_menu = [MenuRow("Buildings", "Building")]
-
-            def set(self, fieldname, value):
-                setattr(self, fieldname, value)
-
-            def save(self, ignore_permissions=False):
-                saved.append(ignore_permissions)
-
-        fake_doc = FakePortalSettings()
-
-        def fake_exists(doctype, name=None):
-            return (doctype, name) in {
-                ("DocType", "Portal Settings"),
-                ("DocType", "Project"),
-                ("DocType", "Building"),
-            }
-
-        frappe.db.exists = fake_exists
-        frappe.get_doc = lambda doctype, name=None: fake_doc if doctype == "Portal Settings" else None
-        frappe.clear_cache = lambda *args, **kwargs: cleared.append((args, kwargs))
-
-        migrate.ensure_portal_settings_menu_references()
-
-        self.assertEqual([row.title for row in fake_doc.menu], ["Projects"])
-        self.assertEqual([row.title for row in fake_doc.custom_menu], ["Buildings"])
-        self.assertEqual(saved, [True])
-        self.assertEqual(len(cleared), 1)
-
 
 class TestCustomerPortalPermissionHooks(unittest.TestCase):
     def setUp(self):
