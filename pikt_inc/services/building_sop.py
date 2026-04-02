@@ -577,12 +577,9 @@ def get_building_service_history(building_name: str, *, page: int = 1, page_size
     has_more = len(rows or []) > page_size
     rows = list(rows or [])[:page_size]
 
-    def proof_url_builder(proof_name: str) -> str:
-        return f"/api/method/pikt_inc.api.customer_portal.download_customer_portal_checklist_proof?proof={clean(proof_name)}"
-
     visits = []
     for row in rows:
-        checklist = shape_requirement_checklist(clean(row.get("name")), include_proofs=True, proof_url_builder=proof_url_builder)
+        checklist = shape_requirement_checklist(clean(row.get("name")), include_proofs=True)
         visits.append(
             {
                 "name": clean(row.get("name")),

@@ -8,6 +8,8 @@ from unittest import TestCase
 from unittest.mock import patch
 import types
 
+from pydantic import ValidationError
+
 from pikt_inc.tests._frappe_harness import install_test_frappe
 
 install_test_frappe()
@@ -21,24 +23,10 @@ if "frappe" not in sys.modules:
     fake_frappe = types.ModuleType("frappe")
     fake_utils = types.ModuleType("frappe.utils")
     fake_utils.get_url = lambda path="": f"https://example.test{path}"
-    fake_utils.now_datetime = lambda: datetime(2026, 3, 25, 12, 0, 0)
-    fake_utils.get_datetime = lambda value: value if isinstance(value, datetime) else datetime.fromisoformat(str(value))
-    fake_utils.getdate = lambda value: value.date() if hasattr(value, "date") else value
-    fake_utils.nowdate = lambda: "2026-03-25"
-    fake_utils.add_to_date = lambda value, **_kwargs: value
-    fake_frappe.db = types.SimpleNamespace(
-        sql=lambda *args, **kwargs: [],
-        get_value=lambda *args, **kwargs: None,
-        exists=lambda *args, **kwargs: False,
-    )
+    fake_frappe.db = types.SimpleNamespace(sql=lambda *args, **kwargs: [], get_value=lambda *args, **kwargs: None)
     fake_frappe.get_all = lambda *args, **kwargs: []
-    fake_frappe.get_doc = lambda *args, **kwargs: None
-    fake_frappe.get_print = lambda *args, **kwargs: "<html></html>"
     fake_frappe.get_roles = lambda _user=None: []
-    fake_frappe.local = types.SimpleNamespace(
-        response={},
-        request=types.SimpleNamespace(get_json=lambda silent=True: None),
-    )
+    fake_frappe.local = types.SimpleNamespace(response={}, request=types.SimpleNamespace(get_json=lambda silent=True: None))
     fake_frappe.request = types.SimpleNamespace(data=None)
     fake_frappe.form_dict = {}
     fake_frappe.session = types.SimpleNamespace(user="Guest")
@@ -47,27 +35,26 @@ if "frappe" not in sys.modules:
     fake_frappe.utils = fake_utils
     sys.modules["frappe"] = fake_frappe
     sys.modules["frappe.utils"] = fake_utils
-    sys.modules["frappe.utils.pdf"] = types.SimpleNamespace(get_pdf=lambda html: html.encode("utf-8"))
 
 
 try:
     app_hooks = importlib.import_module("pikt_inc.hooks")
     portal = importlib.import_module("pikt_inc.services.customer_portal")
     portal_api = importlib.import_module("pikt_inc.api.customer_portal")
+    portal_client = importlib.import_module("pikt_inc.services.customer_portal.client")
+    portal_context = importlib.import_module("pikt_inc.services.customer_portal.context")
     retire_legacy_customer_portal_role = importlib.import_module(
         "pikt_inc.patches.post_model_sync.retire_legacy_customer_portal_role"
     )
-    portal_contracts = importlib.import_module("pikt_inc.services.contracts.customer_portal")
-    portal_payloads = importlib.import_module("pikt_inc.services.customer_portal.payloads")
 except ModuleNotFoundError:
     app_hooks = importlib.import_module("pikt_inc.pikt_inc.hooks")
     portal = importlib.import_module("pikt_inc.pikt_inc.services.customer_portal")
     portal_api = importlib.import_module("pikt_inc.pikt_inc.api.customer_portal")
+    portal_client = importlib.import_module("pikt_inc.pikt_inc.services.customer_portal.client")
+    portal_context = importlib.import_module("pikt_inc.pikt_inc.services.customer_portal.context")
     retire_legacy_customer_portal_role = importlib.import_module(
         "pikt_inc.pikt_inc.patches.post_model_sync.retire_legacy_customer_portal_role"
     )
-    portal_contracts = importlib.import_module("pikt_inc.pikt_inc.services.contracts.customer_portal")
-    portal_payloads = importlib.import_module("pikt_inc.pikt_inc.services.customer_portal.payloads")
 
 
 PATCHES_PATH = Path(__file__).resolve().parents[1] / "patches.txt"
@@ -107,8 +94,12 @@ class FakeDB:
 
 
 def fake_get_all_factory(dataset):
-    def fake_get_all(doctype, filters=None, fields=None, order_by=None, **_kwargs):
-        rows = [dict(row) for row in dataset.get(doctype, [])]
+    def fake_get_all(doctype, filters=None, fields=None, order_by=None, limit=None, **_kwargs):
+        rows = dataset.get(f"{doctype}_list")
+        if rows is None:
+            source = dataset.get(doctype, {})
+            rows = list(source.values()) if isinstance(source, dict) else list(source)
+        rows = [dict(row) for row in rows]
         filters = filters or {}
 
         def matches(row):
@@ -129,6 +120,8 @@ def fake_get_all_factory(dataset):
                 field = parts[0]
                 direction = parts[1].lower() if len(parts) > 1 else "asc"
                 filtered.sort(key=lambda row: str(row.get(field) or ""), reverse=(direction == "desc"))
+        if limit is not None:
+            filtered = filtered[: int(limit)]
         if fields:
             return [{field: row.get(field) for field in fields} for row in filtered]
         return filtered
@@ -141,20 +134,23 @@ class TestCustomerPortal(TestCase):
         self.dataset = {
             "contact_links": [
                 {
-                    "session_user": "portal@example.com",
-                    "contact_name": "CONTACT-1",
-                    "first_name": "Pat",
-                    "last_name": "Portal",
-                    "email_id": "portal@example.com",
-                    "phone": "512-555-0101",
-                    "mobile_no": "",
-                    "designation": "Office Manager",
-                    "address_name": "ADDR-PORTAL",
-                    "is_primary_contact": 1,
-                    "is_billing_contact": 0,
                     "customer_name": "CUST-1",
+                    "email_id": "portal@example.com",
+                    "contact_name": "CONTACT-1",
                 }
             ],
+            "User": {
+                "portal@example.com": {
+                    "name": "portal@example.com",
+                    "email": "portal@example.com",
+                    "custom_customer": "CUST-1",
+                },
+                "unlinked@example.com": {
+                    "name": "unlinked@example.com",
+                    "email": "unlinked@example.com",
+                    "custom_customer": "",
+                },
+            },
             "Customer": {
                 "CUST-1": {
                     "name": "CUST-1",
@@ -162,14 +158,6 @@ class TestCustomerPortal(TestCase):
                     "customer_primary_contact": "CONTACT-BILLING",
                     "customer_primary_address": "ADDR-1",
                     "tax_id": "99-1234567",
-                }
-            },
-            "User": {
-                "portal@example.com": {
-                    "name": "portal@example.com",
-                    "full_name": "Pat Portal",
-                    "email": "portal@example.com",
-                    "custom_customer": "CUST-1",
                 }
             },
             "Contact": {
@@ -194,159 +182,69 @@ class TestCustomerPortal(TestCase):
                     "address": "ADDR-1",
                 },
             },
-            "Address": {
-                "ADDR-1": {
-                    "name": "ADDR-1",
-                    "address_line1": "123 Market St",
-                    "address_line2": "Suite 300",
-                    "city": "Austin",
-                    "state": "TX",
-                    "pincode": "78701",
-                    "country": "United States",
-                },
-                "ADDR-PORTAL": {
-                    "name": "ADDR-PORTAL",
-                    "address_line1": "123 Market St",
-                    "address_line2": "",
-                    "city": "Austin",
-                    "state": "TX",
-                    "pincode": "78701",
-                    "country": "United States",
-                },
-            },
-            "Sales Invoice": {
-                "SINV-0001": {"name": "SINV-0001", "customer": "CUST-1", "docstatus": 1},
-                "SINV-OTHER": {"name": "SINV-OTHER", "customer": "CUST-2", "docstatus": 1},
-            },
             "Building": {
                 "BUILD-1": {
                     "name": "BUILD-1",
                     "customer": "CUST-1",
-                    "access_details_completed_on": None,
-                    "current_sop": "BSOP-1",
+                    "building_name": "Headquarters",
+                    "active": 1,
                     "current_checklist_template": "CHK-TPL-1",
+                    "address_line_1": "123 Market St",
+                    "address_line_2": "Suite 300",
+                    "city": "Austin",
+                    "state": "TX",
+                    "postal_code": "78701",
+                    "site_notes": "Front entrance only.",
                     "creation": datetime(2026, 3, 1, 8, 0, 0),
                     "modified": datetime(2026, 3, 6, 12, 0, 0),
                 },
                 "BUILD-OTHER": {
                     "name": "BUILD-OTHER",
                     "customer": "CUST-2",
-                    "access_details_completed_on": None,
+                    "building_name": "Other Site",
+                    "active": 1,
                     "current_checklist_template": "CHK-TPL-2",
-                    "creation": datetime(2026, 3, 1, 8, 0, 0),
-                    "modified": datetime(2026, 3, 6, 12, 0, 0),
+                    "address_line_1": "999 Elsewhere",
+                    "address_line_2": "",
+                    "city": "Dallas",
+                    "state": "TX",
+                    "postal_code": "75001",
+                    "site_notes": "Out of scope.",
+                    "creation": datetime(2026, 3, 2, 8, 0, 0),
+                    "modified": datetime(2026, 3, 7, 12, 0, 0),
                 },
             },
-            "Building SOP": {
-                "BSOP-1": {
-                    "name": "BSOP-1",
-                    "building": "BUILD-1",
-                    "customer": "CUST-1",
-                    "version_number": 2,
-                    "supersedes": "BSOP-0",
-                    "modified": datetime(2026, 3, 7, 8, 30, 0),
-                    "owner": "ops@example.com",
-                }
-            },
-            "Service Agreement": [
-                {
-                    "name": "SAG-1",
-                    "customer": "CUST-1",
-                    "agreement_name": "Portal Customer Master Agreement",
-                    "status": "Active",
-                    "template": "Master Template",
-                    "template_version": "1.0",
-                    "signed_by_name": "Pat Portal",
-                    "signed_by_title": "Office Manager",
-                    "signed_by_email": "portal@example.com",
-                    "signed_on": datetime(2026, 3, 1, 9, 0, 0),
-                    "rendered_html_snapshot": "<p>Master agreement</p>",
-                    "modified": datetime(2026, 3, 1, 9, 0, 0),
-                }
-            ],
-            "Service Agreement Addendum": [
-                {
-                    "name": "ADD-1",
-                    "customer": "CUST-1",
-                    "addendum_name": "Portal Addendum",
-                    "service_agreement": "SAG-1",
-                    "quotation": "QTN-1",
-                    "sales_order": "SO-1",
-                    "initial_invoice": "SINV-0001",
-                    "building": "BUILD-1",
-                    "status": "Active",
-                    "term_model": "Month-to-month",
-                    "fixed_term_months": "",
-                    "start_date": datetime(2026, 3, 2, 0, 0, 0),
-                    "end_date": None,
-                    "template": "Addendum Template",
-                    "template_version": "1.0",
-                    "signed_by_name": "Pat Portal",
-                    "signed_by_title": "Office Manager",
-                    "signed_by_email": "portal@example.com",
-                    "signed_on": datetime(2026, 3, 2, 9, 0, 0),
-                    "billing_completed_on": datetime(2026, 3, 3, 9, 0, 0),
-                    "access_completed_on": datetime(2026, 3, 4, 9, 0, 0),
-                    "rendered_html_snapshot": "<p>Addendum</p>",
-                    "modified": datetime(2026, 3, 4, 9, 0, 0),
-                }
-            ],
-            "Sales Invoice_list": [
-                {
-                    "name": "SINV-0001",
-                    "customer": "CUST-1",
-                    "posting_date": datetime(2026, 3, 5, 0, 0, 0),
-                    "due_date": datetime(2026, 3, 20, 0, 0, 0),
-                    "status": "Unpaid",
-                    "currency": "USD",
-                    "grand_total": 425.0,
-                    "outstanding_amount": 125.0,
-                    "docstatus": 1,
-                    "customer_name": "Portal Customer LLC",
-                    "custom_building": "BUILD-1",
-                    "custom_service_agreement": "SAG-1",
-                    "custom_service_agreement_addendum": "ADD-1",
-                    "modified": datetime(2026, 3, 5, 12, 0, 0),
-                }
-            ],
             "Building_list": [
                 {
                     "name": "BUILD-1",
                     "customer": "CUST-1",
                     "building_name": "Headquarters",
-                    "current_sop": "BSOP-1",
-                    "current_checklist_template": "CHK-TPL-1",
                     "active": 1,
+                    "current_checklist_template": "CHK-TPL-1",
                     "address_line_1": "123 Market St",
                     "address_line_2": "Suite 300",
                     "city": "Austin",
                     "state": "TX",
                     "postal_code": "78701",
-                    "site_supervisor_name": "Jordan Lead",
-                    "site_supervisor_phone": "512-555-0199",
                     "site_notes": "Front entrance only.",
-                    "access_notes": "Badge after 6pm.",
-                    "alarm_notes": "Call before arming.",
-                    "access_method": "Door code / keypad",
-                    "access_entrance": "Main lobby",
-                    "access_entry_details": "Use code 1234.",
-                    "has_alarm_system": "Yes",
-                    "alarm_instructions": "Disarm panel on left.",
-                    "allowed_entry_time": "6:00 PM - 11:00 PM",
-                    "primary_site_contact": "Jordan Lead",
-                    "lockout_emergency_contact": "512-555-0166",
-                    "key_fob_handoff_details": "Stored at security desk.",
-                    "areas_to_avoid": "Executive suite.",
-                    "closing_instructions": "Reset lobby lights.",
-                    "parking_elevator_notes": "Garage level 2.",
-                    "first_service_notes": "Expect badge handoff at start.",
-                    "access_details_confirmed": 1,
-                    "access_details_completed_on": datetime(2026, 3, 4, 9, 0, 0),
-                    "custom_service_agreement": "SAG-1",
-                    "custom_service_agreement_addendum": "ADD-1",
                     "creation": datetime(2026, 3, 1, 8, 0, 0),
                     "modified": datetime(2026, 3, 6, 12, 0, 0),
-                }
+                },
+                {
+                    "name": "BUILD-OTHER",
+                    "customer": "CUST-2",
+                    "building_name": "Other Site",
+                    "active": 1,
+                    "current_checklist_template": "CHK-TPL-2",
+                    "address_line_1": "999 Elsewhere",
+                    "address_line_2": "",
+                    "city": "Dallas",
+                    "state": "TX",
+                    "postal_code": "75001",
+                    "site_notes": "Out of scope.",
+                    "creation": datetime(2026, 3, 2, 8, 0, 0),
+                    "modified": datetime(2026, 3, 7, 12, 0, 0),
+                },
             ],
             "Checklist Session": {
                 "CS-1": {
@@ -362,18 +260,31 @@ class TestCustomerPortal(TestCase):
                     "creation": datetime(2026, 3, 9, 17, 55, 0),
                     "modified": datetime(2026, 3, 9, 19, 15, 0),
                 },
+                "CS-IN-PROGRESS": {
+                    "name": "CS-IN-PROGRESS",
+                    "building": "BUILD-1",
+                    "service_date": datetime(2026, 3, 10, 0, 0, 0),
+                    "checklist_template": "CHK-TPL-1",
+                    "status": "in_progress",
+                    "started_at": datetime(2026, 3, 10, 18, 0, 0),
+                    "completed_at": None,
+                    "worker": "Jordan Tech",
+                    "session_notes": "Still open.",
+                    "creation": datetime(2026, 3, 10, 17, 55, 0),
+                    "modified": datetime(2026, 3, 10, 18, 30, 0),
+                },
                 "CS-OTHER": {
                     "name": "CS-OTHER",
                     "building": "BUILD-OTHER",
-                    "service_date": datetime(2026, 3, 10, 0, 0, 0),
+                    "service_date": datetime(2026, 3, 11, 0, 0, 0),
                     "checklist_template": "CHK-TPL-2",
                     "status": "completed",
-                    "started_at": datetime(2026, 3, 10, 18, 0, 0),
-                    "completed_at": datetime(2026, 3, 10, 19, 15, 0),
+                    "started_at": datetime(2026, 3, 11, 18, 0, 0),
+                    "completed_at": datetime(2026, 3, 11, 19, 15, 0),
                     "worker": "Other Tech",
                     "session_notes": "Out of scope.",
-                    "creation": datetime(2026, 3, 10, 17, 55, 0),
-                    "modified": datetime(2026, 3, 10, 19, 15, 0),
+                    "creation": datetime(2026, 3, 11, 17, 55, 0),
+                    "modified": datetime(2026, 3, 11, 19, 15, 0),
                 },
             },
             "Checklist Session_list": [
@@ -391,17 +302,30 @@ class TestCustomerPortal(TestCase):
                     "modified": datetime(2026, 3, 9, 19, 15, 0),
                 },
                 {
+                    "name": "CS-IN-PROGRESS",
+                    "building": "BUILD-1",
+                    "service_date": datetime(2026, 3, 10, 0, 0, 0),
+                    "checklist_template": "CHK-TPL-1",
+                    "status": "in_progress",
+                    "started_at": datetime(2026, 3, 10, 18, 0, 0),
+                    "completed_at": None,
+                    "worker": "Jordan Tech",
+                    "session_notes": "Still open.",
+                    "creation": datetime(2026, 3, 10, 17, 55, 0),
+                    "modified": datetime(2026, 3, 10, 18, 30, 0),
+                },
+                {
                     "name": "CS-OTHER",
                     "building": "BUILD-OTHER",
-                    "service_date": datetime(2026, 3, 10, 0, 0, 0),
+                    "service_date": datetime(2026, 3, 11, 0, 0, 0),
                     "checklist_template": "CHK-TPL-2",
                     "status": "completed",
-                    "started_at": datetime(2026, 3, 10, 18, 0, 0),
-                    "completed_at": datetime(2026, 3, 10, 19, 15, 0),
+                    "started_at": datetime(2026, 3, 11, 18, 0, 0),
+                    "completed_at": datetime(2026, 3, 11, 19, 15, 0),
                     "worker": "Other Tech",
                     "session_notes": "Out of scope.",
-                    "creation": datetime(2026, 3, 10, 17, 55, 0),
-                    "modified": datetime(2026, 3, 10, 19, 15, 0),
+                    "creation": datetime(2026, 3, 11, 17, 55, 0),
+                    "modified": datetime(2026, 3, 11, 19, 15, 0),
                 },
             ],
             "Checklist Session Item_list": [
@@ -415,7 +339,7 @@ class TestCustomerPortal(TestCase):
                     "category": "job_completion",
                     "sort_order": 1,
                     "title_snapshot": "Restrooms sanitized",
-                    "description_snapshot": "Disinfect all restroom touchpoints and restock consumables.",
+                    "description_snapshot": "Disinfect restroom touchpoints.",
                     "requires_image": 1,
                     "allow_notes": 1,
                     "is_required": 1,
@@ -453,817 +377,211 @@ class TestCustomerPortal(TestCase):
                     "category": "job_completion",
                     "sort_order": 1,
                     "title_snapshot": "Other task",
-                    "description_snapshot": "",
-                    "requires_image": 0,
+                    "description_snapshot": "Out of scope.",
+                    "requires_image": 1,
                     "allow_notes": 1,
                     "is_required": 1,
                     "completed": 1,
-                    "completed_at": datetime(2026, 3, 10, 19, 0, 0),
-                    "note": "",
-                    "proof_image": "",
+                    "completed_at": datetime(2026, 3, 11, 18, 30, 0),
+                    "note": "Nope.",
+                    "proof_image": "/private/files/other-proof.jpg",
                 },
-            ],
-            "Building SOP Item_list": [
-                {
-                    "name": "BSOP-ITEM-1",
-                    "parent": "BSOP-1",
-                    "parenttype": "Building SOP",
-                    "parentfield": "items",
-                    "idx": 1,
-                    "sop_item_id": "restrooms",
-                    "item_title": "Restrooms sanitized",
-                    "item_description": "Disinfect all restroom touchpoints and restock consumables.",
-                    "requires_photo_proof": 1,
-                    "active": 1,
-                },
-                {
-                    "name": "BSOP-ITEM-2",
-                    "parent": "BSOP-1",
-                    "parenttype": "Building SOP",
-                    "parentfield": "items",
-                    "idx": 2,
-                    "sop_item_id": "trash",
-                    "item_title": "Trash removed",
-                    "item_description": "Empty all cans and replace liners.",
-                    "requires_photo_proof": 0,
-                    "active": 1,
-                },
-            ],
-            "Site Shift Requirement_list": [
-                {
-                    "name": "SSR-0001",
-                    "building": "BUILD-1",
-                    "service_date": datetime(2026, 3, 9, 0, 0, 0),
-                    "arrival_window_start": datetime(2026, 3, 9, 18, 0, 0),
-                    "arrival_window_end": datetime(2026, 3, 9, 20, 0, 0),
-                    "status": "Completed",
-                    "completion_status": "Completed With Exception",
-                    "current_employee": "Jordan Tech",
-                    "custom_building_sop": "BSOP-1",
-                    "modified": datetime(2026, 3, 9, 21, 0, 0),
-                },
-                {
-                    "name": "SSR-0000",
-                    "building": "BUILD-1",
-                    "service_date": datetime(2026, 2, 28, 0, 0, 0),
-                    "arrival_window_start": datetime(2026, 2, 28, 18, 0, 0),
-                    "arrival_window_end": datetime(2026, 2, 28, 20, 0, 0),
-                    "status": "Completed",
-                    "completion_status": "",
-                    "current_employee": "Jordan Tech",
-                    "custom_building_sop": "",
-                    "modified": datetime(2026, 2, 28, 21, 0, 0),
-                },
-            ],
-            "Site Shift Requirement": {
-                "SSR-0001": {"name": "SSR-0001", "building": "BUILD-1"},
-                "SSR-0000": {"name": "SSR-0000", "building": "BUILD-1"},
-            },
-            "Site Shift Requirement Checklist Item_list": [
-                {
-                    "name": "SSR-ITEM-1",
-                    "parent": "SSR-0001",
-                    "parenttype": "Site Shift Requirement",
-                    "parentfield": "custom_checklist_items",
-                    "idx": 1,
-                    "sop_item_id": "restrooms",
-                    "item_title": "Restrooms sanitized",
-                    "item_description": "Disinfect all restroom touchpoints and restock consumables.",
-                    "requires_photo_proof": 1,
-                    "item_status": "Completed",
-                    "exception_note": "",
-                },
-                {
-                    "name": "SSR-ITEM-2",
-                    "parent": "SSR-0001",
-                    "parenttype": "Site Shift Requirement",
-                    "parentfield": "custom_checklist_items",
-                    "idx": 2,
-                    "sop_item_id": "trash",
-                    "item_title": "Trash removed",
-                    "item_description": "Empty all cans and replace liners.",
-                    "requires_photo_proof": 0,
-                    "item_status": "Exception",
-                    "exception_note": "Front office can was inaccessible during lockout.",
-                },
-            ],
-            "Site Shift Requirement Checklist Proof": {
-                "PROOF-1": {
-                    "name": "PROOF-1",
-                    "parent": "SSR-0001",
-                    "proof_file": "/private/files/restroom-proof.jpg",
-                    "proof_caption": "Restroom finish photo",
-                }
-            },
-            "Site Shift Requirement Checklist Proof_list": [
-                {
-                    "name": "PROOF-1",
-                    "parent": "SSR-0001",
-                    "parenttype": "Site Shift Requirement",
-                    "parentfield": "custom_checklist_proofs",
-                    "idx": 1,
-                    "checklist_item_id": "restrooms",
-                    "proof_file": "/private/files/restroom-proof.jpg",
-                    "proof_caption": "Restroom finish photo",
-                    "modified": datetime(2026, 3, 9, 20, 15, 0),
-                }
-            ],
-            "File_list": [
-                {
-                    "name": "FILE-1",
-                    "file_url": "/private/files/restroom-proof.jpg",
-                    "file_name": "restroom-proof.jpg",
-                }
             ],
         }
+        self.frappe = portal_context.frappe
+        self.frappe.db = FakeDB(self.dataset)
+        self.frappe.get_all = fake_get_all_factory(self.dataset)
+        self.frappe.get_roles = lambda _user=None: ["Customer"]
+        self.frappe.session = types.SimpleNamespace(user="portal@example.com")
+        self.frappe.local = types.SimpleNamespace(response={}, request=types.SimpleNamespace(get_json=lambda silent=True: None))
+        self.frappe.request = types.SimpleNamespace(data=None)
+        self.frappe.form_dict = {}
 
-        portal.frappe.db = FakeDB(self.dataset)
-        portal.frappe.get_all = fake_get_all_factory(
-            {
-                "Service Agreement": self.dataset["Service Agreement"],
-                "Service Agreement Addendum": self.dataset["Service Agreement Addendum"],
-                "Sales Invoice": self.dataset["Sales Invoice_list"],
-                "Building": self.dataset["Building_list"],
-                "Checklist Session": self.dataset["Checklist Session_list"],
-                "Checklist Session Item": self.dataset["Checklist Session Item_list"],
-                "Building SOP": list(self.dataset["Building SOP"].values()),
-                "Building SOP Item": self.dataset["Building SOP Item_list"],
-                "Site Shift Requirement": self.dataset["Site Shift Requirement_list"],
-                "Site Shift Requirement Checklist Item": self.dataset["Site Shift Requirement Checklist Item_list"],
-                "Site Shift Requirement Checklist Proof": self.dataset["Site Shift Requirement Checklist Proof_list"],
-                "File": self.dataset["File_list"],
-            }
-        )
-        portal.frappe.get_roles = lambda _user=None: ["Customer"]
-        portal.frappe.session.user = "portal@example.com"
-        portal.frappe.local.response = {}
-        portal.frappe.form_dict = {}
-        portal.frappe.utils.get_url = lambda path="": f"https://example.test{path}"
-        portal.frappe.utils.get_datetime = lambda value: value if isinstance(value, datetime) else datetime.fromisoformat(str(value))
-
-    def _portal_scope(self, **overrides):
-        payload = {
-            "session_user": "portal@example.com",
-            "customer_name": "CUST-1",
-            "customer_display": "Portal Customer LLC",
-            "portal_contact_name": "CONTACT-1",
-            "portal_contact_email": "portal@example.com",
-            "portal_contact_phone": "512-555-0101",
-            "portal_contact_designation": "Office Manager",
-            "portal_address_name": "ADDR-PORTAL",
-            "billing_contact_name": "CONTACT-BILLING",
-            "billing_contact_email": "billing@example.com",
-            "billing_contact_phone": "512-555-0133",
-            "billing_contact_designation": "Accounts Payable",
-            "billing_address_name": "ADDR-1",
-            "tax_id": "99-1234567",
-        }
-        payload.update(overrides)
-        return portal.PortalScope(**payload)
-
-    def test_dashboard_data_is_scoped_to_customer(self):
-        with patch.object(portal.public_quote_service, "find_contact_for_customer", return_value="CONTACT-BILLING"), patch.object(
-            portal.public_quote_service, "find_address_for_customer", return_value="ADDR-1"
-        ):
-            data = portal.get_customer_portal_dashboard_data()
-
-        self.assertFalse(data["access_denied"])
-        self.assertEqual(data["customer_display"], "Portal Customer LLC")
-        self.assertEqual(data["summary_cards"][0]["label"], "Agreement status")
-        self.assertEqual(data["summary_cards"][0]["value"], "Active")
-        self.assertEqual(data["summary_cards"][0]["meta"], "Signed Mar 01, 2026 09:00 AM")
-        self.assertEqual(data["summary_cards"][1]["value"], "1")
-        self.assertEqual(data["latest_invoices"][0]["download_url"], "/api/method/pikt_inc.api.customer_portal.download_customer_portal_invoice?invoice=SINV-0001")
-        self.assertEqual(data["active_master"]["title"], "Portal Customer Master Agreement")
-        self.assertEqual(data["latest_locations"][0]["title"], "Headquarters")
-        self.assertEqual(data["latest_locations"][0]["agreement_status_label"], "Location exhibit on file")
-
-    def test_scope_no_longer_depends_on_contact_user_link(self):
-        self.dataset["contact_links"][0]["session_user"] = "someone-else@example.com"
-
-        with patch.object(portal.public_quote_service, "find_contact_for_customer", return_value="CONTACT-BILLING"), patch.object(
-            portal.public_quote_service, "find_address_for_customer", return_value="ADDR-1"
-        ):
-            data = portal.get_customer_portal_dashboard_data()
-
-        self.assertFalse(data["access_denied"])
-        self.assertEqual(data["customer_display"], "Portal Customer LLC")
-
-    def test_agreements_page_shapes_addenda_around_location_identity(self):
-        data = portal.get_customer_portal_agreements_data()
-
-        self.assertFalse(data["access_denied"])
-        self.assertEqual(data["active_master"]["title"], "Portal Customer Master Agreement")
-        self.assertEqual(data["addenda"][0]["title"], "Headquarters")
-        self.assertEqual(data["addenda"][0]["document_title"], "Portal Addendum")
-        self.assertEqual(data["addenda"][0]["location_address"], "123 Market St, Suite 300, Austin, TX 78701")
-
-    def test_locations_page_defaults_to_list_view(self):
-        data = portal.get_customer_portal_locations_data()
-
-        self.assertFalse(data["access_denied"])
-        self.assertEqual(data["buildings"][0]["title"], "Headquarters")
-        self.assertEqual(data["buildings"][0]["detail_url"], "/portal/locations?building=BUILD-1")
-        self.assertEqual(data["buildings"][0]["agreement_status_label"], "Location exhibit on file")
-        self.assertIsNone(data["selected_building"])
-        self.assertEqual(data["selected_building_checklist"], [])
-        self.assertEqual(data["service_history"], [])
-
-    def test_locations_page_can_select_a_single_building_for_editing(self):
-        portal.frappe.form_dict = {"building": "BUILD-1"}
-
-        data = portal.get_customer_portal_locations_data()
-
-        self.assertFalse(data["access_denied"])
-        self.assertEqual(data["selected_building"]["name"], "BUILD-1")
-        self.assertEqual(data["selected_building"]["title"], "Headquarters")
-        self.assertEqual(data["selected_building_sop"]["name"], "BSOP-1")
-        self.assertEqual(data["selected_building_sop"]["version_number"], 2)
-        self.assertEqual(data["selected_building_checklist"][0]["title"], "Restrooms sanitized")
-        self.assertTrue(data["selected_building_checklist"][0]["requires_photo_proof"])
-        self.assertEqual(data["service_history"][0]["name"], "SSR-0001")
-        self.assertTrue(data["service_history"][0]["has_checklist"])
-        self.assertEqual(data["service_history"][0]["checklist_items"][0]["proofs"][0]["name"], "PROOF-1")
-
-    def test_portal_billing_contract_requires_address_fields(self):
-        with self.assertRaisesRegex(Exception, "Field required|at least 1 character"):
-            portal_contracts.CustomerPortalBillingInput.model_validate(
-                {
-                    "billing_contact_name": "Billing Team",
-                    "billing_email": "billing@example.com",
-                    "billing_country": "United States",
-                }
-            )
-
-    def test_portal_location_contract_accepts_alias_and_tracks_updates(self):
-        payload = portal_contracts.CustomerPortalLocationUpdateInput.model_validate(
-            {
-                "building": "BUILD-1",
-                "access_method": "Door code / keypad",
-                "access_details_confirmed": "1",
-            }
+    def _patch_customer_links(self):
+        return patch.object(portal_context.public_quote_service, "find_contact_for_customer", return_value="CONTACT-BILLING"), patch.object(
+            portal_context.public_quote_service,
+            "find_address_for_customer",
+            return_value="ADDR-1",
         )
 
-        self.assertEqual(payload.building_name, "BUILD-1")
-        self.assertEqual(payload.updates()["access_method"], "Door code / keypad")
-        self.assertTrue(payload.updates()["access_details_confirmed"])
-
-    def test_portal_building_sop_contract_accepts_flat_items(self):
-        payload = portal_contracts.CustomerPortalBuildingSopUpdateInput.model_validate(
-            {
-                "building": "BUILD-1",
-                "items": [
-                    {
-                        "item_id": "restrooms",
-                        "title": "Restrooms sanitized",
-                        "description": "Disinfect touchpoints.",
-                        "requires_photo_proof": "1",
-                    }
-                ],
-            }
-        )
-
-        self.assertEqual(payload.building_name, "BUILD-1")
-        self.assertEqual(payload.items[0].item_id, "restrooms")
-        self.assertTrue(payload.items[0].requires_photo_proof)
-
-    def test_missing_user_customer_link_returns_branded_error_page(self):
-        self.dataset["User"]["portal@example.com"]["custom_customer"] = ""
-        data = portal.get_customer_portal_billing_data()
-
-        self.assertTrue(data["access_denied"])
-        self.assertIn("missing a linked customer", data["error_message"])
-        self.assertEqual(portal.frappe.local.response["http_status_code"], 403)
-        self.assertEqual(data["login_path"], "")
-
-    def test_guest_scope_returns_sign_in_path(self):
-        portal.frappe.session.user = "Guest"
-
-        data = portal.get_customer_portal_dashboard_data()
-
-        self.assertTrue(data["access_denied"])
-        self.assertEqual(data["error_message"], "Sign in to access your customer portal.")
-        self.assertEqual(portal.frappe.local.response["http_status_code"], 302)
-        self.assertEqual(data["login_path"], "/login?redirect-to=/portal")
-        self.assertEqual(data["redirect_to"], "/login?redirect-to=/portal")
-        self.assertIsInstance(data["metatags"], dict)
-        self.assertIsInstance(data["portal_nav"][0], dict)
-
-    def test_portal_access_error_response_serializes_nested_models(self):
-        with patch.object(portal_payloads, "_is_guest_session", return_value=True):
-            data = portal_payloads._portal_access_error_response(
-                "overview",
-                portal.PortalAccessError("Sign in to access your customer portal."),
-            )
-
-        self.assertIsInstance(data["metatags"], dict)
-        self.assertEqual(data["metatags"]["title"], "Account Overview | Customer Portal")
-        self.assertTrue(all(isinstance(item, dict) for item in data["portal_nav"]))
-
-    def test_client_overview_is_scoped_to_user_customer(self):
-        data = portal.get_customer_portal_client_overview()
-
-        self.assertEqual([row["id"] for row in data["buildings"]], ["BUILD-1"])
-        self.assertEqual([row["id"] for row in data["completed_sessions"]], ["CS-1"])
-        self.assertEqual(data["completed_sessions"][0]["building_id"], "BUILD-1")
-        self.assertEqual(data["completed_sessions"][0]["items"], [])
-
-    def test_client_building_returns_scoped_history(self):
-        data = portal.get_customer_portal_client_building("BUILD-1")
-
-        self.assertEqual(data["building"]["id"], "BUILD-1")
-        self.assertEqual(data["building"]["current_checklist_template_id"], "CHK-TPL-1")
-        self.assertEqual([row["id"] for row in data["completed_sessions"]], ["CS-1"])
-
-    def test_client_job_returns_scoped_proof_url(self):
-        data = portal.get_customer_portal_client_job("CS-1")
-
-        self.assertEqual(data["building"]["id"], "BUILD-1")
-        self.assertEqual(data["session"]["id"], "CS-1")
-        self.assertEqual(data["session"]["items"][0]["item_key"], "restrooms")
+    def test_package_surface_is_reduced_and_explicit(self):
         self.assertEqual(
-            data["session"]["items"][0]["proof_image"],
+            portal.__all__,
+            [
+                "ClientBuildingRequest",
+                "ClientBuildingResponse",
+                "ClientBuildingSummary",
+                "ClientJobProofRequest",
+                "ClientJobRequest",
+                "ClientJobResponse",
+                "ClientOverviewRequest",
+                "ClientOverviewResponse",
+                "ClientSessionItem",
+                "ClientSessionSummary",
+                "CustomerPortalAccessError",
+                "CustomerPortalContext",
+                "CustomerPortalNotFoundError",
+                "FileDownload",
+                "download_client_job_proof",
+                "get_client_building",
+                "get_client_job",
+                "get_client_overview",
+            ],
+        )
+
+    def test_resolve_context_returns_typed_context_for_linked_customer_user(self):
+        link_contact, link_address = self._patch_customer_links()
+        with link_contact, link_address:
+            context = portal_context.resolve_context()
+
+        self.assertEqual(context.customer_name, "CUST-1")
+        self.assertEqual(context.customer_display, "Portal Customer LLC")
+        self.assertEqual(context.portal_contact_name, "CONTACT-1")
+        self.assertEqual(context.billing_contact_name, "CONTACT-BILLING")
+        self.assertEqual(context.billing_address_name, "ADDR-1")
+
+    def test_resolve_context_rejects_invalid_portal_users(self):
+        with self.assertRaisesRegex(portal.CustomerPortalAccessError, "Sign in to access your customer portal"):
+            self.frappe.session = types.SimpleNamespace(user="Guest")
+            portal_context.resolve_context()
+
+        with self.assertRaisesRegex(portal.CustomerPortalAccessError, "does not have customer portal access"):
+            self.frappe.session = types.SimpleNamespace(user="portal@example.com")
+            self.frappe.get_roles = lambda _user=None: ["Employee"]
+            portal_context.resolve_context()
+
+        with self.assertRaisesRegex(portal.CustomerPortalAccessError, "missing a linked customer"):
+            self.frappe.session = types.SimpleNamespace(user="unlinked@example.com")
+            self.frappe.get_roles = lambda _user=None: ["Customer"]
+            portal_context.resolve_context()
+
+    def test_get_client_overview_returns_only_scoped_completed_data(self):
+        link_contact, link_address = self._patch_customer_links()
+        with link_contact, link_address:
+            response = portal.get_client_overview(portal.ClientOverviewRequest())
+
+        self.assertEqual([building.id for building in response.buildings], ["BUILD-1"])
+        self.assertEqual([session.id for session in response.completed_sessions], ["CS-1"])
+
+    def test_get_client_building_returns_scoped_history_only(self):
+        link_contact, link_address = self._patch_customer_links()
+        with link_contact, link_address:
+            response = portal.get_client_building(portal.ClientBuildingRequest.model_validate({"building": "BUILD-1"}))
+
+        self.assertEqual(response.building.id, "BUILD-1")
+        self.assertEqual([session.id for session in response.completed_sessions], ["CS-1"])
+
+    def test_get_client_job_returns_job_detail_with_proof_urls(self):
+        link_contact, link_address = self._patch_customer_links()
+        with link_contact, link_address:
+            response = portal.get_client_job(portal.ClientJobRequest.model_validate({"session": "CS-1"}))
+
+        self.assertEqual(response.building.id, "BUILD-1")
+        self.assertEqual(response.session.id, "CS-1")
+        self.assertEqual(len(response.session.items), 2)
+        self.assertEqual(
+            response.session.items[0].proof_image,
             "/api/method/pikt_inc.api.customer_portal.download_customer_portal_client_job_proof?session=CS-1&item_key=restrooms",
         )
 
-    def test_client_job_download_sets_inline_response(self):
-        portal.frappe.local.response = {}
+    def test_download_client_job_proof_returns_file_download(self):
+        link_contact, link_address = self._patch_customer_links()
+        with link_contact, link_address, patch.object(
+            portal_client.building_sop_service,
+            "get_proof_file_content",
+            return_value=("restroom-proof.jpg", b"IMG", "image/jpeg"),
+        ):
+            response = portal.download_client_job_proof(
+                portal.ClientJobProofRequest.model_validate({"session": "CS-1", "item_key": "restrooms"})
+            )
+
+        self.assertEqual(response.filename, "restroom-proof.jpg")
+        self.assertEqual(response.content, b"IMG")
+        self.assertEqual(response.content_type, "image/jpeg")
+        self.assertFalse(response.as_attachment)
+
+    def test_download_client_job_proof_rejects_out_of_scope_job(self):
+        link_contact, link_address = self._patch_customer_links()
+        with link_contact, link_address:
+            with self.assertRaisesRegex(portal.CustomerPortalNotFoundError, "job report is not available"):
+                portal.download_client_job_proof(
+                    portal.ClientJobProofRequest.model_validate({"session": "CS-OTHER", "item_key": "other"})
+                )
+
+    def test_api_wrappers_validate_request_models_and_preserve_shape(self):
+        expected_building = portal.ClientBuildingResponse(
+            building=portal.ClientBuildingSummary(
+                id="BUILD-1",
+                name="Headquarters",
+                address="123 Market St",
+                notes=None,
+                active=True,
+                current_checklist_template_id="CHK-TPL-1",
+                created_at="2026-03-01 08:00:00",
+                updated_at="2026-03-06 12:00:00",
+            ),
+            completed_sessions=[],
+        )
 
         with patch.object(
-            portal.checklist.building_sop_service,
-            "get_proof_file_content",
-            return_value=("restroom-proof.jpg", b"IMG", "image/jpeg"),
+            portal_api.customer_portal_service,
+            "get_client_building",
+            return_value=expected_building,
+        ) as get_client_building:
+            result = portal_api.get_customer_portal_client_building(building="BUILD-1")
+
+        self.assertEqual(result["building"]["id"], "BUILD-1")
+        request = get_client_building.call_args.args[0]
+        self.assertIsInstance(request, portal.ClientBuildingRequest)
+        self.assertEqual(request.building_id, "BUILD-1")
+
+        with self.assertRaisesRegex(Exception, "Field required"):
+            portal_api.get_customer_portal_client_building()
+
+    def test_download_wrapper_applies_inline_file_response(self):
+        self.frappe.local.response = {}
+        with patch.object(
+            portal_api.customer_portal_service,
+            "download_client_job_proof",
+            return_value=portal.FileDownload(
+                filename="restroom-proof.jpg",
+                content=b"IMG",
+                content_type="image/jpeg",
+                as_attachment=False,
+            ),
+        ) as download_client_job_proof:
+            result = portal_api.download_customer_portal_client_job_proof(session="CS-1", item_key="restrooms")
+
+        self.assertIsNone(result)
+        request = download_client_job_proof.call_args.args[0]
+        self.assertIsInstance(request, portal.ClientJobProofRequest)
+        self.assertEqual(self.frappe.local.response["filename"], "restroom-proof.jpg")
+        self.assertEqual(self.frappe.local.response["type"], "binary")
+        self.assertEqual(self.frappe.local.response["content_type"], "image/jpeg")
+
+    def test_api_wrapper_surfaces_portal_errors(self):
+        with patch.object(
+            portal_api.customer_portal_service,
+            "get_client_job",
+            side_effect=portal.CustomerPortalNotFoundError("That job report is not available in this portal account."),
         ):
-            portal.download_customer_portal_client_job_proof("CS-1", "restrooms")
+            with self.assertRaisesRegex(Exception, "That job report is not available in this portal account"):
+                portal_api.get_customer_portal_client_job(session="CS-OTHER")
 
-        self.assertEqual(portal.frappe.local.response["filename"], "restroom-proof.jpg")
-        self.assertEqual(portal.frappe.local.response["type"], "binary")
-        self.assertEqual(portal.frappe.local.response["content_type"], "image/jpeg")
+    def test_client_request_models_validate_required_fields(self):
+        with self.assertRaises(ValidationError):
+            portal.ClientBuildingRequest.model_validate({})
 
-    def test_billing_update_uses_scoped_customer_helpers(self):
-        scope = portal.PortalScope(
-            session_user="portal@example.com",
-            customer_name="CUST-1",
-            customer_display="Portal Customer LLC",
-            portal_contact_name="CONTACT-1",
-            portal_contact_email="portal@example.com",
-            portal_contact_phone="512-555-0101",
-            portal_contact_designation="Office Manager",
-            portal_address_name="ADDR-PORTAL",
-            billing_contact_name="CONTACT-BILLING",
-            billing_contact_email="billing@example.com",
-            billing_contact_phone="512-555-0133",
-            billing_contact_designation="Accounts Payable",
-            billing_address_name="ADDR-1",
-            tax_id="99-1234567",
-        )
-
-        with patch.object(portal.billing, "_require_portal_scope", return_value=scope), patch.object(
-            portal.billing, "_portal_contact_payload", return_value=types.SimpleNamespace(display_name="Pat Portal")
-        ), patch.object(portal.public_quote_service, "valid_email", return_value=True), patch.object(
-            portal.public_quote_service, "ensure_address", return_value="ADDR-UPDATED"
-        ) as ensure_address, patch.object(
-            portal.public_quote_service, "ensure_contact", return_value="CONTACT-UPDATED"
-        ) as ensure_contact, patch.object(
-            portal.public_quote_service, "sync_customer"
-        ) as sync_customer, patch.object(
-            portal.public_quote_service, "doc_db_set_values"
-        ) as doc_db_set_values:
-            response = portal.update_customer_portal_billing(
-                portal_contact_name="Pat Portal",
-                portal_contact_phone="512-555-0111",
-                portal_contact_title="Facilities Lead",
-                billing_contact_name="Billing Team",
-                billing_email="billing@example.com",
-                billing_contact_phone="512-555-0222",
-                billing_contact_title="Controller",
-                billing_address_line_1="456 Billing Ave",
-                billing_city="Austin",
-                billing_state="TX",
-                billing_postal_code="78702",
-                billing_country="United States",
-                tax_id="12-3456789",
-            )
-
-        ensure_address.assert_called_once()
-        ensure_contact.assert_called_once_with("CUST-1", "Portal Customer LLC", "Billing Team", "billing@example.com")
-        sync_customer.assert_called_once_with("CUST-1", "billing@example.com", "CONTACT-UPDATED", "ADDR-UPDATED", "12-3456789")
-        self.assertGreaterEqual(doc_db_set_values.call_count, 2)
-        self.assertEqual(response["status"], "updated")
-
-    def test_billing_update_splits_shared_contact_when_roles_diverge(self):
-        scope = portal.PortalScope(
-            session_user="portal@example.com",
-            customer_name="CUST-1",
-            customer_display="Portal Customer LLC",
-            portal_contact_name="CONTACT-1",
-            portal_contact_email="portal@example.com",
-            portal_contact_phone="512-555-0101",
-            portal_contact_designation="Office Manager",
-            portal_address_name="ADDR-PORTAL",
-            billing_contact_name="CONTACT-1",
-            billing_contact_email="portal@example.com",
-            billing_contact_phone="512-555-0101",
-            billing_contact_designation="Office Manager",
-            billing_address_name="ADDR-1",
-            tax_id="99-1234567",
-        )
-
-        with patch.object(portal.billing, "_require_portal_scope", return_value=scope), patch.object(
-            portal.billing, "_portal_contact_payload", return_value=types.SimpleNamespace(display_name="Pat Portal")
-        ), patch.object(portal.public_quote_service, "valid_email", return_value=True), patch.object(
-            portal.public_quote_service, "ensure_address", return_value="ADDR-UPDATED"
-        ), patch.object(
-            portal.public_quote_service, "ensure_contact", return_value="CONTACT-BILLING"
-        ) as mock_ensure_contact, patch.object(
-            portal.public_quote_service, "sync_customer"
-        ), patch.object(
-            portal.public_quote_service, "doc_db_set_values"
-        ) as doc_db_set_values:
-            portal.update_customer_portal_billing(
-                portal_contact_name="Pat Portal",
-                portal_contact_phone="512-555-0111",
-                portal_contact_title="Facilities Lead",
-                billing_contact_name="Billing Team",
-                billing_email="portal@example.com",
-                billing_contact_phone="512-555-0222",
-                billing_contact_title="Controller",
-                billing_address_line_1="456 Billing Ave",
-                billing_city="Austin",
-                billing_state="TX",
-                billing_postal_code="78702",
-                billing_country="United States",
-                tax_id="12-3456789",
-            )
-
-        mock_ensure_contact.assert_called_once_with(
-            "CUST-1",
-            "Portal Customer LLC",
-            "Billing Team",
-            "portal@example.com",
-            exclude_contact_name="CONTACT-1",
-        )
-        final_update = doc_db_set_values.call_args_list[-1].args
-        self.assertEqual(final_update[0], "Contact")
-        self.assertEqual(final_update[1], "CONTACT-1")
-        self.assertEqual(final_update[2]["phone"], "512-555-0111")
-        self.assertEqual(final_update[2]["designation"], "Facilities Lead")
-        self.assertEqual(final_update[2]["address"], "ADDR-PORTAL")
-
-    def test_billing_update_clears_explicit_blank_billing_phone(self):
-        scope = self._portal_scope()
-
-        with patch.object(portal.billing, "_require_portal_scope", return_value=scope), patch.object(
-            portal.billing, "_portal_contact_payload", return_value=types.SimpleNamespace(display_name="Pat Portal")
-        ), patch.object(portal.public_quote_service, "valid_email", return_value=True), patch.object(
-            portal.public_quote_service, "ensure_address", return_value="ADDR-UPDATED"
-        ), patch.object(
-            portal.public_quote_service, "ensure_contact", return_value="CONTACT-UPDATED"
-        ), patch.object(
-            portal.public_quote_service, "sync_customer"
-        ), patch.object(
-            portal.public_quote_service, "doc_db_set_values"
-        ) as doc_db_set_values:
-            portal.update_customer_portal_billing(
-                portal_contact_name="Pat Portal",
-                billing_contact_name="Billing Team",
-                billing_email="billing@example.com",
-                billing_contact_phone="",
-                billing_contact_title="Controller",
-                billing_address_line_1="456 Billing Ave",
-                billing_city="Austin",
-                billing_state="TX",
-                billing_postal_code="78702",
-                billing_country="United States",
-                tax_id="12-3456789",
-            )
-
-        billing_update = next(call.args for call in doc_db_set_values.call_args_list if call.args[1] == "CONTACT-UPDATED")
-        self.assertEqual(billing_update[2]["phone"], "")
-        self.assertEqual(billing_update[2]["mobile_no"], "")
-
-    def test_billing_update_clears_explicit_blank_portal_phone(self):
-        scope = self._portal_scope()
-
-        with patch.object(portal.billing, "_require_portal_scope", return_value=scope), patch.object(
-            portal.billing, "_portal_contact_payload", return_value=types.SimpleNamespace(display_name="Pat Portal")
-        ), patch.object(portal.public_quote_service, "valid_email", return_value=True), patch.object(
-            portal.public_quote_service, "ensure_address", return_value="ADDR-UPDATED"
-        ), patch.object(
-            portal.public_quote_service, "ensure_contact", return_value="CONTACT-UPDATED"
-        ), patch.object(
-            portal.public_quote_service, "sync_customer"
-        ), patch.object(
-            portal.public_quote_service, "doc_db_set_values"
-        ) as doc_db_set_values:
-            portal.update_customer_portal_billing(
-                portal_contact_name="Pat Portal",
-                portal_contact_phone="",
-                portal_contact_title="Facilities Lead",
-                billing_contact_name="Billing Team",
-                billing_email="billing@example.com",
-                billing_address_line_1="456 Billing Ave",
-                billing_city="Austin",
-                billing_state="TX",
-                billing_postal_code="78702",
-                billing_country="United States",
-                tax_id="12-3456789",
-            )
-
-        portal_update = next(call.args for call in doc_db_set_values.call_args_list if call.args[1] == "CONTACT-1")
-        self.assertEqual(portal_update[2]["phone"], "")
-        self.assertEqual(portal_update[2]["mobile_no"], "")
-
-    def test_billing_update_clears_shared_contact_phone_when_roles_match(self):
-        scope = self._portal_scope(
-            billing_contact_name="CONTACT-1",
-            billing_contact_email="portal@example.com",
-            billing_contact_phone="512-555-0101",
-            billing_contact_designation="Office Manager",
-        )
-
-        with patch.object(portal.billing, "_require_portal_scope", return_value=scope), patch.object(
-            portal.billing, "_portal_contact_payload", return_value=types.SimpleNamespace(display_name="Pat Portal")
-        ), patch.object(portal.public_quote_service, "valid_email", return_value=True), patch.object(
-            portal.public_quote_service, "ensure_address", return_value="ADDR-UPDATED"
-        ), patch.object(
-            portal.public_quote_service, "ensure_contact", return_value="CONTACT-1"
-        ), patch.object(
-            portal.public_quote_service, "sync_customer"
-        ), patch.object(
-            portal.public_quote_service, "doc_db_set_values"
-        ) as doc_db_set_values:
-            portal.update_customer_portal_billing(
-                portal_contact_name="Pat Portal",
-                portal_contact_phone="",
-                portal_contact_title="Office Manager",
-                billing_contact_name="Pat Portal",
-                billing_email="portal@example.com",
-                billing_contact_phone="",
-                billing_contact_title="Office Manager",
-                billing_address_line_1="456 Billing Ave",
-                billing_city="Austin",
-                billing_state="TX",
-                billing_postal_code="78702",
-                billing_country="United States",
-                tax_id="12-3456789",
-            )
-
-        shared_update = doc_db_set_values.call_args_list[-1].args
-        self.assertEqual(shared_update[1], "CONTACT-1")
-        self.assertEqual(shared_update[2]["phone"], "")
-        self.assertEqual(shared_update[2]["mobile_no"], "")
-
-    def test_billing_update_uses_scope_phones_when_fields_are_omitted(self):
-        scope = self._portal_scope()
-
-        with patch.object(portal.billing, "_require_portal_scope", return_value=scope), patch.object(
-            portal.billing, "_portal_contact_payload", return_value=types.SimpleNamespace(display_name="Pat Portal")
-        ), patch.object(portal.public_quote_service, "valid_email", return_value=True), patch.object(
-            portal.public_quote_service, "ensure_address", return_value="ADDR-UPDATED"
-        ), patch.object(
-            portal.public_quote_service, "ensure_contact", return_value="CONTACT-UPDATED"
-        ), patch.object(
-            portal.public_quote_service, "sync_customer"
-        ), patch.object(
-            portal.public_quote_service, "doc_db_set_values"
-        ) as doc_db_set_values:
-            portal.update_customer_portal_billing(
-                portal_contact_name="Pat Portal",
-                billing_contact_name="Billing Team",
-                billing_email="billing@example.com",
-                billing_address_line_1="456 Billing Ave",
-                billing_city="Austin",
-                billing_state="TX",
-                billing_postal_code="78702",
-                billing_country="United States",
-                tax_id="12-3456789",
-            )
-
-        billing_update = next(call.args for call in doc_db_set_values.call_args_list if call.args[1] == "CONTACT-UPDATED")
-        portal_update = next(call.args for call in doc_db_set_values.call_args_list if call.args[1] == "CONTACT-1")
-        self.assertEqual(billing_update[2]["phone"], "512-555-0133")
-        self.assertEqual(billing_update[2]["mobile_no"], "512-555-0133")
-        self.assertEqual(portal_update[2]["phone"], "512-555-0101")
-        self.assertEqual(portal_update[2]["mobile_no"], "512-555-0101")
-
-    def test_location_update_marks_routes_dirty_after_save(self):
-        scope = portal.PortalScope(
-            session_user="portal@example.com",
-            customer_name="CUST-1",
-            customer_display="Portal Customer LLC",
-            portal_contact_name="CONTACT-1",
-            portal_contact_email="portal@example.com",
-            portal_contact_phone="512-555-0101",
-            portal_contact_designation="Office Manager",
-            portal_address_name="ADDR-PORTAL",
-            billing_contact_name="CONTACT-BILLING",
-            billing_contact_email="billing@example.com",
-            billing_contact_phone="512-555-0133",
-            billing_contact_designation="Accounts Payable",
-            billing_address_name="ADDR-1",
-            tax_id="99-1234567",
-        )
-
-        with patch.object(portal.locations, "_require_portal_scope", return_value=scope), patch.object(
-            portal.locations.public_quote_service,
-            "doc_db_set_values",
-        ) as doc_db_set_values, patch.object(
-            portal.locations.dispatch_routing,
-            "mark_routes_dirty_for_building",
-        ) as mark_routes_dirty:
-            response = portal.update_customer_portal_location(
-                building_name="BUILD-1",
-                access_method="Door code / keypad",
-                allowed_entry_time="After 7 PM",
-                site_notes="Manual site note",
-            )
-
-        doc_db_set_values.assert_called_once()
-        mark_routes_dirty.assert_called_once_with("BUILD-1")
-        self.assertEqual(response["status"], "updated")
-
-    def test_location_update_rejects_out_of_scope_building(self):
-        scope = portal.PortalScope(
-            session_user="portal@example.com",
-            customer_name="CUST-1",
-            customer_display="Portal Customer LLC",
-            portal_contact_name="CONTACT-1",
-            portal_contact_email="portal@example.com",
-            portal_contact_phone="512-555-0101",
-            portal_contact_designation="Office Manager",
-            portal_address_name="ADDR-PORTAL",
-            billing_contact_name="CONTACT-BILLING",
-            billing_contact_email="billing@example.com",
-            billing_contact_phone="512-555-0133",
-            billing_contact_designation="Accounts Payable",
-            billing_address_name="ADDR-1",
-            tax_id="99-1234567",
-        )
-
-        with patch.object(portal.locations, "_require_portal_scope", return_value=scope):
-            with self.assertRaisesRegex(Exception, "not available in this portal account"):
-                portal.update_customer_portal_location(building_name="BUILD-OTHER", access_notes="Test note")
-
-    def test_building_sop_update_creates_new_version_for_in_scope_building(self):
-        scope = self._portal_scope()
-
-        with patch.object(portal.locations, "_require_portal_scope", return_value=scope), patch.object(
-            portal.locations.building_sop_service,
-            "create_building_sop_version",
-            return_value=({"name": "BSOP-2"}, []),
-        ) as create_version:
-            response = portal.update_customer_portal_building_sop(
-                building_name="BUILD-1",
-                items=[
-                    {
-                        "item_id": "restrooms",
-                        "title": "Restrooms sanitized",
-                        "description": "Disinfect touchpoints.",
-                        "requires_photo_proof": True,
-                    }
-                ],
-            )
-
-        create_version.assert_called_once()
-        self.assertEqual(response["status"], "updated")
-        self.assertEqual(response["message"], "Building checklist updated.")
-
-    def test_building_sop_update_logs_and_surfaces_clean_message_on_unexpected_save_error(self):
-        scope = self._portal_scope()
-
-        with patch.object(portal.locations, "_require_portal_scope", return_value=scope), patch.object(
-            portal.locations.building_sop_service,
-            "create_building_sop_version",
-            side_effect=TypeError("boom"),
-        ), patch.object(
-            portal.locations.frappe,
-            "get_traceback",
-            return_value="traceback",
-        ), patch.object(
-            portal.locations.frappe,
-            "log_error",
-        ) as log_error:
-            with self.assertRaisesRegex(Exception, "Unable to save the building checklist right now"):
-                portal.update_customer_portal_building_sop(building_name="BUILD-1", items=[])
-
-        log_error.assert_called_once()
-
-    def test_locations_response_formats_service_history_when_history_loader_uses_safe_strings(self):
-        history_payload = {
-            "page": 1,
-            "has_more": False,
-            "visits": [
-                {
-                    "name": "SSR-0001",
-                    "service_date": "2026-04-02",
-                    "arrival_window_start": "",
-                    "arrival_window_end": "",
-                    "status": "Open",
-                    "employee_label": "Crew A",
-                    "sop_name": "",
-                    "has_checklist": False,
-                    "checklist_items": [],
-                }
-            ],
-        }
-
-        portal.frappe.form_dict = {"building": "BUILD-1"}
-
-        with patch.object(portal.payloads.building_sop_service, "shape_portal_sop_payload", return_value={"version": None, "items": []}), patch.object(
-            portal.payloads.building_sop_service,
-            "get_building_service_history",
-            return_value=history_payload,
-        ):
-            response = portal.get_customer_portal_locations_data()
-
-        self.assertEqual(response["service_history"][0]["name"], "SSR-0001")
-        self.assertEqual(response["service_history"][0]["service_date_label"], "Apr 02, 2026")
-        self.assertEqual(response["service_history"][0]["arrival_window_label"], "")
-
-    def test_building_sop_update_rejects_out_of_scope_building(self):
-        scope = self._portal_scope()
-
-        with patch.object(portal.locations, "_require_portal_scope", return_value=scope):
-            with self.assertRaisesRegex(Exception, "not available in this portal account"):
-                portal.update_customer_portal_building_sop(building_name="BUILD-OTHER", items=[])
-
-    def test_invoice_download_sets_download_response(self):
-        scope = portal.PortalScope(
-            session_user="portal@example.com",
-            customer_name="CUST-1",
-            customer_display="Portal Customer LLC",
-            portal_contact_name="CONTACT-1",
-            portal_contact_email="portal@example.com",
-            portal_contact_phone="512-555-0101",
-            portal_contact_designation="Office Manager",
-            portal_address_name="ADDR-PORTAL",
-            billing_contact_name="CONTACT-BILLING",
-            billing_contact_email="billing@example.com",
-            billing_contact_phone="512-555-0133",
-            billing_contact_designation="Accounts Payable",
-            billing_address_name="ADDR-1",
-            tax_id="99-1234567",
-        )
-
-        portal.frappe.local.response = {}
-        with patch.object(portal.downloads, "_require_portal_scope", return_value=scope), patch.object(
-            portal.downloads, "render_invoice_pdf", return_value=b"PDF"
-        ):
-            portal.download_customer_portal_invoice("SINV-0001")
-
-        self.assertEqual(portal.frappe.local.response["filename"], "SINV-0001.pdf")
-        self.assertEqual(portal.frappe.local.response["type"], "download")
-        self.assertEqual(portal.frappe.local.response["content_type"], "application/pdf")
-
-    def test_checklist_proof_download_sets_scoped_response(self):
-        scope = self._portal_scope()
-        portal.frappe.local.response = {}
-
-        with patch.object(portal.downloads, "_require_portal_scope", return_value=scope), patch.object(
-            portal.downloads.building_sop_service,
-            "get_proof_file_content",
-            return_value=("restroom-proof.jpg", b"IMG", "image/jpeg"),
-        ):
-            portal.download_customer_portal_checklist_proof("PROOF-1")
-
-        self.assertEqual(portal.frappe.local.response["filename"], "restroom-proof.jpg")
-        self.assertEqual(portal.frappe.local.response["type"], "download")
-        self.assertEqual(portal.frappe.local.response["content_type"], "image/jpeg")
-
-    def test_render_invoice_pdf_uses_scoped_print_bypass(self):
-        portal.frappe.local.flags = types.SimpleNamespace(ignore_print_permissions=False)
-        observed = []
-
-        def fake_get_print(*_args, **_kwargs):
-            observed.append(portal.frappe.local.flags.ignore_print_permissions)
-            return "<html>invoice</html>"
-
-        with patch.object(portal.frappe, "get_print", side_effect=fake_get_print):
-            pdf = portal.render_invoice_pdf("SINV-0001")
-
-        self.assertEqual(observed, [True])
-        self.assertFalse(portal.frappe.local.flags.ignore_print_permissions)
-        self.assertEqual(pdf, b"<html>invoice</html>")
+        with self.assertRaises(ValidationError):
+            portal.ClientJobProofRequest.model_validate({"session": "CS-1"})
 
     def test_hooks_include_customer_portal_cleanup_patch(self):
-        self.assertFalse(hasattr(app_hooks, "role_home_page"))
         builder_fixture = next(fixture for fixture in app_hooks.fixtures if fixture["dt"] == "Builder Page")
         routes = builder_fixture["filters"][0][2]
         self.assertNotIn("portal", routes)
         self.assertNotIn("portal/agreements", routes)
         self.assertNotIn("portal/billing", routes)
-        self.assertNotIn("portal/billing-info", routes)
         self.assertNotIn("portal/locations", routes)
-        component_fixture = next(fixture for fixture in app_hooks.fixtures if fixture["dt"] == "Builder Component")
-        component_names = component_fixture["filters"][0][2]
-        self.assertNotIn("Portal Shell Header", component_names)
-        self.assertNotIn("Portal Summary Stat Card", component_names)
-        self.assertNotIn("Portal Record List Card", component_names)
-        self.assertNotIn("Portal Invoice Row Card", component_names)
-        self.assertNotIn("Portal Agreement Preview Card", component_names)
-        self.assertNotIn("Portal Location Edit Card", component_names)
-        self.assertNotIn("Portal Empty State Block", component_names)
         patches = PATCHES_PATH.read_text(encoding="utf-8")
         self.assertIn("pikt_inc.patches.post_model_sync.retire_legacy_customer_portal_role", patches)
         self.assertIn("pikt_inc.patches.post_model_sync.remove_legacy_customer_portal_builder_artifacts", patches)
@@ -1284,7 +602,7 @@ class TestCustomerPortal(TestCase):
         deleted_docs = []
         cleared = []
 
-        class FakeDB:
+        class PatchDB:
             def get_value(self, doctype, name, fieldname):
                 if doctype == "User" and fieldname == "custom_customer":
                     return custom_customers.get(name)
@@ -1301,7 +619,7 @@ class TestCustomerPortal(TestCase):
                 updated_rows.append((doctype, name, fieldname, value, update_modified))
 
         fake_frappe = types.SimpleNamespace(
-            db=FakeDB(),
+            db=PatchDB(),
             get_all=lambda doctype, filters=None, fields=None, limit=None: legacy_rows
             if doctype == "Has Role" and filters == {"role": "Customer Portal User"}
             else [],
@@ -1312,15 +630,11 @@ class TestCustomerPortal(TestCase):
         with patch.object(retire_legacy_customer_portal_role, "frappe", fake_frappe):
             result = retire_legacy_customer_portal_role.execute()
 
-        self.assertEqual(result["status"], "updated")
         self.assertEqual(result["migrated_users"], ["linked@example.com"])
         self.assertEqual(result["removed_duplicate_assignments"], ["duplicate@example.com"])
         self.assertEqual(result["removed_invalid_assignments"], ["invalid@example.com"])
         self.assertTrue(result["role_removed"])
-        self.assertEqual(
-            updated_rows,
-            [("Has Role", "ROLE-LEGACY-1", "role", "Customer", False)],
-        )
+        self.assertEqual(updated_rows, [("Has Role", "ROLE-LEGACY-1", "role", "Customer", False)])
         self.assertEqual(
             deleted_docs,
             [
@@ -1330,63 +644,3 @@ class TestCustomerPortal(TestCase):
             ],
         )
         self.assertEqual(len(cleared), 1)
-
-    def test_api_getters_proxy_to_service(self):
-        with patch.object(portal_api.customer_portal_service, "get_customer_portal_dashboard_data", return_value={"page_key": "overview"}) as dashboard, patch.object(
-            portal_api.customer_portal_service,
-            "get_customer_portal_agreements_data",
-            return_value={"page_key": "agreements"},
-        ) as agreements, patch.object(
-            portal_api.customer_portal_service,
-            "get_customer_portal_billing_data",
-            return_value={"page_key": "billing"},
-        ) as billing, patch.object(
-            portal_api.customer_portal_service,
-            "get_customer_portal_locations_data",
-            return_value={"page_key": "locations"},
-        ) as locations, patch.object(
-            portal_api.customer_portal_service,
-            "get_customer_portal_client_overview",
-            return_value={"buildings": []},
-        ) as client_overview, patch.object(
-            portal_api.customer_portal_service,
-            "get_customer_portal_client_building",
-            return_value={"building": {"id": "BUILD-1"}},
-        ) as client_building, patch.object(
-            portal_api.customer_portal_service,
-            "get_customer_portal_client_job",
-            return_value={"session": {"id": "CS-1"}},
-        ) as client_job, patch.object(
-            portal_api.customer_portal_service,
-            "update_customer_portal_building_sop",
-            return_value={"status": "updated"},
-        ) as update_sop, patch.object(
-            portal_api.customer_portal_service,
-            "download_customer_portal_checklist_proof",
-            return_value=None,
-        ) as download_proof, patch.object(
-            portal_api.customer_portal_service,
-            "download_customer_portal_client_job_proof",
-            return_value=None,
-        ) as download_client_proof:
-            self.assertEqual(portal_api.get_customer_portal_dashboard_data(), {"page_key": "overview"})
-            self.assertEqual(portal_api.get_customer_portal_agreements_data(), {"page_key": "agreements"})
-            self.assertEqual(portal_api.get_customer_portal_billing_data(), {"page_key": "billing"})
-            self.assertEqual(portal_api.get_customer_portal_locations_data(), {"page_key": "locations"})
-            self.assertEqual(portal_api.get_customer_portal_client_overview(), {"buildings": []})
-            self.assertEqual(portal_api.get_customer_portal_client_building(building="BUILD-1"), {"building": {"id": "BUILD-1"}})
-            self.assertEqual(portal_api.get_customer_portal_client_job(session="CS-1"), {"session": {"id": "CS-1"}})
-            self.assertEqual(portal_api.update_customer_portal_building_sop(building_name="BUILD-1"), {"status": "updated"})
-            self.assertIsNone(portal_api.download_customer_portal_checklist_proof(proof="PROOF-1"))
-            self.assertIsNone(portal_api.download_customer_portal_client_job_proof(session="CS-1", item_key="restrooms"))
-
-        dashboard.assert_called_once_with()
-        agreements.assert_called_once_with()
-        billing.assert_called_once_with()
-        locations.assert_called_once_with()
-        client_overview.assert_called_once_with()
-        client_building.assert_called_once()
-        client_job.assert_called_once()
-        update_sop.assert_called_once()
-        download_proof.assert_called_once()
-        download_client_proof.assert_called_once()
