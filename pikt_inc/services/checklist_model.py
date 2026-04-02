@@ -232,12 +232,16 @@ def sync_active_checklist_template(doc) -> None:
     frappe.db.set_value(BUILDING_DOCTYPE, building_name, BUILDING_CURRENT_TEMPLATE_FIELD, replacement_name or None)
 
 
-def _session_exists(building_name: str, service_date, current_name: str = "") -> str:
+def _active_session_exists(building_name: str, service_date, current_name: str = "") -> str:
     rows = frappe.get_all(
         CHECKLIST_SESSION_DOCTYPE,
-        filters={"building": clean(building_name), "service_date": service_date},
+        filters={
+            "building": clean(building_name),
+            "service_date": service_date,
+            "status": SESSION_STATUS_IN_PROGRESS,
+        },
         fields=["name"],
-        order_by="creation asc",
+        order_by="started_at desc, creation desc",
         limit=20,
     )
     for row in rows or []:
@@ -305,13 +309,19 @@ def prepare_checklist_session_for_insert(doc) -> None:
         frappe.throw("Building is required.")
     if not service_date:
         frappe.throw("Service Date is required.")
-    if _session_exists(building_name, service_date, clean(_field_value(doc, "name"))):
-        frappe.throw("Only one Checklist Session is allowed per building and service date.")
+    if not clean(_field_value(doc, "status")):
+        _set_field_value(doc, "status", SESSION_STATUS_IN_PROGRESS)
+
+    session_status = clean(_field_value(doc, "status")) or SESSION_STATUS_IN_PROGRESS
+    if session_status == SESSION_STATUS_IN_PROGRESS and _active_session_exists(
+        building_name,
+        service_date,
+        clean(_field_value(doc, "name")),
+    ):
+        frappe.throw("Only one in-progress Checklist Session is allowed per building and service date.")
 
     _resolve_session_template(doc)
 
-    if not clean(_field_value(doc, "status")):
-        _set_field_value(doc, "status", SESSION_STATUS_IN_PROGRESS)
     if not _field_value(doc, "started_at"):
         _set_field_value(doc, "started_at", _now_datetime())
 
@@ -332,15 +342,20 @@ def validate_checklist_session(doc) -> None:
         frappe.throw("Building is required.")
     if not service_date:
         frappe.throw("Service Date is required.")
-    if _session_exists(building_name, service_date, current_name):
-        frappe.throw("Only one Checklist Session is allowed per building and service date.")
+
+    session_status = clean(_field_value(doc, "status")) or SESSION_STATUS_IN_PROGRESS
+    if session_status == SESSION_STATUS_IN_PROGRESS and _active_session_exists(
+        building_name,
+        service_date,
+        current_name,
+    ):
+        frappe.throw("Only one in-progress Checklist Session is allowed per building and service date.")
 
     _resolve_session_template(doc)
 
     if not _field_value(doc, "started_at"):
         _set_field_value(doc, "started_at", _now_datetime())
 
-    session_status = clean(_field_value(doc, "status")) or SESSION_STATUS_IN_PROGRESS
     required_incomplete: list[str] = []
     for row in list(_field_value(doc, "items", []) or []):
         title = clean(_row_value(row, "title_snapshot") or _row_value(row, "title")) or "Checklist item"

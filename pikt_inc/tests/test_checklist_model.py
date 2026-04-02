@@ -105,7 +105,7 @@ class TestChecklistModel(unittest.TestCase):
         doc = FakeDoc({"building": "BUILD-1", "service_date": "2026-04-02", "items": []})
         doc.flags = SimpleNamespace()
 
-        with patch.object(checklist_model, "_session_exists", return_value=""), patch.object(
+        with patch.object(checklist_model, "_active_session_exists", return_value=""), patch.object(
             checklist_model,
             "_load_building_row",
             return_value={"name": "BUILD-1", "current_checklist_template": "CHK-TPL-1"},
@@ -141,7 +141,7 @@ class TestChecklistModel(unittest.TestCase):
         self.assertEqual(doc["items"][0]["title_snapshot"], "Use north entrance")
         self.assertEqual(doc["items"][0]["completed"], 0)
 
-    def test_validate_checklist_session_blocks_duplicate_building_and_service_date(self):
+    def test_validate_checklist_session_blocks_duplicate_in_progress_session_for_same_day(self):
         doc = FakeDoc(
             {
                 "name": "CHK-SES-2",
@@ -153,9 +153,36 @@ class TestChecklistModel(unittest.TestCase):
             }
         )
 
-        with patch.object(checklist_model, "_session_exists", return_value="CHK-SES-1"):
-            with self.assertRaisesRegex(Exception, "Only one Checklist Session"):
+        with patch.object(checklist_model, "_active_session_exists", return_value="CHK-SES-1"):
+            with self.assertRaisesRegex(Exception, "Only one in-progress Checklist Session"):
                 checklist_model.validate_checklist_session(doc)
+
+    def test_validate_checklist_session_allows_completed_same_day_run_when_another_session_is_active(self):
+        doc = FakeDoc(
+            {
+                "name": "CHK-SES-2",
+                "building": "BUILD-1",
+                "service_date": "2026-04-02",
+                "checklist_template": "CHK-TPL-1",
+                "status": "completed",
+                "items": [],
+            }
+        )
+
+        with patch.object(checklist_model, "_active_session_exists", return_value="CHK-SES-1"), patch.object(
+            checklist_model,
+            "_load_building_row",
+            return_value={"name": "BUILD-1", "current_checklist_template": "CHK-TPL-1"},
+        ), patch.object(
+            checklist_model,
+            "_load_template_row",
+            return_value={"name": "CHK-TPL-1", "building": "BUILD-1", "status": "Active"},
+        ), patch.object(
+            checklist_model, "_now_datetime", return_value=datetime(2026, 4, 1, 12, 0, 0)
+        ):
+            checklist_model.validate_checklist_session(doc)
+
+        self.assertEqual(doc.completed_at, datetime(2026, 4, 1, 12, 0, 0))
 
     def test_validate_checklist_session_requires_completion_and_proof_image(self):
         doc = FakeDoc(
@@ -188,7 +215,7 @@ class TestChecklistModel(unittest.TestCase):
             }
         )
 
-        with patch.object(checklist_model, "_session_exists", return_value=""), patch.object(
+        with patch.object(checklist_model, "_active_session_exists", return_value=""), patch.object(
             checklist_model,
             "_load_building_row",
             return_value={"name": "BUILD-1", "current_checklist_template": "CHK-TPL-1"},
