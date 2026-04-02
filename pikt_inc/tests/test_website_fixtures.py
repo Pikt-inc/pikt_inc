@@ -21,7 +21,6 @@ CUSTOM_FIELD_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "
 CUSTOM_DOCPERM_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "custom_docperm.json"
 BUILDER_COMPONENT_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "builder_component.json"
 WEB_FORM_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "web_form.json"
-PORTAL_SETTINGS_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "portal_settings.json"
 INSTANT_QUOTE_TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "www" / "instant-quote.html"
 INSTANT_QUOTE_CONTROLLER_PATH = Path(__file__).resolve().parents[1] / "www" / "instant_quote.py"
 SITE_SHELL_MACROS_PATH = Path(__file__).resolve().parents[1] / "templates" / "includes" / "site_shell_macros.html"
@@ -209,59 +208,6 @@ class TestWebsiteFixtures(unittest.TestCase):
             web_form_fixture["filters"],
             [["name", "in", ["master-service-agreement", "service-agreement-addendum"]]],
         )
-
-    def test_portal_settings_fixture_is_exported(self):
-        portal_settings_fixture = next(row for row in app_hooks.fixtures if row["dt"] == "Portal Settings")
-
-        self.assertEqual(portal_settings_fixture, {"dt": "Portal Settings"})
-
-    def test_portal_settings_fixture_file_enables_customer_transaction_menu_and_stages_agreement_links(self):
-        portal_settings_docs = json.loads(PORTAL_SETTINGS_FIXTURE_PATH.read_text(encoding="utf-8"))
-
-        self.assertEqual(len(portal_settings_docs), 1)
-        portal_settings = portal_settings_docs[0]
-        self.assertEqual(portal_settings["doctype"], "Portal Settings")
-        self.assertEqual(portal_settings["default_portal_home"], "/orders")
-        self.assertEqual(portal_settings["hide_standard_menu"], 1)
-
-        menu_by_title = {row["title"]: row for row in portal_settings["menu"]}
-        self.assertEqual(menu_by_title["Quotations"]["enabled"], 0)
-        self.assertEqual(menu_by_title["Orders"]["enabled"], 0)
-        self.assertEqual(menu_by_title["Invoices"]["enabled"], 0)
-        self.assertEqual(menu_by_title["Issues"]["enabled"], 0)
-        self.assertEqual(menu_by_title["Projects"]["enabled"], 0)
-        self.assertEqual(menu_by_title["Shipments"]["enabled"], 0)
-        self.assertEqual(menu_by_title["Appointment Booking"]["enabled"], 0)
-
-        custom_menu_by_title = {row["title"]: row for row in portal_settings["custom_menu"]}
-        self.assertEqual(custom_menu_by_title["Quotations"]["enabled"], 1)
-        self.assertEqual(custom_menu_by_title["Orders"]["enabled"], 1)
-        self.assertEqual(custom_menu_by_title["Invoices"]["enabled"], 1)
-        self.assertEqual(custom_menu_by_title["Issues"]["enabled"], 1)
-        self.assertEqual(
-            custom_menu_by_title["Master Service Agreement"]["route"],
-            "/master-service-agreement-form",
-        )
-        self.assertEqual(
-            custom_menu_by_title["Master Service Agreement"]["reference_doctype"],
-            "Service Agreement",
-        )
-        self.assertEqual(custom_menu_by_title["Master Service Agreement"]["enabled"], 0)
-        self.assertEqual(
-            custom_menu_by_title["Business Agreements"]["route"],
-            "/service-agreement-addendum-form",
-        )
-        self.assertEqual(
-            custom_menu_by_title["Business Agreements"]["reference_doctype"],
-            "Service Agreement Addendum",
-        )
-        self.assertEqual(custom_menu_by_title["Business Agreements"]["enabled"], 0)
-        self.assertEqual(custom_menu_by_title["Buildings"]["route"], "/building-form")
-        self.assertEqual(custom_menu_by_title["Buildings"]["reference_doctype"], "Building")
-        self.assertEqual(custom_menu_by_title["Buildings"]["enabled"], 0)
-        self.assertEqual(custom_menu_by_title["Checklist Items"]["route"], "/building-sop-form")
-        self.assertEqual(custom_menu_by_title["Checklist Items"]["reference_doctype"], "Building SOP")
-        self.assertEqual(custom_menu_by_title["Checklist Items"]["enabled"], 0)
 
     def test_master_service_agreement_web_form_fixture_file_exists_and_targets_service_agreement(self):
         web_forms = json.loads(WEB_FORM_FIXTURE_PATH.read_text(encoding="utf-8"))

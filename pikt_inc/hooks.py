@@ -514,9 +514,6 @@ fixtures = [
 		"dt": "Web Form",
 		"filters": [["name", "in", ["master-service-agreement", "service-agreement-addendum"]]],
 	},
-	{
-		"dt": "Portal Settings",
-	},
 ]
 
 # Extend DocType Class
