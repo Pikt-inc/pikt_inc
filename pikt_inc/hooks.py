@@ -59,9 +59,6 @@ app_license = "mit"
 # application home page (will override Website Settings)
 home_page = "home"
 
-# website user home page (by Role)
-# role_home_page = {}
-
 website_route_rules = [
 	{"from_route": "/contact", "to_route": "contact-page"},
 	{"from_route": "/quote", "to_route": "instant-quote"},
