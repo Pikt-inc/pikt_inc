@@ -532,6 +532,10 @@ fixtures = [
 		"filters": [["name", "in", ["Marketing Blog"]]],
 	},
 	{
+		"dt": "Web Form",
+		"filters": [["name", "in", ["master-service-agreement", "service-agreement-addendum"]]],
+	},
+	{
 		"dt": "Web Template",
 		"filters": [["name", "in", ["PIKT Footer"]]],
 	},

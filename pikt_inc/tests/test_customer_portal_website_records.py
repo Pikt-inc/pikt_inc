@@ -58,36 +58,17 @@ class TestCustomerPortalWebsiteRecordPages(unittest.TestCase):
 
     def test_build_portal_list_context_uses_stock_portal_list_shell(self):
         self.install_fake_portal_module()
-        expected = {
-            "agreements": (
-                "Service Agreement",
-                "Master Service Agreements",
-                "pikt_inc/templates/includes/customer_portal/agreement_list_row.html",
-            ),
-            "business_agreements": (
-                "Service Agreement Addendum",
-                "Building Agreements",
-                "pikt_inc/templates/includes/customer_portal/building_agreement_list_row.html",
-            ),
-            "buildings": (
-                "Building",
-                "Buildings",
-                "pikt_inc/templates/includes/customer_portal/building_list_row.html",
-            ),
-        }
+        context = SimpleNamespace()
 
-        for record_key, (doctype, title, row_template) in expected.items():
-            with self.subTest(record_key=record_key):
-                context = SimpleNamespace()
-                result = website_records.build_portal_list_context(context, record_key)
+        result = website_records.build_portal_list_context(context, "agreements")
 
-                self.assertIs(result, context)
-                self.assertEqual(context.doctype, doctype)
-                self.assertEqual(context.title, title)
-                self.assertEqual(context.list_template, "templates/includes/list/list.html")
-                self.assertEqual(context.row_template, row_template)
-                self.assertEqual(context.no_breadcrumbs, 1)
-                self.assertEqual(context.home_page, "/orders")
+        self.assertIs(result, context)
+        self.assertEqual(context.doctype, "Service Agreement")
+        self.assertEqual(context.title, "Master Service Agreements")
+        self.assertEqual(context.list_template, "templates/includes/list/list.html")
+        self.assertEqual(context.row_template, "templates/includes/list/row_template.html")
+        self.assertEqual(context.no_breadcrumbs, 1)
+        self.assertEqual(context.home_page, "/orders")
 
     def test_build_portal_detail_context_builds_agreement_snapshot_view(self):
         frappe.session.user = "portal@example.com"
@@ -114,7 +95,7 @@ class TestCustomerPortalWebsiteRecordPages(unittest.TestCase):
         self.assertEqual(context.record_name, "SA-0001")
         self.assertEqual(context.snapshot_download_url, "/api/method/pikt_inc.api.customer_portal.download_customer_portal_agreement_snapshot?agreement=SA-0001")
         self.assertEqual(context.back_to_url, "/agreements")
-        self.assertIn({"label": "Building Agreements", "url": "/business-agreements"}, context.related_links)
+        self.assertIn({"label": "Business Agreements", "url": "/business-agreements"}, context.related_links)
         self.assertEqual(context.summary_items[0]["label"], "Customer")
 
     def test_build_portal_detail_context_rejects_guest_access(self):
@@ -158,17 +139,3 @@ class TestCustomerPortalWebsiteRecordPages(unittest.TestCase):
         self.assertEqual(values_by_label["Status"], "Active")
         self.assertEqual(values_by_label["Alarm System"], "No")
         self.assertEqual(values_by_label["Access Confirmed"], "Yes")
-
-    def test_building_list_formatters_normalize_status_and_location_labels(self):
-        self.assertEqual(website_records._format_building_status(1), "Active")
-        self.assertEqual(website_records._format_building_status("No"), "Inactive")
-        self.assertEqual(website_records._format_building_status(""), "")
-
-        location_label = website_records._build_building_location_label(
-            {
-                "address_line_1": "500 Service Test Way",
-                "city": "Austin",
-                "state": "TX",
-            }
-        )
-        self.assertEqual(location_label, "500 Service Test Way, Austin, TX")

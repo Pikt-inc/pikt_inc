@@ -12,6 +12,7 @@ from .shared import _agreement_download_url, clean, truthy
 
 
 _GENERIC_LIST_TEMPLATE = "templates/includes/list/list.html"
+_GENERIC_ROW_TEMPLATE = "templates/includes/list/row_template.html"
 _PORTAL_HOME_ROUTE = "/orders"
 _LOGIN_PATH = "/login"
 _RECORD_CONFIG = {
@@ -23,7 +24,6 @@ _RECORD_CONFIG = {
         "no_result_message": "No master service agreements are available for this account.",
         "title_field": "agreement_name",
         "snapshot_field": "rendered_html_snapshot",
-        "row_template": "pikt_inc/templates/includes/customer_portal/agreement_list_row.html",
         "summary_builder": "_build_service_agreement_summary",
         "related_builder": "_build_service_agreement_related_links",
         "detail_description": "Review this master service agreement.",
@@ -32,15 +32,14 @@ _RECORD_CONFIG = {
     "business_agreements": {
         "doctype": "Service Agreement Addendum",
         "list_route": "/business-agreements",
-        "list_title": "Building Agreements",
+        "list_title": "Business Agreements",
         "list_description": "Review your building-specific service agreements.",
-        "no_result_message": "No building agreements are available for this account.",
+        "no_result_message": "No business agreements are available for this account.",
         "title_field": "addendum_name",
         "snapshot_field": "rendered_html_snapshot",
-        "row_template": "pikt_inc/templates/includes/customer_portal/building_agreement_list_row.html",
         "summary_builder": "_build_service_agreement_addendum_summary",
         "related_builder": "_build_service_agreement_addendum_related_links",
-        "detail_description": "Review this building agreement.",
+        "detail_description": "Review this business agreement.",
         "download_builder": "_build_service_agreement_addendum_download_url",
     },
     "buildings": {
@@ -51,7 +50,6 @@ _RECORD_CONFIG = {
         "no_result_message": "No buildings are available for this account.",
         "title_field": "building_name",
         "snapshot_field": "",
-        "row_template": "pikt_inc/templates/includes/customer_portal/building_list_row.html",
         "summary_builder": "_build_building_summary",
         "related_builder": "_build_building_related_links",
         "detail_description": "Review this building record.",
@@ -115,22 +113,6 @@ def _resolve_doc_title(doc: Any, title_field: str) -> str:
     return title or _get_display_value(doc, "name")
 
 
-def _format_building_status(value: Any) -> str:
-    display_value = clean(value)
-    if not display_value:
-        return ""
-    return "Active" if truthy(value) else "Inactive"
-
-
-def _build_building_location_label(doc: Any) -> str:
-    parts = [
-        _get_display_value(doc, "address_line_1"),
-        _get_display_value(doc, "city"),
-        _get_display_value(doc, "state"),
-    ]
-    return clean(", ".join(part for part in parts if part))
-
-
 def _build_service_agreement_summary(doc: Any) -> list[dict[str, str]]:
     items: list[dict[str, str]] = []
     _append_item(items, "Customer", _get_value(doc, "customer"))
@@ -145,7 +127,7 @@ def _build_service_agreement_summary(doc: Any) -> list[dict[str, str]]:
 
 
 def _build_service_agreement_related_links(_doc: Any) -> list[dict[str, str]]:
-    return [{"label": "Building Agreements", "url": "/business-agreements"}]
+    return [{"label": "Business Agreements", "url": "/business-agreements"}]
 
 
 def _build_service_agreement_addendum_summary(doc: Any) -> list[dict[str, str]]:
@@ -190,9 +172,9 @@ def _build_service_agreement_addendum_related_links(doc: Any) -> list[dict[str, 
 
 def _build_building_summary(doc: Any) -> list[dict[str, str]]:
     items: list[dict[str, str]] = []
-    active_label = _format_building_status(_get_value(doc, "active"))
-    if active_label:
-        _append_item(items, "Status", active_label)
+    active_value = clean(_get_value(doc, "active"))
+    if active_value:
+        _append_item(items, "Status", "Active" if truthy(active_value) else "Inactive")
     _append_item(items, "Customer", _get_value(doc, "customer"))
     _append_item(items, "Primary Site Contact", _get_value(doc, "primary_site_contact"))
     _append_item(items, "Site Supervisor", _get_value(doc, "site_supervisor_name"))
@@ -224,7 +206,7 @@ def _build_building_related_links(doc: Any) -> list[dict[str, str]]:
     if addendum_name:
         items.append(
             {
-                "label": "Open Building Agreement",
+                "label": "Open Business Agreement",
                 "url": f"/business-agreements/{_encode_path_segment(addendum_name)}",
             }
         )
@@ -280,14 +262,9 @@ def build_portal_list_context(context, record_key: str):
     context.meta_description = config["list_description"]
     context.description = config["list_description"]
     context.list_template = _GENERIC_LIST_TEMPLATE
-    context.row_template = config["row_template"]
+    context.row_template = _GENERIC_ROW_TEMPLATE
     context.home_page = _PORTAL_HOME_ROUTE
     context.no_result_message = config["no_result_message"]
-    context.clean = clean
-    context.truthy = truthy
-    context.format_date = _format_date
-    context.format_building_status = _format_building_status
-    context.build_building_location_label = _build_building_location_label
     return context
 
 
