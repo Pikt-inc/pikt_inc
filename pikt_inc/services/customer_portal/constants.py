@@ -4,7 +4,6 @@ from .. import public_quote as public_quote_service
 from ..contracts.customer_portal import LOCATION_ACCESS_METHOD_OPTIONS, LOCATION_ALARM_OPTIONS
 
 
-PORTAL_ROLE = "Customer Portal User"
 PORTAL_HOME = "portal"
 PORTAL_HOME_PATH = "/portal"
 PORTAL_SUPPORT_PATH = "/contact"

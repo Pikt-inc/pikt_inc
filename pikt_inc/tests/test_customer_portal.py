@@ -54,12 +54,18 @@ try:
     app_hooks = importlib.import_module("pikt_inc.hooks")
     portal = importlib.import_module("pikt_inc.services.customer_portal")
     portal_api = importlib.import_module("pikt_inc.api.customer_portal")
+    retire_legacy_customer_portal_role = importlib.import_module(
+        "pikt_inc.patches.post_model_sync.retire_legacy_customer_portal_role"
+    )
     portal_contracts = importlib.import_module("pikt_inc.services.contracts.customer_portal")
     portal_payloads = importlib.import_module("pikt_inc.services.customer_portal.payloads")
 except ModuleNotFoundError:
     app_hooks = importlib.import_module("pikt_inc.pikt_inc.hooks")
     portal = importlib.import_module("pikt_inc.pikt_inc.services.customer_portal")
     portal_api = importlib.import_module("pikt_inc.pikt_inc.api.customer_portal")
+    retire_legacy_customer_portal_role = importlib.import_module(
+        "pikt_inc.pikt_inc.patches.post_model_sync.retire_legacy_customer_portal_role"
+    )
     portal_contracts = importlib.import_module("pikt_inc.pikt_inc.services.contracts.customer_portal")
     portal_payloads = importlib.import_module("pikt_inc.pikt_inc.services.customer_portal.payloads")
 
@@ -1262,8 +1268,71 @@ class TestCustomerPortal(TestCase):
         self.assertNotIn("Portal Location Edit Card", component_names)
         self.assertNotIn("Portal Empty State Block", component_names)
         patches = PATCHES_PATH.read_text(encoding="utf-8")
-        self.assertIn("pikt_inc.patches.post_model_sync.ensure_customer_portal_role", patches)
+        self.assertIn("pikt_inc.patches.post_model_sync.retire_legacy_customer_portal_role", patches)
         self.assertIn("pikt_inc.patches.post_model_sync.remove_legacy_customer_portal_builder_artifacts", patches)
+
+    def test_retire_legacy_customer_portal_role_patch_migrates_linked_users_and_removes_stale_role(self):
+        legacy_rows = [
+            {"name": "ROLE-LEGACY-1", "parent": "linked@example.com"},
+            {"name": "ROLE-LEGACY-2", "parent": "invalid@example.com"},
+            {"name": "ROLE-LEGACY-3", "parent": "duplicate@example.com"},
+        ]
+        custom_customers = {
+            "linked@example.com": "CUST-1",
+            "invalid@example.com": "",
+            "duplicate@example.com": "CUST-2",
+        }
+        existing_roles = {("duplicate@example.com", "Customer")}
+        updated_rows = []
+        deleted_docs = []
+        cleared = []
+
+        class FakeDB:
+            def get_value(self, doctype, name, fieldname):
+                if doctype == "User" and fieldname == "custom_customer":
+                    return custom_customers.get(name)
+                return None
+
+            def exists(self, doctype, name):
+                if doctype == "Has Role" and isinstance(name, dict):
+                    return (name.get("parent"), name.get("role")) in existing_roles
+                if doctype == "Role":
+                    return name == "Customer Portal User"
+                return False
+
+            def set_value(self, doctype, name, fieldname, value, update_modified=False):
+                updated_rows.append((doctype, name, fieldname, value, update_modified))
+
+        fake_frappe = types.SimpleNamespace(
+            db=FakeDB(),
+            get_all=lambda doctype, filters=None, fields=None, limit=None: legacy_rows
+            if doctype == "Has Role" and filters == {"role": "Customer Portal User"}
+            else [],
+            delete_doc=lambda doctype, name, **kwargs: deleted_docs.append((doctype, name, kwargs)),
+            clear_cache=lambda: cleared.append(True),
+        )
+
+        with patch.object(retire_legacy_customer_portal_role, "frappe", fake_frappe):
+            result = retire_legacy_customer_portal_role.execute()
+
+        self.assertEqual(result["status"], "updated")
+        self.assertEqual(result["migrated_users"], ["linked@example.com"])
+        self.assertEqual(result["removed_duplicate_assignments"], ["duplicate@example.com"])
+        self.assertEqual(result["removed_invalid_assignments"], ["invalid@example.com"])
+        self.assertTrue(result["role_removed"])
+        self.assertEqual(
+            updated_rows,
+            [("Has Role", "ROLE-LEGACY-1", "role", "Customer", False)],
+        )
+        self.assertEqual(
+            deleted_docs,
+            [
+                ("Has Role", "ROLE-LEGACY-2", {"ignore_permissions": True, "force": True}),
+                ("Has Role", "ROLE-LEGACY-3", {"ignore_permissions": True, "force": True}),
+                ("Role", "Customer Portal User", {"ignore_permissions": True, "force": True}),
+            ],
+        )
+        self.assertEqual(len(cleared), 1)
 
     def test_api_getters_proxy_to_service(self):
         with patch.object(portal_api.customer_portal_service, "get_customer_portal_dashboard_data", return_value={"page_key": "overview"}) as dashboard, patch.object(

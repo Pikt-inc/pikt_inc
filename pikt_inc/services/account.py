@@ -79,7 +79,7 @@ def _get_user_row(session_user: str) -> dict[str, Any]:
         frappe.db.get_value(
             "User",
             session_user,
-            ["name", "full_name", "email"],
+            ["name", "full_name", "email", "custom_customer"],
             as_dict=True,
         )
         or {}
@@ -167,8 +167,17 @@ def _build_geolocation(latitude: float, longitude: float) -> str:
     )
 
 
-def _build_portal_access(roles: list[str]) -> dict[str, Any]:
-    matched_roles = [role for role in roles if role in PORTAL_ROLE_CONFIG]
+def _has_customer_portal_scope(user_row: dict[str, Any] | None) -> bool:
+    return bool(clean((user_row or {}).get("custom_customer")))
+
+
+def _build_portal_access(roles: list[str], user_row: dict[str, Any] | None = None) -> dict[str, Any]:
+    matched_roles: list[str] = []
+    for role in roles:
+        if role == CUSTOMER_ROLE and not _has_customer_portal_scope(user_row):
+            continue
+        if role in PORTAL_ROLE_CONFIG:
+            matched_roles.append(role)
 
     if len(matched_roles) == 1:
         config = PORTAL_ROLE_CONFIG[matched_roles[0]]
@@ -195,11 +204,12 @@ def _build_portal_access(roles: list[str]) -> dict[str, Any]:
 def get_portal_access() -> dict[str, Any]:
     session_user = _require_session_user()
     roles = _get_roles(session_user)
+    user_row = _get_user_row(session_user) if CUSTOMER_ROLE in roles else None
 
     return {
         "user_id": session_user,
         "roles": roles,
-        **_build_portal_access(roles),
+        **_build_portal_access(roles, user_row),
     }
 
 

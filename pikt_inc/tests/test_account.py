@@ -45,8 +45,12 @@ class TestAccountService(unittest.TestCase):
     def setUp(self):
         account_service.frappe.session = SimpleNamespace(user="employee@example.com")
 
-    def test_get_portal_access_for_customer_role(self):
-        with patch.object(account_service, "_get_roles", return_value=["Customer"]):
+    def test_get_portal_access_for_customer_role_requires_linked_customer(self):
+        with patch.object(account_service, "_get_roles", return_value=["Customer"]), patch.object(
+            account_service,
+            "_get_user_row",
+            return_value={"name": "employee@example.com", "custom_customer": "CUST-1"},
+        ):
             access = account_service.get_portal_access()
 
         self.assertEqual(access["user_id"], "employee@example.com")
@@ -54,6 +58,19 @@ class TestAccountService(unittest.TestCase):
         self.assertEqual(access["portal_persona"], "customer")
         self.assertEqual(access["allowed_sections"], ["client", "account"])
         self.assertEqual(access["home_path"], "/portal/client")
+
+    def test_get_portal_access_for_customer_role_without_link_returns_none(self):
+        with patch.object(account_service, "_get_roles", return_value=["Customer"]), patch.object(
+            account_service,
+            "_get_user_row",
+            return_value={"name": "employee@example.com", "custom_customer": ""},
+        ):
+            access = account_service.get_portal_access()
+
+        self.assertEqual(access["roles"], ["Customer"])
+        self.assertEqual(access["portal_persona"], "none")
+        self.assertEqual(access["allowed_sections"], [])
+        self.assertEqual(access["home_path"], "/desk")
 
     def test_get_portal_access_for_cleaner_role_keeps_non_portal_roles(self):
         with patch.object(account_service, "_get_roles", return_value=["Employee", "Cleaner"]):
@@ -80,8 +97,24 @@ class TestAccountService(unittest.TestCase):
         self.assertEqual(access["allowed_sections"], [])
         self.assertEqual(access["home_path"], "/desk")
 
-    def test_get_portal_access_for_mixed_portal_roles_redirects_to_desk(self):
-        with patch.object(account_service, "_get_roles", return_value=["Customer", "Cleaner"]):
+    def test_get_portal_access_for_customer_role_without_link_does_not_force_mixed_persona(self):
+        with patch.object(account_service, "_get_roles", return_value=["Customer", "Cleaner"]), patch.object(
+            account_service,
+            "_get_user_row",
+            return_value={"name": "employee@example.com", "custom_customer": ""},
+        ):
+            access = account_service.get_portal_access()
+
+        self.assertEqual(access["portal_persona"], "cleaner")
+        self.assertEqual(access["allowed_sections"], ["checklist", "account"])
+        self.assertEqual(access["home_path"], "/portal/checklist")
+
+    def test_get_portal_access_for_linked_customer_and_cleaner_role_redirects_to_desk(self):
+        with patch.object(account_service, "_get_roles", return_value=["Customer", "Cleaner"]), patch.object(
+            account_service,
+            "_get_user_row",
+            return_value={"name": "employee@example.com", "custom_customer": "CUST-1"},
+        ):
             access = account_service.get_portal_access()
 
         self.assertEqual(access["portal_persona"], "mixed")
