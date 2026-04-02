@@ -1,12 +1,12 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import date, datetime
 
 import frappe
 from pydantic import field_validator
 
 from ..contracts.common import ResponseModel, clean_str, truthy
-from .building_repo import get_building, get_customer_buildings
 
 
 CHECKLIST_SESSION_FIELDS = [
@@ -128,17 +128,6 @@ class ChecklistSessionItemRecord(ResponseModel):
         return value
 
 
-def _session_sort_value(row: ChecklistSessionRecord) -> str:
-    return str(
-        row.completed_at
-        or row.started_at
-        or row.service_date
-        or row.modified
-        or row.creation
-        or ""
-    )
-
-
 def get_session(session_name: str) -> ChecklistSessionRecord | None:
     session_name = clean_str(session_name)
     if not session_name:
@@ -149,42 +138,38 @@ def get_session(session_name: str) -> ChecklistSessionRecord | None:
     return ChecklistSessionRecord.model_validate(row)
 
 
-def get_customer_sessions(
-    customer_name: str,
+def list_sessions(
     *,
-    building_name: str = "",
+    building_names: Sequence[str] | None = None,
+    session_name: str = "",
     status: str = "",
     limit: int = 200,
 ) -> list[ChecklistSessionRecord]:
-    customer_name = clean_str(customer_name)
-    building_name = clean_str(building_name)
+    filters: list[list[object]] = []
+    session_name = clean_str(session_name)
     limit = max(1, int(limit or 200))
 
-    if building_name:
-        building = get_building(building_name)
-        building_names = [building.name] if building and building.customer == customer_name else []
-    else:
-        building_names = [building.name for building in get_customer_buildings(customer_name)]
+    if session_name:
+        filters.append(["name", "=", session_name])
 
-    if not building_names:
-        return []
+    if building_names is not None:
+        scoped_building_names = [clean_str(name) for name in building_names if clean_str(name)]
+        if not scoped_building_names:
+            return []
+        filters.append(["building", "in", scoped_building_names])
 
-    rows: list[ChecklistSessionRecord] = []
-    for current_building in building_names:
-        filters: dict[str, object] = {"building": current_building}
-        if clean_str(status):
-            filters["status"] = clean_str(status)
-        session_rows = frappe.get_all(
-            "Checklist Session",
-            filters=filters,
-            fields=CHECKLIST_SESSION_FIELDS,
-            order_by="completed_at desc, started_at desc, creation desc",
-            limit=limit,
-        )
-        rows.extend(ChecklistSessionRecord.model_validate(row) for row in session_rows or [])
+    status = clean_str(status)
+    if status:
+        filters.append(["status", "=", status])
 
-    rows.sort(key=_session_sort_value, reverse=True)
-    return rows[:limit]
+    rows = frappe.get_all(
+        "Checklist Session",
+        filters=filters or None,
+        fields=CHECKLIST_SESSION_FIELDS,
+        order_by="completed_at desc, started_at desc, creation desc",
+        limit=limit,
+    )
+    return [ChecklistSessionRecord.model_validate(row) for row in rows or []]
 
 
 def get_session_items(session_name: str) -> list[ChecklistSessionItemRecord]:

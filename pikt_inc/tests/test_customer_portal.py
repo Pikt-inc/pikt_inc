@@ -108,10 +108,33 @@ def fake_get_all_factory(dataset):
         rows = [dict(row) for row in rows]
         filters = filters or {}
 
+        def matches_operator(actual, operator, expected):
+            if operator in {"=", "=="}:
+                return actual == expected
+            if operator == "!=":
+                return actual != expected
+            if operator == "in":
+                return actual in {item for item in expected or []}
+            raise AssertionError(f"Unsupported filter operator in test harness: {operator}")
+
         def matches(row):
+            if isinstance(filters, list):
+                for clause in filters:
+                    if len(clause) == 3:
+                        field, operator, expected = clause
+                    elif len(clause) == 4:
+                        _doctype, field, operator, expected = clause
+                    else:
+                        raise AssertionError(f"Unsupported filter clause in test harness: {clause}")
+                    if not matches_operator(row.get(field), str(operator), expected):
+                        return False
+                return True
+
             for key, value in filters.items():
-                if isinstance(value, list) and value and value[0] == "!=":
-                    if row.get(key) == value[1]:
+                if isinstance(value, list) and value:
+                    operator = str(value[0])
+                    expected = value[1] if len(value) > 1 else None
+                    if not matches_operator(row.get(key), operator, expected):
                         return False
                     continue
                 if row.get(key) != value:
@@ -403,6 +426,33 @@ class TestCustomerPortal(TestCase):
         self.frappe.request = types.SimpleNamespace(data=None)
         self.frappe.form_dict = {}
 
+    def _install_get_all_spy(self):
+        self.get_all_calls = []
+
+        def fake_get_all_with_spy(doctype, filters=None, fields=None, order_by=None, limit=None, **kwargs):
+            self.get_all_calls.append(
+                {
+                    "doctype": doctype,
+                    "filters": filters,
+                    "fields": fields,
+                    "order_by": order_by,
+                    "limit": limit,
+                }
+            )
+            return fake_get_all_factory(self.dataset)(
+                doctype,
+                filters=filters,
+                fields=fields,
+                order_by=order_by,
+                limit=limit,
+                **kwargs,
+            )
+
+        self.frappe.get_all = fake_get_all_with_spy
+
+    def _session_query_calls(self):
+        return [call for call in getattr(self, "get_all_calls", []) if call["doctype"] == "Checklist Session"]
+
     def test_package_surface_is_reduced_and_explicit(self):
         self.assertEqual(
             portal.__all__,
@@ -428,6 +478,8 @@ class TestCustomerPortal(TestCase):
             ],
         )
         self.assertFalse(hasattr(portal, "CustomerPortalContext"))
+        self.assertFalse(hasattr(portal, "list_customer_completed_sessions"))
+        self.assertFalse(hasattr(portal, "ScopedJobDetailRead"))
 
     def test_resolve_context_returns_principal_only_for_linked_customer_user(self):
         context = portal_context.resolve_context()
@@ -503,16 +555,73 @@ class TestCustomerPortal(TestCase):
         self.assertEqual(fallback_item.category, "job_completion")
 
     def test_get_client_overview_returns_only_scoped_completed_data(self):
+        self.dataset["Building"]["BUILD-2"] = {
+            "name": "BUILD-2",
+            "customer": "CUST-1",
+            "building_name": "Satellite Office",
+            "active": "1",
+            "current_checklist_template": "CHK-TPL-3",
+            "address_line_1": "456 Congress Ave",
+            "address_line_2": "",
+            "city": "Austin",
+            "state": "TX",
+            "postal_code": "78702",
+            "site_notes": "Second customer site.",
+            "creation": "2026-03-03 08:00:00",
+            "modified": "2026-03-08 09:00:00",
+        }
+        self.dataset["Building_list"].append(dict(self.dataset["Building"]["BUILD-2"]))
+        self.dataset["Checklist Session"]["CS-2"] = {
+            "name": "CS-2",
+            "building": "BUILD-2",
+            "service_date": "2026-03-12",
+            "checklist_template": "CHK-TPL-3",
+            "status": "completed",
+            "started_at": "2026-03-12 18:00:00",
+            "completed_at": "2026-03-12 19:00:00",
+            "worker": "Taylor Tech",
+            "session_notes": "Satellite complete.",
+            "creation": "2026-03-12 17:55:00",
+            "modified": "2026-03-12 19:00:00",
+        }
+        self.dataset["Checklist Session_list"].append(dict(self.dataset["Checklist Session"]["CS-2"]))
+        self._install_get_all_spy()
+
         response = portal.get_client_overview(portal.ClientOverviewRequest())
 
-        self.assertEqual([building.id for building in response.buildings], ["BUILD-1"])
-        self.assertEqual([session.id for session in response.completed_sessions], ["CS-1"])
+        self.assertEqual([building.id for building in response.buildings], ["BUILD-1", "BUILD-2"])
+        self.assertEqual([session.id for session in response.completed_sessions], ["CS-2", "CS-1"])
+        self.assertEqual(
+            self._session_query_calls(),
+            [
+                {
+                    "doctype": "Checklist Session",
+                    "filters": [["building", "in", ["BUILD-1", "BUILD-2"]], ["status", "=", "completed"]],
+                    "fields": portal_checklist_repo.CHECKLIST_SESSION_FIELDS,
+                    "order_by": "completed_at desc, started_at desc, creation desc",
+                    "limit": 200,
+                }
+            ],
+        )
 
     def test_get_client_building_returns_scoped_history_only(self):
+        self._install_get_all_spy()
         response = portal.get_client_building(portal.ClientBuildingRequest.model_validate({"building": "BUILD-1"}))
 
         self.assertEqual(response.building.id, "BUILD-1")
         self.assertEqual([session.id for session in response.completed_sessions], ["CS-1"])
+        self.assertEqual(
+            self._session_query_calls(),
+            [
+                {
+                    "doctype": "Checklist Session",
+                    "filters": [["building", "in", ["BUILD-1"]], ["status", "=", "completed"]],
+                    "fields": portal_checklist_repo.CHECKLIST_SESSION_FIELDS,
+                    "order_by": "completed_at desc, started_at desc, creation desc",
+                    "limit": 200,
+                }
+            ],
+        )
 
     def test_get_client_job_returns_job_detail_with_proof_urls(self):
         response = portal.get_client_job(portal.ClientJobRequest.model_validate({"session": "CS-1"}))
@@ -544,6 +653,27 @@ class TestCustomerPortal(TestCase):
         with self.assertRaisesRegex(portal.CustomerPortalNotFoundError, "job report is not available"):
             portal.download_client_job_proof(
                 portal.ClientJobProofRequest.model_validate({"session": "CS-OTHER", "item_key": "other"})
+            )
+
+    def test_get_client_job_rejects_unknown_out_of_scope_and_non_completed_sessions(self):
+        with self.assertRaisesRegex(portal.CustomerPortalNotFoundError, "job report is not available"):
+            portal.get_client_job(portal.ClientJobRequest.model_validate({"session": "CS-MISSING"}))
+
+        with self.assertRaisesRegex(portal.CustomerPortalNotFoundError, "job report is not available"):
+            portal.get_client_job(portal.ClientJobRequest.model_validate({"session": "CS-OTHER"}))
+
+        with self.assertRaisesRegex(portal.CustomerPortalNotFoundError, "job report is not available"):
+            portal.get_client_job(portal.ClientJobRequest.model_validate({"session": "CS-IN-PROGRESS"}))
+
+    def test_download_client_job_proof_rejects_missing_item_and_missing_image(self):
+        with self.assertRaisesRegex(portal.CustomerPortalNotFoundError, "checklist proof is not available"):
+            portal.download_client_job_proof(
+                portal.ClientJobProofRequest.model_validate({"session": "CS-1", "item_key": "missing"})
+            )
+
+        with self.assertRaisesRegex(portal.CustomerPortalNotFoundError, "No proof photo is attached"):
+            portal.download_client_job_proof(
+                portal.ClientJobProofRequest.model_validate({"session": "CS-1", "item_key": "trash"})
             )
 
     def test_api_wrappers_validate_request_models_and_preserve_shape(self):
