@@ -59,6 +59,7 @@ def serialize_customer_portal_session_item(
         step_order=item.step_order,
         title=item.title,
         description=item.description,
+        target_duration_seconds=item.target_duration_seconds,
         requires_image=item.requires_image,
         allow_notes=item.allow_notes,
         is_required=item.is_required,

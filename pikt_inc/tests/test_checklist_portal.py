@@ -179,6 +179,7 @@ class FakeChecklistSessionDoc:
                     sort_order=item["sort_order"],
                     title_snapshot=item["title"],
                     description_snapshot=item["description"],
+                    target_duration_seconds=item.get("target_duration_seconds"),
                     requires_image=item["requires_image"],
                     allow_notes=item["allow_notes"],
                     is_required=item["is_required"],
@@ -227,6 +228,7 @@ class FakeChecklistSessionDoc:
                 "sort_order": item.sort_order,
                 "title_snapshot": item.title_snapshot,
                 "description_snapshot": item.description_snapshot,
+                "target_duration_seconds": getattr(item, "target_duration_seconds", None),
                 "requires_image": item.requires_image,
                 "allow_notes": item.allow_notes,
                 "is_required": item.is_required,
@@ -308,6 +310,7 @@ class TestChecklistPortal(TestCase):
                     "sort_order": 1,
                     "title": "Enter building",
                     "description": "Use the front code.",
+                    "target_duration_seconds": 3,
                     "requires_image": 0,
                     "allow_notes": 1,
                     "is_required": 1,
@@ -342,6 +345,7 @@ class TestChecklistPortal(TestCase):
                     "sort_order": 1,
                     "title_snapshot": "Enter building",
                     "description_snapshot": "Use the front code.",
+                    "target_duration_seconds": 3,
                     "requires_image": 0,
                     "allow_notes": 1,
                     "is_required": 1,
@@ -390,8 +394,10 @@ class TestChecklistPortal(TestCase):
         self.assertEqual(detail.checklist_template_id, "CHK-TPL-1")
         self.assertEqual(len(detail.steps), 1)
         self.assertEqual(detail.steps[0].category, "access")
+        self.assertEqual(detail.steps[0].target_duration_seconds, 3)
         self.assertEqual(detail.active_session.id, "CS-1")
         self.assertEqual(detail.active_session.items[0].item_key, "access_code")
+        self.assertEqual(detail.active_session.items[0].target_duration_seconds, 3)
 
     def test_session_mutation_flow_runs_through_cleaner_service(self):
         with patch.object(cleaner, "require_portal_section", return_value=None), patch.object(
@@ -400,6 +406,7 @@ class TestChecklistPortal(TestCase):
             created = cleaner.ensure_checklist_session("BUILD-1", "2026-04-02")
             self.assertEqual(created.id, "CS-NEW")
             self.assertEqual(created.items[0].item_key, "access_code")
+            self.assertEqual(created.items[0].target_duration_seconds, 3)
 
             updated = cleaner.update_checklist_session_item(
                 created.id,
@@ -443,6 +450,7 @@ class TestChecklistPortal(TestCase):
                     step_order=1,
                     title="Enter building",
                     description="Use the front code.",
+                    target_duration_seconds=3,
                     requires_image=False,
                     allow_notes=True,
                     is_required=True,
@@ -454,6 +462,7 @@ class TestChecklistPortal(TestCase):
         payload = checklist_api_serializers.serialize_checklist_portal_building_detail(detail)
         self.assertEqual(payload.building.created_at, "2026-03-01 08:00:00")
         self.assertEqual(payload.steps[0].category, "access")
+        self.assertEqual(payload.steps[0].target_duration_seconds, 3)
 
         with patch.object(
             checklist_api.customer_portal_service,

@@ -65,6 +65,7 @@ class TestChecklistModel(unittest.TestCase):
                         "item_key": "north_entrance",
                         "category": "access",
                         "title": "Use north entrance",
+                        "target_duration_seconds": 45,
                         "requires_image": False,
                     }
                 ],
@@ -123,6 +124,7 @@ class TestChecklistModel(unittest.TestCase):
                     "sort_order": 1,
                     "title": "Use north entrance",
                     "description": "Enter through the loading bay.",
+                    "target_duration_seconds": 45,
                     "requires_image": 0,
                     "allow_notes": 1,
                     "is_required": 1,
@@ -139,6 +141,7 @@ class TestChecklistModel(unittest.TestCase):
         self.assertEqual(doc.started_at, datetime(2026, 4, 1, 12, 0, 0))
         self.assertEqual(len(doc["items"]), 1)
         self.assertEqual(doc["items"][0]["title_snapshot"], "Use north entrance")
+        self.assertEqual(doc["items"][0]["target_duration_seconds"], 45)
         self.assertEqual(doc["items"][0]["completed"], 0)
 
     def test_validate_checklist_session_blocks_duplicate_in_progress_session_for_same_day(self):
@@ -225,6 +228,51 @@ class TestChecklistModel(unittest.TestCase):
             return_value={"name": "CHK-TPL-1", "building": "BUILD-1", "status": "Active"},
         ):
             with self.assertRaisesRegex(Exception, "proof image"):
+                checklist_model.validate_checklist_session(doc)
+
+    def test_validate_checklist_session_rejects_out_of_order_completion(self):
+        doc = FakeDoc(
+            {
+                "name": "CHK-SES-1",
+                "building": "BUILD-1",
+                "service_date": "2026-04-02",
+                "checklist_template": "CHK-TPL-1",
+                "status": "in_progress",
+                "items": [
+                    FakeChildRow(
+                        item_key="access_code",
+                        category="access",
+                        sort_order=1,
+                        title_snapshot="Enter building",
+                        requires_image=0,
+                        is_required=1,
+                        completed=0,
+                        proof_image="",
+                    ),
+                    FakeChildRow(
+                        item_key="wipe_surfaces",
+                        category="job_completion",
+                        sort_order=2,
+                        title_snapshot="Wipe surfaces",
+                        requires_image=0,
+                        is_required=1,
+                        completed=1,
+                        proof_image="",
+                    ),
+                ],
+            }
+        )
+
+        with patch.object(checklist_model, "_active_session_exists", return_value=""), patch.object(
+            checklist_model,
+            "_load_building_row",
+            return_value={"name": "BUILD-1", "current_checklist_template": "CHK-TPL-1"},
+        ), patch.object(
+            checklist_model,
+            "_load_template_row",
+            return_value={"name": "CHK-TPL-1", "building": "BUILD-1", "status": "Active"},
+        ):
+            with self.assertRaisesRegex(Exception, "previous checklist item"):
                 checklist_model.validate_checklist_session(doc)
 
 

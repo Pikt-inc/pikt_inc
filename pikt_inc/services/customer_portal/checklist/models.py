@@ -20,6 +20,7 @@ class ChecklistTemplateItemRecord(ResponseModel):
     sort_order: int = 0
     title: str = ""
     description: str = ""
+    target_duration_seconds: int | None = None
     requires_image: bool = False
     allow_notes: bool = True
     is_required: bool = True
@@ -34,6 +35,13 @@ class ChecklistTemplateItemRecord(ResponseModel):
     @classmethod
     def normalize_ints(cls, value: object) -> int:
         return int(value or 0)
+
+    @field_validator("target_duration_seconds", mode="before")
+    @classmethod
+    def normalize_optional_int(cls, value: object):
+        if value in (None, "", 0, "0"):
+            return None
+        return int(value)
 
     @field_validator("requires_image", "allow_notes", "is_required", "active", mode="before")
     @classmethod
@@ -79,6 +87,7 @@ class ChecklistSessionItemRecord(ResponseModel):
     sort_order: int = 0
     title_snapshot: str = ""
     description_snapshot: str = ""
+    target_duration_seconds: int | None = None
     requires_image: bool = False
     allow_notes: bool | None = None
     is_required: bool | None = None
@@ -105,6 +114,13 @@ class ChecklistSessionItemRecord(ResponseModel):
     @classmethod
     def normalize_ints(cls, value: object) -> int:
         return int(value or 0)
+
+    @field_validator("target_duration_seconds", mode="before")
+    @classmethod
+    def normalize_optional_int(cls, value: object):
+        if value in (None, "", 0, "0"):
+            return None
+        return int(value)
 
     @field_validator("requires_image", "completed", mode="before")
     @classmethod
@@ -140,6 +156,7 @@ class ChecklistStep(ResponseModel):
     step_order: int
     title: str
     description: str | None
+    target_duration_seconds: int | None = None
     requires_image: bool
     allow_notes: bool
     is_required: bool
@@ -154,6 +171,7 @@ class CustomerPortalSessionItem(ResponseModel):
     step_order: int
     title: str
     description: str | None
+    target_duration_seconds: int | None = None
     requires_image: bool
     allow_notes: bool
     is_required: bool

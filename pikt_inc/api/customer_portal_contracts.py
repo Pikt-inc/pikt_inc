@@ -59,6 +59,7 @@ class CustomerPortalClientSessionItemPayload(ResponseModel):
     step_order: int
     title: str
     description: str | None
+    target_duration_seconds: int | None = None
     requires_image: bool
     allow_notes: bool
     is_required: bool

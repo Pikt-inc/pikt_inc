@@ -30,6 +30,18 @@ def truthy(value: Any) -> bool:
     return clean(value).lower() in {"1", "true", "yes", "on"}
 
 
+def _normalize_target_duration_seconds(value: Any) -> int | None:
+    if value in (None, ""):
+        return None
+    try:
+        normalized = int(value)
+    except (TypeError, ValueError):
+        frappe.throw("Checklist item target duration must be a non-negative whole number of seconds.")
+    if normalized < 0:
+        frappe.throw("Checklist item target duration must be a non-negative whole number of seconds.")
+    return normalized or None
+
+
 def _now_datetime():
     try:
         return frappe.utils.now_datetime()
@@ -117,6 +129,7 @@ def _load_template_item_rows(template_name: str, *, active_only: bool = True) ->
             "sort_order",
             "title",
             "description",
+            "target_duration_seconds",
             "requires_image",
             "allow_notes",
             "is_required",
@@ -166,6 +179,9 @@ def normalize_template_items(items: list[Any] | None) -> list[dict[str, Any]]:
                 "sort_order": int(_row_value(raw, "sort_order") or index),
                 "title": title,
                 "description": description,
+                "target_duration_seconds": _normalize_target_duration_seconds(
+                    _row_value(raw, "target_duration_seconds")
+                ),
                 "requires_image": 1 if truthy(_row_value(raw, "requires_image") or _row_value(raw, "requires_photo_proof")) else 0,
                 "allow_notes": 0 if _row_value(raw, "allow_notes") in (0, "0", False) else 1,
                 "is_required": 0 if _row_value(raw, "is_required") in (0, "0", False) else 1,
@@ -290,6 +306,9 @@ def _build_session_items_from_template(template_name: str) -> list[dict[str, Any
                 "sort_order": int(row.get("sort_order") or row.get("idx") or 0),
                 "title_snapshot": clean(row.get("title")),
                 "description_snapshot": clean(row.get("description")),
+                "target_duration_seconds": _normalize_target_duration_seconds(
+                    row.get("target_duration_seconds")
+                ),
                 "requires_image": 1 if truthy(row.get("requires_image")) else 0,
                 "allow_notes": 0 if row.get("allow_notes") in (0, "0", False) else 1,
                 "is_required": 0 if row.get("is_required") in (0, "0", False) else 1,
@@ -357,7 +376,12 @@ def validate_checklist_session(doc) -> None:
         _set_field_value(doc, "started_at", _now_datetime())
 
     required_incomplete: list[str] = []
-    for row in list(_field_value(doc, "items", []) or []):
+    found_incomplete = False
+    ordered_rows = sorted(
+        list(_field_value(doc, "items", []) or []),
+        key=lambda row: int(_row_value(row, "sort_order") or _row_value(row, "idx") or 0),
+    )
+    for row in ordered_rows:
         title = clean(_row_value(row, "title_snapshot") or _row_value(row, "title")) or "Checklist item"
         completed = truthy(_row_value(row, "completed"))
         requires_image = truthy(_row_value(row, "requires_image"))
@@ -368,8 +392,11 @@ def validate_checklist_session(doc) -> None:
             _set_row_value(row, "completed_at", _now_datetime())
         if not completed:
             _set_row_value(row, "completed_at", None)
+            found_incomplete = True
         if completed and requires_image and not proof_image:
             frappe.throw(f"{title} requires a proof image before completion.")
+        if completed and found_incomplete:
+            frappe.throw(f"{title} cannot be completed before the previous checklist item.")
         if session_status == SESSION_STATUS_COMPLETED and is_required and not completed:
             required_incomplete.append(title)
 

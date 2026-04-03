@@ -129,6 +129,11 @@
         "fieldtype": "Small Text"
       },
       {
+        "fieldname": "target_duration_seconds",
+        "label": "Target Duration Seconds",
+        "fieldtype": "Int"
+      },
+      {
         "fieldname": "requires_image",
         "label": "Requires Image",
         "fieldtype": "Check",
@@ -293,6 +298,11 @@
         "fieldname": "description_snapshot",
         "label": "Description Snapshot",
         "fieldtype": "Small Text"
+      },
+      {
+        "fieldname": "target_duration_seconds",
+        "label": "Target Duration Seconds",
+        "fieldtype": "Int"
       },
       {
         "fieldname": "requires_image",
