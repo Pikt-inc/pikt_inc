@@ -40,28 +40,28 @@ if "frappe" not in sys.modules:
 try:
     app_hooks = importlib.import_module("pikt_inc.hooks")
     portal = importlib.import_module("pikt_inc.services.customer_portal")
+    portal_account = importlib.import_module("pikt_inc.services.customer_portal.account")
+    portal_account_service = importlib.import_module("pikt_inc.services.customer_portal.account.service")
     portal_api = importlib.import_module("pikt_inc.api.customer_portal")
     portal_api_contracts = importlib.import_module("pikt_inc.api.customer_portal_contracts")
     portal_api_serializers = importlib.import_module("pikt_inc.api.customer_portal_serializers")
-    portal_building_repo = importlib.import_module("pikt_inc.services.customer_portal.building_repo")
-    portal_checklist_repo = importlib.import_module("pikt_inc.services.customer_portal.checklist_repo")
+    portal_building = importlib.import_module("pikt_inc.services.customer_portal.building")
+    portal_checklist = importlib.import_module("pikt_inc.services.customer_portal.checklist")
     portal_client = importlib.import_module("pikt_inc.services.customer_portal.client")
-    portal_context = importlib.import_module("pikt_inc.services.customer_portal.context")
-    portal_mappers = importlib.import_module("pikt_inc.services.customer_portal.mappers")
     retire_legacy_customer_portal_role = importlib.import_module(
         "pikt_inc.patches.post_model_sync.retire_legacy_customer_portal_role"
     )
 except ModuleNotFoundError:
     app_hooks = importlib.import_module("pikt_inc.pikt_inc.hooks")
     portal = importlib.import_module("pikt_inc.pikt_inc.services.customer_portal")
+    portal_account = importlib.import_module("pikt_inc.pikt_inc.services.customer_portal.account")
+    portal_account_service = importlib.import_module("pikt_inc.pikt_inc.services.customer_portal.account.service")
     portal_api = importlib.import_module("pikt_inc.pikt_inc.api.customer_portal")
     portal_api_contracts = importlib.import_module("pikt_inc.pikt_inc.api.customer_portal_contracts")
     portal_api_serializers = importlib.import_module("pikt_inc.pikt_inc.api.customer_portal_serializers")
-    portal_building_repo = importlib.import_module("pikt_inc.pikt_inc.services.customer_portal.building_repo")
-    portal_checklist_repo = importlib.import_module("pikt_inc.pikt_inc.services.customer_portal.checklist_repo")
+    portal_building = importlib.import_module("pikt_inc.pikt_inc.services.customer_portal.building")
+    portal_checklist = importlib.import_module("pikt_inc.pikt_inc.services.customer_portal.checklist")
     portal_client = importlib.import_module("pikt_inc.pikt_inc.services.customer_portal.client")
-    portal_context = importlib.import_module("pikt_inc.pikt_inc.services.customer_portal.context")
-    portal_mappers = importlib.import_module("pikt_inc.pikt_inc.services.customer_portal.mappers")
     retire_legacy_customer_portal_role = importlib.import_module(
         "pikt_inc.pikt_inc.patches.post_model_sync.retire_legacy_customer_portal_role"
     )
@@ -421,7 +421,7 @@ class TestCustomerPortal(TestCase):
                 },
             ],
         }
-        self.frappe = portal_context.frappe
+        self.frappe = portal_account_service.frappe
         self.frappe.db = FakeDB(self.dataset)
         self.frappe.get_all = fake_get_all_factory(self.dataset)
         self.frappe.get_roles = lambda _user=None: ["Customer"]
@@ -459,25 +459,33 @@ class TestCustomerPortal(TestCase):
 
     def test_package_surface_is_reduced_and_explicit(self):
         self.assertEqual(
-            portal.__all__,
-            [
+            sorted(portal.__all__),
+            sorted([
                 "CustomerBuildingHistory",
                 "CustomerJobDetail",
                 "CustomerOverview",
                 "CustomerPortalAccessError",
-                "CustomerPortalBuilding",
-                "CustomerPortalPrincipal",
                 "CustomerPortalNotFoundError",
-                "CustomerPortalSession",
-                "CustomerPortalSessionItem",
+                "ChecklistPortalBuildingDetail",
+                "ChecklistSessionItemMutation",
                 "ProofFileContent",
+                "complete_checklist_session",
                 "download_client_job_proof",
+                "ensure_checklist_session",
+                "get_checklist_building",
                 "get_client_building",
                 "get_client_job",
                 "get_client_overview",
-            ],
+                "list_checklist_buildings",
+                "update_checklist_session_item",
+                "upload_checklist_session_item_proof",
+            ]),
         )
         self.assertFalse(hasattr(portal, "CustomerPortalContext"))
+        self.assertFalse(hasattr(portal, "CustomerPortalPrincipal"))
+        self.assertFalse(hasattr(portal, "CustomerPortalBuilding"))
+        self.assertFalse(hasattr(portal, "CustomerPortalSession"))
+        self.assertFalse(hasattr(portal, "CustomerPortalSessionItem"))
         self.assertFalse(hasattr(portal, "ClientBuildingRequest"))
         self.assertFalse(hasattr(portal, "ClientBuildingResponse"))
         self.assertFalse(hasattr(portal, "FileDownload"))
@@ -485,9 +493,9 @@ class TestCustomerPortal(TestCase):
         self.assertFalse(hasattr(portal, "ScopedJobDetailRead"))
 
     def test_resolve_context_returns_principal_only_for_linked_customer_user(self):
-        context = portal_context.resolve_context()
+        context = portal_account.resolve_customer_principal()
 
-        self.assertIsInstance(context, portal.CustomerPortalPrincipal)
+        self.assertIsInstance(context, portal_account.CustomerPortalPrincipal)
         self.assertEqual(set(context.model_dump().keys()), {"session_user", "customer_name", "customer_display"})
         self.assertEqual(context.session_user, "portal@example.com")
         self.assertEqual(context.customer_name, "CUST-1")
@@ -496,28 +504,28 @@ class TestCustomerPortal(TestCase):
     def test_resolve_context_rejects_invalid_portal_users(self):
         with self.assertRaisesRegex(portal.CustomerPortalAccessError, "Sign in to access your customer portal"):
             self.frappe.session = types.SimpleNamespace(user="Guest")
-            portal_context.resolve_context()
+            portal_account.resolve_customer_principal()
 
         with self.assertRaisesRegex(portal.CustomerPortalAccessError, "does not have customer portal access"):
             self.frappe.session = types.SimpleNamespace(user="portal@example.com")
             self.frappe.get_roles = lambda _user=None: ["Employee"]
-            portal_context.resolve_context()
+            portal_account.resolve_customer_principal()
 
         with self.assertRaisesRegex(portal.CustomerPortalAccessError, "missing a linked customer"):
             self.frappe.session = types.SimpleNamespace(user="unlinked@example.com")
             self.frappe.get_roles = lambda _user=None: ["Customer"]
-            portal_context.resolve_context()
+            portal_account.resolve_customer_principal()
 
         with self.assertRaisesRegex(portal.CustomerPortalAccessError, "linked customer record could not be loaded"):
             self.dataset["User"]["portal@example.com"]["custom_customer"] = "MISSING"
             self.frappe.session = types.SimpleNamespace(user="portal@example.com")
             self.frappe.get_roles = lambda _user=None: ["Customer"]
-            portal_context.resolve_context()
+            portal_account.resolve_customer_principal()
 
     def test_repo_records_normalize_flags_and_temporals(self):
-        building = portal_building_repo.get_building("BUILD-1")
-        session = portal_checklist_repo.get_session("CS-1")
-        item = portal_checklist_repo.get_session_items("CS-1")[0]
+        building = portal_building.get_building("BUILD-1")
+        session = portal_checklist.get_session("CS-1")
+        item = portal_checklist.get_session_items("CS-1")[0]
 
         self.assertIsNotNone(building)
         self.assertTrue(building.active)
@@ -538,14 +546,14 @@ class TestCustomerPortal(TestCase):
         self.assertIsInstance(item.completed_at, datetime)
 
     def test_service_mappers_return_domain_models_with_temporal_values_and_raw_proof_paths(self):
-        building = portal_building_repo.get_building("BUILD-1")
-        session = portal_checklist_repo.get_session("CS-1")
-        item = portal_checklist_repo.get_session_items("CS-1")[0]
+        building = portal_building.get_building("BUILD-1")
+        session = portal_checklist.get_session("CS-1")
+        item = portal_checklist.get_session_items("CS-1")[0]
 
-        building_summary = portal_mappers.map_customer_building(building)
-        session_summary = portal_mappers.map_customer_session(session)
-        session_item = portal_mappers.map_customer_session_item(item, "CS-1")
-        fallback_item = portal_mappers.map_customer_session_item(
+        building_summary = portal_building.map_portal_building(building)
+        session_summary = portal_checklist.map_portal_session(session)
+        session_item = portal_checklist.map_portal_session_item(item, "CS-1")
+        fallback_item = portal_checklist.map_portal_session_item(
             item.model_copy(update={"category": "unexpected"}),
             "CS-1",
         )
@@ -603,7 +611,7 @@ class TestCustomerPortal(TestCase):
                 {
                     "doctype": "Checklist Session",
                     "filters": [["building", "in", ["BUILD-1", "BUILD-2"]], ["status", "=", "completed"]],
-                    "fields": portal_checklist_repo.CHECKLIST_SESSION_FIELDS,
+                    "fields": portal_checklist.CHECKLIST_SESSION_FIELDS,
                     "order_by": "completed_at desc, started_at desc, creation desc",
                     "limit": 200,
                 }
@@ -622,7 +630,7 @@ class TestCustomerPortal(TestCase):
                 {
                     "doctype": "Checklist Session",
                     "filters": [["building", "in", ["BUILD-1"]], ["status", "=", "completed"]],
-                    "fields": portal_checklist_repo.CHECKLIST_SESSION_FIELDS,
+                    "fields": portal_checklist.CHECKLIST_SESSION_FIELDS,
                     "order_by": "completed_at desc, started_at desc, creation desc",
                     "limit": 200,
                 }
@@ -686,7 +694,7 @@ class TestCustomerPortal(TestCase):
 
     def test_api_wrappers_validate_request_models_and_preserve_shape(self):
         expected_building = portal.CustomerBuildingHistory(
-            building=portal.CustomerPortalBuilding(
+            building=portal_building.CustomerPortalBuilding(
                 id="BUILD-1",
                 name="Headquarters",
                 address="123 Market St",

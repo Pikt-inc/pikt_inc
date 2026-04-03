@@ -1,0 +1,107 @@
+from __future__ import annotations
+
+from ..contracts.common import clean_str
+from .account import require_checklist_work_access, require_portal_section
+from .building.mappers import map_portal_building
+from .building.repo import get_building, list_buildings
+from .checklist.mappers import map_checklist_step, map_portal_session, map_portal_session_item
+from .checklist.repo import get_active_session, get_session_items, get_template_items
+from .checklist.service import complete_session, ensure_active_session, require_session, update_session_item, upload_session_item_proof
+from .errors import CustomerPortalNotFoundError
+from .models import ChecklistPortalBuildingDetail, ChecklistSessionItemMutation
+
+
+def _require_checklist_building(building_id: str):
+    building = get_building(building_id)
+    if not building:
+        raise CustomerPortalNotFoundError("That building is not available in this checklist.")
+    return building
+
+
+def _load_session_with_items(session):
+    items = sorted(get_session_items(session.name), key=lambda row: row.sort_order or row.idx or 0)
+    return map_portal_session(session, items=items), items
+
+
+def list_checklist_buildings(*, active_only: bool = True):
+    require_portal_section("checklist")
+    return [map_portal_building(row) for row in list_buildings(active_only=active_only)]
+
+
+def get_checklist_building(building_id: str, service_date: str) -> ChecklistPortalBuildingDetail:
+    require_portal_section("checklist")
+    building = _require_checklist_building(clean_str(building_id))
+
+    active_session = get_active_session(building.name, clean_str(service_date))
+    active_session_payload = None
+    if active_session:
+        active_session_payload, _items = _load_session_with_items(active_session)
+
+    steps = [
+        map_checklist_step(
+            row,
+            building_id=building.name,
+            checklist_template_id=building.current_checklist_template or None,
+        )
+        for row in get_template_items(building.current_checklist_template, active_only=True)
+    ] if building.current_checklist_template else []
+
+    return ChecklistPortalBuildingDetail(
+        building=map_portal_building(building),
+        checklist_template_id=building.current_checklist_template or None,
+        steps=steps,
+        active_session=active_session_payload,
+    )
+
+
+def ensure_checklist_session(building_id: str, service_date: str):
+    require_portal_section("checklist")
+    require_checklist_work_access()
+    building = _require_checklist_building(clean_str(building_id))
+    session = ensure_active_session(building.name, clean_str(service_date))
+    payload, _items = _load_session_with_items(session)
+    return payload
+
+
+def update_checklist_session_item(
+    session_id: str,
+    item_key: str,
+    *,
+    completed: bool | None = None,
+    note: str | None = None,
+    proof_image: str | None = None,
+) -> ChecklistSessionItemMutation:
+    require_portal_section("checklist")
+    require_checklist_work_access()
+    session = require_session(clean_str(session_id))
+    updated_session, updated_item = update_session_item(
+        session.name,
+        clean_str(item_key),
+        completed=completed,
+        note=note,
+        proof_image=proof_image,
+    )
+    session_payload, _items = _load_session_with_items(updated_session)
+    return ChecklistSessionItemMutation(
+        session=session_payload,
+        item=map_portal_session_item(updated_item, updated_session.name),
+    )
+
+
+def complete_checklist_session(session_id: str):
+    require_portal_section("checklist")
+    require_checklist_work_access()
+    session = complete_session(clean_str(session_id))
+    payload, _items = _load_session_with_items(session)
+    return payload
+
+
+def upload_checklist_session_item_proof(session_id: str, item_key: str, uploaded=None) -> ChecklistSessionItemMutation:
+    require_portal_section("checklist")
+    require_checklist_work_access()
+    updated_session, updated_item = upload_session_item_proof(clean_str(session_id), clean_str(item_key), uploaded=uploaded)
+    session_payload, _items = _load_session_with_items(updated_session)
+    return ChecklistSessionItemMutation(
+        session=session_payload,
+        item=map_portal_session_item(updated_item, updated_session.name),
+    )

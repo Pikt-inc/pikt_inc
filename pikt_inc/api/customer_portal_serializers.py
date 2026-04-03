@@ -6,15 +6,9 @@ from urllib.parse import urlencode
 import frappe
 
 from ..services.contracts.common import clean_str
-from ..services.customer_portal.models import (
-    CustomerBuildingHistory,
-    CustomerJobDetail,
-    CustomerOverview,
-    CustomerPortalBuilding,
-    CustomerPortalSession,
-    CustomerPortalSessionItem,
-    ProofFileContent,
-)
+from ..services.customer_portal.building.models import CustomerPortalBuilding
+from ..services.customer_portal.checklist.models import CustomerPortalSession, CustomerPortalSessionItem
+from ..services.customer_portal.models import CustomerBuildingHistory, CustomerJobDetail, CustomerOverview, ProofFileContent
 from .customer_portal_contracts import (
     CustomerPortalClientBuildingPayload,
     CustomerPortalClientBuildingSummaryPayload,
@@ -92,31 +86,21 @@ def serialize_customer_portal_session(
     )
 
 
-def serialize_customer_portal_overview(
-    overview: CustomerOverview,
-) -> CustomerPortalClientOverviewPayload:
+def serialize_customer_portal_overview(overview: CustomerOverview) -> CustomerPortalClientOverviewPayload:
     return CustomerPortalClientOverviewPayload(
         buildings=[serialize_customer_portal_building(building) for building in overview.buildings],
-        completed_sessions=[
-            serialize_customer_portal_session(session) for session in overview.completed_sessions
-        ],
+        completed_sessions=[serialize_customer_portal_session(session) for session in overview.completed_sessions],
     )
 
 
-def serialize_customer_portal_building_history(
-    history: CustomerBuildingHistory,
-) -> CustomerPortalClientBuildingPayload:
+def serialize_customer_portal_building_history(history: CustomerBuildingHistory) -> CustomerPortalClientBuildingPayload:
     return CustomerPortalClientBuildingPayload(
         building=serialize_customer_portal_building(history.building),
-        completed_sessions=[
-            serialize_customer_portal_session(session) for session in history.completed_sessions
-        ],
+        completed_sessions=[serialize_customer_portal_session(session) for session in history.completed_sessions],
     )
 
 
-def serialize_customer_portal_job_detail(
-    job_detail: CustomerJobDetail,
-) -> CustomerPortalClientJobPayload:
+def serialize_customer_portal_job_detail(job_detail: CustomerJobDetail) -> CustomerPortalClientJobPayload:
     return CustomerPortalClientJobPayload(
         building=serialize_customer_portal_building(job_detail.building),
         session=serialize_customer_portal_session(job_detail.session),

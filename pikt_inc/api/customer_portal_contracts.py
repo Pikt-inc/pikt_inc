@@ -5,7 +5,7 @@ from typing import Any
 from pydantic import AliasChoices, Field, field_validator
 
 from ..services.contracts.common import RequestModel, ResponseModel, clean_str
-from ..services.customer_portal.models import JobStatus, StepCategory
+from ..services.customer_portal.checklist.models import JobStatus, StepCategory
 
 
 class CustomerPortalClientOverviewRequestApi(RequestModel):

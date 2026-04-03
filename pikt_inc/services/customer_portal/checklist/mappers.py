@@ -1,9 +1,15 @@
 from __future__ import annotations
 
-from ..contracts.common import clean_str
-from .building_repo import BuildingRecord
-from .checklist_repo import ChecklistSessionItemRecord, ChecklistSessionRecord
-from .models import CustomerPortalBuilding, CustomerPortalSession, CustomerPortalSessionItem, StepCategory
+from ...contracts.common import clean_str
+from .models import (
+    ChecklistSessionItemRecord,
+    ChecklistSessionRecord,
+    ChecklistStep,
+    ChecklistTemplateItemRecord,
+    CustomerPortalSession,
+    CustomerPortalSessionItem,
+    StepCategory,
+)
 
 
 def normalize_step_category(value: str) -> StepCategory:
@@ -13,29 +19,10 @@ def normalize_step_category(value: str) -> StepCategory:
     return "job_completion"
 
 
-def building_address(row: BuildingRecord) -> str | None:
-    locality = ", ".join(part for part in (row.city, row.state) if part)
-    if locality and row.postal_code:
-        locality = f"{locality} {row.postal_code}"
-    parts = [row.address_line_1, row.address_line_2, locality]
-    address = ", ".join(part for part in parts if part)
-    return address or None
-
-
-def map_customer_building(row: BuildingRecord) -> CustomerPortalBuilding:
-    return CustomerPortalBuilding(
-        id=row.name,
-        name=row.building_name or row.name,
-        address=building_address(row),
-        notes=row.site_notes or None,
-        active=row.active,
-        current_checklist_template_id=row.current_checklist_template or None,
-        created_at=row.creation or row.modified,
-        updated_at=row.modified or row.creation,
-    )
-
-
-def map_customer_session(row: ChecklistSessionRecord) -> CustomerPortalSession:
+def map_portal_session(
+    row: ChecklistSessionRecord,
+    items: list[ChecklistSessionItemRecord] | None = None,
+) -> CustomerPortalSession:
     status = row.status or "completed"
     if status not in {"in_progress", "completed"}:
         status = "completed"
@@ -49,11 +36,11 @@ def map_customer_session(row: ChecklistSessionRecord) -> CustomerPortalSession:
         worker=row.worker or None,
         session_notes=row.session_notes or None,
         status=status,
-        items=[],
+        items=[map_portal_session_item(item, row.name) for item in (items or [])],
     )
 
 
-def map_customer_session_item(row: ChecklistSessionItemRecord, session_name: str) -> CustomerPortalSessionItem:
+def map_portal_session_item(row: ChecklistSessionItemRecord, session_name: str) -> CustomerPortalSessionItem:
     item_key = row.item_key or row.name
     return CustomerPortalSessionItem(
         id=row.name or item_key,
@@ -70,4 +57,26 @@ def map_customer_session_item(row: ChecklistSessionItemRecord, session_name: str
         completed_at=row.completed_at,
         proof_image_path=row.proof_image or None,
         note=row.note or None,
+    )
+
+
+def map_checklist_step(
+    row: ChecklistTemplateItemRecord,
+    *,
+    building_id: str,
+    checklist_template_id: str | None,
+) -> ChecklistStep:
+    item_id = row.item_key or row.name
+    return ChecklistStep(
+        id=item_id,
+        building_id=clean_str(building_id),
+        checklist_template_id=clean_str(checklist_template_id) or None,
+        category=normalize_step_category(row.category),
+        step_order=row.sort_order or row.idx or 0,
+        title=row.title or "Untitled Step",
+        description=row.description or None,
+        requires_image=row.requires_image,
+        allow_notes=row.allow_notes,
+        is_required=row.is_required,
+        active=row.active,
     )

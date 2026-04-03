@@ -2,27 +2,9 @@ from __future__ import annotations
 
 from datetime import datetime
 
-import frappe
 from pydantic import field_validator
 
-from ..contracts.common import ResponseModel, clean_str, truthy
-
-
-BUILDING_FIELDS = [
-    "name",
-    "customer",
-    "building_name",
-    "active",
-    "current_checklist_template",
-    "address_line_1",
-    "address_line_2",
-    "city",
-    "state",
-    "postal_code",
-    "site_notes",
-    "creation",
-    "modified",
-]
+from ...contracts.common import ResponseModel, clean_str, truthy
 
 
 class BuildingRecord(ResponseModel):
@@ -72,24 +54,12 @@ class BuildingRecord(ResponseModel):
         return value
 
 
-def get_building(building_name: str) -> BuildingRecord | None:
-    building_name = clean_str(building_name)
-    if not building_name:
-        return None
-    row = frappe.db.get_value("Building", building_name, BUILDING_FIELDS, as_dict=True)
-    if not row:
-        return None
-    return BuildingRecord.model_validate(row)
-
-
-def get_customer_buildings(customer_name: str) -> list[BuildingRecord]:
-    customer_name = clean_str(customer_name)
-    if not customer_name:
-        return []
-    rows = frappe.get_all(
-        "Building",
-        filters={"customer": customer_name},
-        fields=BUILDING_FIELDS,
-        order_by="active desc, building_name asc",
-    )
-    return [BuildingRecord.model_validate(row) for row in rows or []]
+class CustomerPortalBuilding(ResponseModel):
+    id: str
+    name: str
+    address: str | None
+    notes: str | None
+    active: bool
+    current_checklist_template_id: str | None
+    created_at: datetime | None
+    updated_at: datetime | None
