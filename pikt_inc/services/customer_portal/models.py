@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from typing import Any, Literal
+from datetime import date, datetime
+from typing import Literal
 
-from pydantic import AliasChoices, Field, field_validator
+from pydantic import Field
 
-from ..contracts.common import RequestModel, ResponseModel, clean_str
+from ..contracts.common import ResponseModel
 
 
 StepCategory = Literal["access", "job_completion", "rearm_security"]
@@ -17,50 +18,18 @@ class CustomerPortalPrincipal(ResponseModel):
     customer_display: str
 
 
-class ClientOverviewRequest(RequestModel):
-    pass
-
-
-class ClientBuildingRequest(RequestModel):
-    building_id: str = Field(validation_alias=AliasChoices("building_id", "building"), min_length=1)
-
-    @field_validator("building_id", mode="before")
-    @classmethod
-    def clean_building_id(cls, value: Any) -> str:
-        return clean_str(value)
-
-
-class ClientJobRequest(RequestModel):
-    session_id: str = Field(validation_alias=AliasChoices("session_id", "session"), min_length=1)
-
-    @field_validator("session_id", mode="before")
-    @classmethod
-    def clean_session_id(cls, value: Any) -> str:
-        return clean_str(value)
-
-
-class ClientJobProofRequest(RequestModel):
-    session_id: str = Field(validation_alias=AliasChoices("session_id", "session"), min_length=1)
-    item_key: str = Field(min_length=1)
-
-    @field_validator("session_id", "item_key", mode="before")
-    @classmethod
-    def clean_values(cls, value: Any) -> str:
-        return clean_str(value)
-
-
-class ClientBuildingSummary(ResponseModel):
+class CustomerPortalBuilding(ResponseModel):
     id: str
     name: str
     address: str | None
     notes: str | None
     active: bool
     current_checklist_template_id: str | None
-    created_at: str
-    updated_at: str
+    created_at: datetime | None
+    updated_at: datetime | None
 
 
-class ClientSessionItem(ResponseModel):
+class CustomerPortalSessionItem(ResponseModel):
     id: str
     job_session_id: str | None
     item_key: str
@@ -72,41 +41,40 @@ class ClientSessionItem(ResponseModel):
     allow_notes: bool
     is_required: bool
     completed: bool
-    completed_at: str | None
-    proof_image: str | None
+    completed_at: datetime | None
+    proof_image_path: str | None
     note: str | None
 
 
-class ClientSessionSummary(ResponseModel):
+class CustomerPortalSession(ResponseModel):
     id: str
     building_id: str
     checklist_template_id: str
-    service_date: str
-    started_at: str
-    completed_at: str | None
+    service_date: date | None
+    started_at: datetime | None
+    completed_at: datetime | None
     worker: str | None
     session_notes: str | None
     status: JobStatus
-    items: list[ClientSessionItem] = Field(default_factory=list)
+    items: list[CustomerPortalSessionItem] = Field(default_factory=list)
 
 
-class ClientOverviewResponse(ResponseModel):
-    buildings: list[ClientBuildingSummary]
-    completed_sessions: list[ClientSessionSummary]
+class CustomerOverview(ResponseModel):
+    buildings: list[CustomerPortalBuilding]
+    completed_sessions: list[CustomerPortalSession]
 
 
-class ClientBuildingResponse(ResponseModel):
-    building: ClientBuildingSummary
-    completed_sessions: list[ClientSessionSummary]
+class CustomerBuildingHistory(ResponseModel):
+    building: CustomerPortalBuilding
+    completed_sessions: list[CustomerPortalSession]
 
 
-class ClientJobResponse(ResponseModel):
-    building: ClientBuildingSummary
-    session: ClientSessionSummary
+class CustomerJobDetail(ResponseModel):
+    building: CustomerPortalBuilding
+    session: CustomerPortalSession
 
 
-class FileDownload(ResponseModel):
+class ProofFileContent(ResponseModel):
     filename: str
     content: bytes
     content_type: str = "application/octet-stream"
-    as_attachment: bool = False

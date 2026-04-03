@@ -41,6 +41,8 @@ try:
     app_hooks = importlib.import_module("pikt_inc.hooks")
     portal = importlib.import_module("pikt_inc.services.customer_portal")
     portal_api = importlib.import_module("pikt_inc.api.customer_portal")
+    portal_api_contracts = importlib.import_module("pikt_inc.api.customer_portal_contracts")
+    portal_api_serializers = importlib.import_module("pikt_inc.api.customer_portal_serializers")
     portal_building_repo = importlib.import_module("pikt_inc.services.customer_portal.building_repo")
     portal_checklist_repo = importlib.import_module("pikt_inc.services.customer_portal.checklist_repo")
     portal_client = importlib.import_module("pikt_inc.services.customer_portal.client")
@@ -53,6 +55,8 @@ except ModuleNotFoundError:
     app_hooks = importlib.import_module("pikt_inc.pikt_inc.hooks")
     portal = importlib.import_module("pikt_inc.pikt_inc.services.customer_portal")
     portal_api = importlib.import_module("pikt_inc.pikt_inc.api.customer_portal")
+    portal_api_contracts = importlib.import_module("pikt_inc.pikt_inc.api.customer_portal_contracts")
+    portal_api_serializers = importlib.import_module("pikt_inc.pikt_inc.api.customer_portal_serializers")
     portal_building_repo = importlib.import_module("pikt_inc.pikt_inc.services.customer_portal.building_repo")
     portal_checklist_repo = importlib.import_module("pikt_inc.pikt_inc.services.customer_portal.checklist_repo")
     portal_client = importlib.import_module("pikt_inc.pikt_inc.services.customer_portal.client")
@@ -457,20 +461,16 @@ class TestCustomerPortal(TestCase):
         self.assertEqual(
             portal.__all__,
             [
-                "ClientBuildingRequest",
-                "ClientBuildingResponse",
-                "ClientBuildingSummary",
-                "ClientJobProofRequest",
-                "ClientJobRequest",
-                "ClientJobResponse",
-                "ClientOverviewRequest",
-                "ClientOverviewResponse",
-                "ClientSessionItem",
-                "ClientSessionSummary",
+                "CustomerBuildingHistory",
+                "CustomerJobDetail",
+                "CustomerOverview",
                 "CustomerPortalAccessError",
+                "CustomerPortalBuilding",
                 "CustomerPortalPrincipal",
                 "CustomerPortalNotFoundError",
-                "FileDownload",
+                "CustomerPortalSession",
+                "CustomerPortalSessionItem",
+                "ProofFileContent",
                 "download_client_job_proof",
                 "get_client_building",
                 "get_client_job",
@@ -478,6 +478,9 @@ class TestCustomerPortal(TestCase):
             ],
         )
         self.assertFalse(hasattr(portal, "CustomerPortalContext"))
+        self.assertFalse(hasattr(portal, "ClientBuildingRequest"))
+        self.assertFalse(hasattr(portal, "ClientBuildingResponse"))
+        self.assertFalse(hasattr(portal, "FileDownload"))
         self.assertFalse(hasattr(portal, "list_customer_completed_sessions"))
         self.assertFalse(hasattr(portal, "ScopedJobDetailRead"))
 
@@ -534,24 +537,25 @@ class TestCustomerPortal(TestCase):
         self.assertTrue(item.completed)
         self.assertIsInstance(item.completed_at, datetime)
 
-    def test_mappers_preserve_public_shape_and_defaults(self):
+    def test_service_mappers_return_domain_models_with_temporal_values_and_raw_proof_paths(self):
         building = portal_building_repo.get_building("BUILD-1")
         session = portal_checklist_repo.get_session("CS-1")
         item = portal_checklist_repo.get_session_items("CS-1")[0]
 
-        building_summary = portal_mappers.map_building_summary(building)
-        session_summary = portal_mappers.map_session_summary(session)
-        session_item = portal_mappers.map_session_item(item, "CS-1")
-        fallback_item = portal_mappers.map_session_item(item.model_copy(update={"category": "unexpected"}), "CS-1")
+        building_summary = portal_mappers.map_customer_building(building)
+        session_summary = portal_mappers.map_customer_session(session)
+        session_item = portal_mappers.map_customer_session_item(item, "CS-1")
+        fallback_item = portal_mappers.map_customer_session_item(
+            item.model_copy(update={"category": "unexpected"}),
+            "CS-1",
+        )
 
         self.assertEqual(building_summary.address, "123 Market St, Suite 300, Austin, TX 78701")
-        self.assertEqual(building_summary.created_at, "2026-03-01 08:00:00")
-        self.assertEqual(session_summary.service_date, "2026-03-09")
-        self.assertEqual(session_summary.started_at, "2026-03-09 18:00:00")
-        self.assertEqual(
-            session_item.proof_image,
-            "/api/method/pikt_inc.api.customer_portal.download_customer_portal_client_job_proof?session=CS-1&item_key=restrooms",
-        )
+        self.assertIsInstance(building_summary.created_at, datetime)
+        self.assertIsInstance(session_summary.service_date, date)
+        self.assertIsInstance(session_summary.started_at, datetime)
+        self.assertEqual(session_item.proof_image_path, "/private/files/restroom-proof.jpg")
+        self.assertIsInstance(session_item.completed_at, datetime)
         self.assertEqual(fallback_item.category, "job_completion")
 
     def test_get_client_overview_returns_only_scoped_completed_data(self):
@@ -587,10 +591,12 @@ class TestCustomerPortal(TestCase):
         self.dataset["Checklist Session_list"].append(dict(self.dataset["Checklist Session"]["CS-2"]))
         self._install_get_all_spy()
 
-        response = portal.get_client_overview(portal.ClientOverviewRequest())
+        response = portal.get_client_overview()
 
         self.assertEqual([building.id for building in response.buildings], ["BUILD-1", "BUILD-2"])
         self.assertEqual([session.id for session in response.completed_sessions], ["CS-2", "CS-1"])
+        self.assertIsInstance(response.buildings[0].created_at, datetime)
+        self.assertIsInstance(response.completed_sessions[0].started_at, datetime)
         self.assertEqual(
             self._session_query_calls(),
             [
@@ -606,7 +612,7 @@ class TestCustomerPortal(TestCase):
 
     def test_get_client_building_returns_scoped_history_only(self):
         self._install_get_all_spy()
-        response = portal.get_client_building(portal.ClientBuildingRequest.model_validate({"building": "BUILD-1"}))
+        response = portal.get_client_building("BUILD-1")
 
         self.assertEqual(response.building.id, "BUILD-1")
         self.assertEqual([session.id for session in response.completed_sessions], ["CS-1"])
@@ -623,70 +629,72 @@ class TestCustomerPortal(TestCase):
             ],
         )
 
-    def test_get_client_job_returns_job_detail_with_proof_urls(self):
-        response = portal.get_client_job(portal.ClientJobRequest.model_validate({"session": "CS-1"}))
+    def test_get_client_job_returns_domain_job_detail_with_raw_proof_paths(self):
+        response = portal.get_client_job("CS-1")
 
         self.assertEqual(response.building.id, "BUILD-1")
         self.assertEqual(response.session.id, "CS-1")
         self.assertEqual(len(response.session.items), 2)
-        self.assertEqual(
-            response.session.items[0].proof_image,
-            "/api/method/pikt_inc.api.customer_portal.download_customer_portal_client_job_proof?session=CS-1&item_key=restrooms",
-        )
+        self.assertEqual(response.session.items[0].proof_image_path, "/private/files/restroom-proof.jpg")
+        self.assertIsInstance(response.session.items[0].completed_at, datetime)
 
-    def test_download_client_job_proof_returns_file_download(self):
+    def test_download_client_job_proof_returns_domain_file_content(self):
         with patch.object(
             portal_client.building_sop_service,
             "get_proof_file_content",
             return_value=("restroom-proof.jpg", b"IMG", "image/jpeg"),
         ):
-            response = portal.download_client_job_proof(
-                portal.ClientJobProofRequest.model_validate({"session": "CS-1", "item_key": "restrooms"})
-            )
+            response = portal.download_client_job_proof("CS-1", "restrooms")
 
         self.assertEqual(response.filename, "restroom-proof.jpg")
         self.assertEqual(response.content, b"IMG")
         self.assertEqual(response.content_type, "image/jpeg")
-        self.assertFalse(response.as_attachment)
 
     def test_download_client_job_proof_rejects_out_of_scope_job(self):
         with self.assertRaisesRegex(portal.CustomerPortalNotFoundError, "job report is not available"):
-            portal.download_client_job_proof(
-                portal.ClientJobProofRequest.model_validate({"session": "CS-OTHER", "item_key": "other"})
-            )
+            portal.download_client_job_proof("CS-OTHER", "other")
 
     def test_get_client_job_rejects_unknown_out_of_scope_and_non_completed_sessions(self):
         with self.assertRaisesRegex(portal.CustomerPortalNotFoundError, "job report is not available"):
-            portal.get_client_job(portal.ClientJobRequest.model_validate({"session": "CS-MISSING"}))
+            portal.get_client_job("CS-MISSING")
 
         with self.assertRaisesRegex(portal.CustomerPortalNotFoundError, "job report is not available"):
-            portal.get_client_job(portal.ClientJobRequest.model_validate({"session": "CS-OTHER"}))
+            portal.get_client_job("CS-OTHER")
 
         with self.assertRaisesRegex(portal.CustomerPortalNotFoundError, "job report is not available"):
-            portal.get_client_job(portal.ClientJobRequest.model_validate({"session": "CS-IN-PROGRESS"}))
+            portal.get_client_job("CS-IN-PROGRESS")
 
     def test_download_client_job_proof_rejects_missing_item_and_missing_image(self):
         with self.assertRaisesRegex(portal.CustomerPortalNotFoundError, "checklist proof is not available"):
-            portal.download_client_job_proof(
-                portal.ClientJobProofRequest.model_validate({"session": "CS-1", "item_key": "missing"})
-            )
+            portal.download_client_job_proof("CS-1", "missing")
 
         with self.assertRaisesRegex(portal.CustomerPortalNotFoundError, "No proof photo is attached"):
-            portal.download_client_job_proof(
-                portal.ClientJobProofRequest.model_validate({"session": "CS-1", "item_key": "trash"})
-            )
+            portal.download_client_job_proof("CS-1", "trash")
+
+    def test_api_serializers_preserve_public_shape_and_current_formatting(self):
+        overview = portal.get_client_overview()
+        building_payload = portal_api_serializers.serialize_customer_portal_overview(overview)
+        job_payload = portal_api_serializers.serialize_customer_portal_job_detail(portal.get_client_job("CS-1"))
+
+        self.assertEqual(building_payload.buildings[0].created_at, "2026-03-01 08:00:00")
+        self.assertEqual(building_payload.completed_sessions[0].service_date, "2026-03-09")
+        self.assertEqual(job_payload.session.started_at, "2026-03-09 18:00:00")
+        self.assertEqual(
+            job_payload.session.items[0].proof_image,
+            "/api/method/pikt_inc.api.customer_portal.download_customer_portal_client_job_proof?session=CS-1&item_key=restrooms",
+        )
 
     def test_api_wrappers_validate_request_models_and_preserve_shape(self):
-        expected_building = portal.ClientBuildingResponse(
-            building=portal.ClientBuildingSummary(
+        expected_building = portal.CustomerBuildingHistory(
+            building=portal.CustomerPortalBuilding(
                 id="BUILD-1",
                 name="Headquarters",
                 address="123 Market St",
                 notes=None,
                 active=True,
                 current_checklist_template_id="CHK-TPL-1",
-                created_at="2026-03-01 08:00:00",
-                updated_at="2026-03-06 12:00:00",
+                created_at=datetime(2026, 3, 1, 8, 0, 0),
+                updated_at=datetime(2026, 3, 6, 12, 0, 0),
             ),
             completed_sessions=[],
         )
@@ -699,9 +707,8 @@ class TestCustomerPortal(TestCase):
             result = portal_api.get_customer_portal_client_building(building="BUILD-1")
 
         self.assertEqual(result["building"]["id"], "BUILD-1")
-        request = get_client_building.call_args.args[0]
-        self.assertIsInstance(request, portal.ClientBuildingRequest)
-        self.assertEqual(request.building_id, "BUILD-1")
+        self.assertEqual(result["building"]["created_at"], "2026-03-01 08:00:00")
+        self.assertEqual(get_client_building.call_args.args, ("BUILD-1",))
 
         with self.assertRaisesRegex(Exception, "Field required"):
             portal_api.get_customer_portal_client_building()
@@ -711,18 +718,16 @@ class TestCustomerPortal(TestCase):
         with patch.object(
             portal_api.customer_portal_service,
             "download_client_job_proof",
-            return_value=portal.FileDownload(
+            return_value=portal.ProofFileContent(
                 filename="restroom-proof.jpg",
                 content=b"IMG",
                 content_type="image/jpeg",
-                as_attachment=False,
             ),
         ) as download_client_job_proof:
             result = portal_api.download_customer_portal_client_job_proof(session="CS-1", item_key="restrooms")
 
         self.assertIsNone(result)
-        request = download_client_job_proof.call_args.args[0]
-        self.assertIsInstance(request, portal.ClientJobProofRequest)
+        self.assertEqual(download_client_job_proof.call_args.args, ("CS-1", "restrooms"))
         self.assertEqual(self.frappe.local.response["filename"], "restroom-proof.jpg")
         self.assertEqual(self.frappe.local.response["type"], "binary")
         self.assertEqual(self.frappe.local.response["content_type"], "image/jpeg")
@@ -736,12 +741,12 @@ class TestCustomerPortal(TestCase):
             with self.assertRaisesRegex(Exception, "That job report is not available in this portal account"):
                 portal_api.get_customer_portal_client_job(session="CS-OTHER")
 
-    def test_client_request_models_validate_required_fields(self):
+    def test_api_request_models_validate_required_fields(self):
         with self.assertRaises(ValidationError):
-            portal.ClientBuildingRequest.model_validate({})
+            portal_api_contracts.CustomerPortalClientBuildingRequestApi.model_validate({})
 
         with self.assertRaises(ValidationError):
-            portal.ClientJobProofRequest.model_validate({"session": "CS-1"})
+            portal_api_contracts.CustomerPortalClientJobProofRequestApi.model_validate({"session": "CS-1"})
 
     def test_hooks_include_customer_portal_cleanup_patch(self):
         builder_fixture = next(fixture for fixture in app_hooks.fixtures if fixture["dt"] == "Builder Page")
