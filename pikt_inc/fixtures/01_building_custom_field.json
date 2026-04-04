@@ -50,5 +50,33 @@
     "options": "Service Agreement Addendum",
     "insert_after": "custom_service_agreement",
     "read_only": 1
+  },
+  {
+    "doctype": "Custom Field",
+    "dt": "Building",
+    "name": "Building-service_days",
+    "fieldname": "service_days",
+    "label": "Preferred Service Days",
+    "fieldtype": "Data",
+    "insert_after": "custom_service_agreement_addendum",
+    "description": "Comma-separated weekday keys for the preferred recurring service pattern."
+  },
+  {
+    "doctype": "Custom Field",
+    "dt": "Building",
+    "name": "Building-preferred_service_start_time",
+    "fieldname": "preferred_service_start_time",
+    "label": "Preferred Service Start Time",
+    "fieldtype": "Time",
+    "insert_after": "service_days"
+  },
+  {
+    "doctype": "Custom Field",
+    "dt": "Building",
+    "name": "Building-preferred_service_end_time",
+    "fieldname": "preferred_service_end_time",
+    "label": "Preferred Service End Time",
+    "fieldtype": "Time",
+    "insert_after": "preferred_service_start_time"
   }
 ]
