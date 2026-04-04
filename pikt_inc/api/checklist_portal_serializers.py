@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+from datetime import date, datetime
+
+import frappe
+
+from ..services.contracts.common import clean_str
 from ..services.customer_portal.building.models import CustomerPortalBuilding
 from ..services.customer_portal.checklist.models import ChecklistStep, CustomerPortalSession, CustomerPortalSessionItem
 from ..services.customer_portal.models import ChecklistPortalBuildingDetail, ChecklistSessionItemMutation
@@ -12,6 +17,19 @@ from .checklist_portal_contracts import (
     ChecklistPortalStepPayload,
 )
 from .customer_portal_serializers import public_temporal_string
+
+
+def checklist_server_now_string() -> str | None:
+    utils = getattr(frappe, "utils", None)
+    if utils is None or not hasattr(utils, "now_datetime"):
+        return None
+
+    value = utils.now_datetime()
+    if isinstance(value, (date, datetime)):
+        return public_temporal_string(value) or None
+
+    text = clean_str(value)
+    return text or None
 
 
 def serialize_checklist_portal_building(building: CustomerPortalBuilding) -> ChecklistPortalBuildingPayload:
@@ -72,6 +90,7 @@ def serialize_checklist_portal_session(session: CustomerPortalSession) -> Checkl
         service_date=public_temporal_string(session.service_date),
         started_at=public_temporal_string(session.started_at),
         completed_at=public_temporal_string(session.completed_at) or None,
+        server_now=checklist_server_now_string(),
         worker=session.worker,
         session_notes=session.session_notes,
         status=session.status,

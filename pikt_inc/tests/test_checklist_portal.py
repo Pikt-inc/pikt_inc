@@ -399,6 +399,45 @@ class TestChecklistPortal(TestCase):
         self.assertEqual(detail.active_session.items[0].item_key, "access_code")
         self.assertEqual(detail.active_session.items[0].target_duration_seconds, 3)
 
+    def test_api_session_payloads_include_server_now(self):
+        expected_server_now = checklist_api_serializers.checklist_server_now_string()
+
+        with patch.object(cleaner, "require_portal_section", return_value=None), patch.object(
+            cleaner, "require_checklist_work_access", return_value=None
+        ):
+            detail = checklist_api.get_checklist_portal_building(
+                building="BUILD-1",
+                serviceDate="2026-03-09",
+            )
+            self.assertEqual(detail["active_session"]["server_now"], expected_server_now)
+
+            created = checklist_api.ensure_checklist_portal_session(
+                building="BUILD-1",
+                serviceDate="2026-04-02",
+            )
+            self.assertEqual(created["server_now"], expected_server_now)
+
+            updated = checklist_api.update_checklist_portal_session_item(
+                session=created["id"],
+                itemKey="access_code",
+                completed=True,
+            )
+            self.assertEqual(updated["session"]["server_now"], expected_server_now)
+
+            with patch.object(
+                checklist_api,
+                "_request_file",
+                return_value=FakeUploadedFile("proof.jpg", b"IMG"),
+            ):
+                uploaded = checklist_api.upload_checklist_portal_session_item_proof(
+                    session=created["id"],
+                    itemKey="access_code",
+                )
+            self.assertEqual(uploaded["session"]["server_now"], expected_server_now)
+
+            completed = checklist_api.complete_checklist_portal_session(session=created["id"])
+            self.assertEqual(completed["server_now"], expected_server_now)
+
     def test_session_mutation_flow_runs_through_cleaner_service(self):
         with patch.object(cleaner, "require_portal_section", return_value=None), patch.object(
             cleaner, "require_checklist_work_access", return_value=None

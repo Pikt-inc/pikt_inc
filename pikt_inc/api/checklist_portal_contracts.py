@@ -111,6 +111,7 @@ class ChecklistPortalSessionPayload(ResponseModel):
     service_date: str
     started_at: str
     completed_at: str | None
+    server_now: str | None = None
     worker: str | None
     session_notes: str | None
     status: JobStatus
