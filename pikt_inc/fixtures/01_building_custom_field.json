@@ -64,11 +64,21 @@
   {
     "doctype": "Custom Field",
     "dt": "Building",
+    "name": "Building-service_frequency",
+    "fieldname": "service_frequency",
+    "label": "Preferred Service Frequency",
+    "fieldtype": "Int",
+    "insert_after": "service_days",
+    "description": "Preferred number of service visits per week."
+  },
+  {
+    "doctype": "Custom Field",
+    "dt": "Building",
     "name": "Building-preferred_service_start_time",
     "fieldname": "preferred_service_start_time",
     "label": "Preferred Service Start Time",
     "fieldtype": "Time",
-    "insert_after": "service_days"
+    "insert_after": "service_frequency"
   },
   {
     "doctype": "Custom Field",
