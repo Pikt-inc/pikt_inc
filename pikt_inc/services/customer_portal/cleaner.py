@@ -1,14 +1,15 @@
 from __future__ import annotations
 
+from .. import building_sop as building_sop_service
 from ..contracts.common import clean_str
 from .account import require_checklist_work_access, require_portal_section
 from .building.mappers import map_portal_building
 from .building.repo import get_building, list_buildings
 from .checklist.mappers import map_checklist_step, map_portal_session, map_portal_session_item
 from .checklist.repo import get_active_session, get_session_items, get_template_items
-from .checklist.service import complete_session, ensure_active_session, require_session, update_session_item, upload_session_item_proof
+from .checklist.service import complete_session, ensure_active_session, require_session, require_session_item, update_session_item, upload_session_item_proof
 from .errors import CustomerPortalNotFoundError
-from .models import ChecklistPortalBuildingDetail, ChecklistSessionItemMutation
+from .models import ChecklistPortalBuildingDetail, ChecklistSessionItemMutation, ProofFileContent
 
 
 def _require_checklist_building(building_id: str):
@@ -104,4 +105,47 @@ def upload_checklist_session_item_proof(session_id: str, item_key: str, uploaded
     return ChecklistSessionItemMutation(
         session=session_payload,
         item=map_portal_session_item(updated_item, updated_session.name),
+    )
+
+
+def download_checklist_step_training_media(building_id: str, item_key: str) -> ProofFileContent:
+    require_portal_section("checklist")
+    building = _require_checklist_building(clean_str(building_id))
+    template_name = clean_str(building.current_checklist_template)
+    if not template_name:
+        raise CustomerPortalNotFoundError("No training media is attached to this checklist item.")
+
+    normalized_item_key = clean_str(item_key)
+    item = next(
+        (
+            row
+            for row in get_template_items(template_name, active_only=True)
+            if row.item_key == normalized_item_key or row.name == normalized_item_key
+        ),
+        None,
+    )
+    if not item or not item.training_media:
+        raise CustomerPortalNotFoundError("No training media is attached to this checklist item.")
+
+    file_name, content, content_type = building_sop_service.get_proof_file_content(item.training_media)
+    return ProofFileContent(
+        filename=clean_str(file_name),
+        content=content,
+        content_type=clean_str(content_type) or "application/octet-stream",
+    )
+
+
+def download_checklist_session_item_training_media(session_id: str, item_key: str) -> ProofFileContent:
+    require_portal_section("checklist")
+    session = require_session(clean_str(session_id))
+    _require_checklist_building(session.building)
+    item = require_session_item(session.name, clean_str(item_key))
+    if not item.training_media:
+        raise CustomerPortalNotFoundError("No training media is attached to this checklist item.")
+
+    file_name, content, content_type = building_sop_service.get_proof_file_content(item.training_media)
+    return ProofFileContent(
+        filename=clean_str(file_name),
+        content=content,
+        content_type=clean_str(content_type) or "application/octet-stream",
     )

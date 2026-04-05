@@ -6,7 +6,7 @@ import types
 from datetime import datetime
 from pathlib import Path
 from unittest import TestCase
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 from pydantic import ValidationError
 
@@ -422,9 +422,15 @@ class TestChecklistPortal(TestCase):
                 serviceDate="2026-03-09",
             )
             self.assertEqual(detail["active_session"]["server_now"], expected_server_now)
-            self.assertEqual(detail["steps"][0]["training_media"], "/files/access-training.jpg")
+            self.assertEqual(
+                detail["steps"][0]["training_media"],
+                "/api/method/pikt_inc.api.checklist_portal.download_checklist_portal_step_training_media?building=BUILD-1&item_key=access_code",
+            )
             self.assertEqual(detail["steps"][0]["training_media_kind"], "image")
-            self.assertEqual(detail["active_session"]["items"][0]["training_media"], "/files/access-training.jpg")
+            self.assertEqual(
+                detail["active_session"]["items"][0]["training_media"],
+                "/api/method/pikt_inc.api.checklist_portal.download_checklist_portal_session_item_training_media?session=CS-1&item_key=access_code",
+            )
             self.assertEqual(detail["active_session"]["items"][0]["training_media_kind"], "image")
 
             created = checklist_api.ensure_checklist_portal_session(
@@ -432,7 +438,10 @@ class TestChecklistPortal(TestCase):
                 serviceDate="2026-04-02",
             )
             self.assertEqual(created["server_now"], expected_server_now)
-            self.assertEqual(created["items"][0]["training_media"], "/files/access-training.jpg")
+            self.assertEqual(
+                created["items"][0]["training_media"],
+                "/api/method/pikt_inc.api.checklist_portal.download_checklist_portal_session_item_training_media?session=CS-NEW&item_key=access_code",
+            )
             self.assertEqual(created["items"][0]["training_media_kind"], "image")
 
             updated = checklist_api.update_checklist_portal_session_item(
@@ -487,6 +496,27 @@ class TestChecklistPortal(TestCase):
             completed = cleaner.complete_checklist_session(created.id)
             self.assertEqual(completed.status, "completed")
 
+    def test_training_media_download_service_uses_scoped_checklist_access(self):
+        with patch.object(cleaner, "require_portal_section", return_value=None), patch.object(
+            cleaner.building_sop_service,
+            "get_proof_file_content",
+            return_value=("training.jpg", b"IMG", "image/jpeg"),
+        ) as get_proof_file_content:
+            preview_download = cleaner.download_checklist_step_training_media("BUILD-1", "access_code")
+            session_download = cleaner.download_checklist_session_item_training_media("CS-1", "access_code")
+
+        self.assertEqual(preview_download.filename, "training.jpg")
+        self.assertEqual(preview_download.content, b"IMG")
+        self.assertEqual(session_download.filename, "training.jpg")
+        self.assertEqual(session_download.content_type, "image/jpeg")
+        self.assertEqual(
+            get_proof_file_content.call_args_list,
+            [
+                call("/files/access-training.jpg"),
+                call("/files/access-training.jpg"),
+            ],
+        )
+
     def test_api_serializers_and_wrappers_preserve_public_shape(self):
         detail = portal.ChecklistPortalBuildingDetail(
             building=portal_building.CustomerPortalBuilding(
@@ -524,7 +554,10 @@ class TestChecklistPortal(TestCase):
         self.assertEqual(payload.building.created_at, "2026-03-01 08:00:00")
         self.assertEqual(payload.steps[0].category, "access")
         self.assertEqual(payload.steps[0].target_duration_seconds, 3)
-        self.assertEqual(payload.steps[0].training_media, "/files/access-training.mp4")
+        self.assertEqual(
+            payload.steps[0].training_media,
+            "/api/method/pikt_inc.api.checklist_portal.download_checklist_portal_step_training_media?building=BUILD-1&item_key=access_code",
+        )
         self.assertEqual(payload.steps[0].training_media_kind, "video")
 
         with patch.object(
@@ -535,12 +568,52 @@ class TestChecklistPortal(TestCase):
             result = checklist_api.get_checklist_portal_building(building="BUILD-1", serviceDate="2026-04-02")
 
         self.assertEqual(result["building"]["id"], "BUILD-1")
-        self.assertEqual(result["steps"][0]["training_media"], "/files/access-training.mp4")
+        self.assertEqual(
+            result["steps"][0]["training_media"],
+            "/api/method/pikt_inc.api.checklist_portal.download_checklist_portal_step_training_media?building=BUILD-1&item_key=access_code",
+        )
         self.assertEqual(result["steps"][0]["training_media_kind"], "video")
         self.assertEqual(get_checklist_building.call_args.args, ("BUILD-1", "2026-04-02"))
 
         with self.assertRaises(ValidationError):
             checklist_api_contracts.ChecklistPortalBuildingRequestApi.model_validate({})
+
+    def test_training_media_downloads_run_through_scoped_portal_methods(self):
+        with patch.object(
+            checklist_api.customer_portal_service,
+            "download_checklist_step_training_media",
+            return_value=portal.ProofFileContent(
+                filename="training.jpg",
+                content=b"IMG",
+                content_type="image/jpeg",
+            ),
+        ) as download_step_training_media:
+            result = checklist_api.download_checklist_portal_step_training_media(
+                building="BUILD-1",
+                item_key="access_code",
+            )
+
+        self.assertIsNone(result)
+        self.assertEqual(download_step_training_media.call_args.args, ("BUILD-1", "access_code"))
+        self.assertEqual(checklist_api.frappe.local.response["filename"], "training.jpg")
+
+        with patch.object(
+            checklist_api.customer_portal_service,
+            "download_checklist_session_item_training_media",
+            return_value=portal.ProofFileContent(
+                filename="training.webm",
+                content=b"VID",
+                content_type="video/webm",
+            ),
+        ) as download_session_training_media:
+            result = checklist_api.download_checklist_portal_session_item_training_media(
+                session="CS-1",
+                item_key="access_code",
+            )
+
+        self.assertIsNone(result)
+        self.assertEqual(download_session_training_media.call_args.args, ("CS-1", "access_code"))
+        self.assertEqual(checklist_api.frappe.local.response["filename"], "training.webm")
 
 
 if __name__ == "__main__":

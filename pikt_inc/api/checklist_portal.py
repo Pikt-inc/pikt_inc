@@ -9,6 +9,8 @@ from .checklist_portal_contracts import (
     ChecklistPortalBuildingsRequestApi,
     ChecklistPortalCompleteSessionRequestApi,
     ChecklistPortalEnsureSessionRequestApi,
+    ChecklistPortalSessionTrainingMediaRequestApi,
+    ChecklistPortalStepTrainingMediaRequestApi,
     ChecklistPortalUpdateSessionItemRequestApi,
     ChecklistPortalUploadProofRequestApi,
 )
@@ -18,6 +20,7 @@ from .checklist_portal_serializers import (
     serialize_checklist_portal_session,
     serialize_checklist_portal_session_item_mutation,
 )
+from .customer_portal_serializers import apply_customer_portal_file_download
 from ..services import customer_portal as customer_portal_service
 from ..services.contracts.common import first_validation_message
 from ..services.customer_portal.errors import CustomerPortalAccessError, CustomerPortalNotFoundError
@@ -76,6 +79,26 @@ def get_checklist_portal_building(building=None, serviceDate=None, **kwargs):
         _raise_portal_error(exc)
         raise
     return serialize_checklist_portal_building_detail(response).model_dump(mode="python")
+
+
+@frappe.whitelist()
+def download_checklist_portal_step_training_media(building=None, item_key=None, **kwargs):
+    payload = _payload(kwargs)
+    if building is not None:
+        payload["building"] = building
+    if item_key is not None:
+        payload["item_key"] = item_key
+    request = _validate_request(ChecklistPortalStepTrainingMediaRequestApi, payload)
+    try:
+        response = customer_portal_service.download_checklist_step_training_media(
+            request.building_id,
+            request.item_key,
+        )
+    except Exception as exc:
+        _raise_portal_error(exc)
+        raise
+    apply_customer_portal_file_download(response)
+    return None
 
 
 @frappe.whitelist()
@@ -150,3 +173,23 @@ def upload_checklist_portal_session_item_proof(session=None, itemKey=None, **kwa
         _raise_portal_error(exc)
         raise
     return serialize_checklist_portal_session_item_mutation(response).model_dump(mode="python")
+
+
+@frappe.whitelist()
+def download_checklist_portal_session_item_training_media(session=None, item_key=None, **kwargs):
+    payload = _payload(kwargs)
+    if session is not None:
+        payload["session"] = session
+    if item_key is not None:
+        payload["item_key"] = item_key
+    request = _validate_request(ChecklistPortalSessionTrainingMediaRequestApi, payload)
+    try:
+        response = customer_portal_service.download_checklist_session_item_training_media(
+            request.session_id,
+            request.item_key,
+        )
+    except Exception as exc:
+        _raise_portal_error(exc)
+        raise
+    apply_customer_portal_file_download(response)
+    return None

@@ -26,6 +26,16 @@ class ChecklistPortalEnsureSessionRequestApi(ChecklistPortalBuildingRequestApi):
     pass
 
 
+class ChecklistPortalStepTrainingMediaRequestApi(RequestModel):
+    building_id: str = Field(validation_alias=AliasChoices("building_id", "building"), min_length=1)
+    item_key: str = Field(validation_alias=AliasChoices("item_key", "itemKey"), min_length=1)
+
+    @field_validator("building_id", "item_key", mode="before")
+    @classmethod
+    def clean_values(cls, value: Any) -> str:
+        return clean_str(value)
+
+
 class ChecklistPortalUpdateSessionItemRequestApi(RequestModel):
     session_id: str = Field(validation_alias=AliasChoices("session_id", "session"), min_length=1)
     item_key: str = Field(validation_alias=AliasChoices("item_key", "itemKey"), min_length=1)
@@ -51,6 +61,16 @@ class ChecklistPortalCompleteSessionRequestApi(RequestModel):
 
 
 class ChecklistPortalUploadProofRequestApi(RequestModel):
+    session_id: str = Field(validation_alias=AliasChoices("session_id", "session"), min_length=1)
+    item_key: str = Field(validation_alias=AliasChoices("item_key", "itemKey"), min_length=1)
+
+    @field_validator("session_id", "item_key", mode="before")
+    @classmethod
+    def clean_values(cls, value: Any) -> str:
+        return clean_str(value)
+
+
+class ChecklistPortalSessionTrainingMediaRequestApi(RequestModel):
     session_id: str = Field(validation_alias=AliasChoices("session_id", "session"), min_length=1)
     item_key: str = Field(validation_alias=AliasChoices("item_key", "itemKey"), min_length=1)
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
+from urllib.parse import urlencode
 
 import frappe
 
@@ -32,6 +33,16 @@ def checklist_server_now_string() -> str | None:
     return text or None
 
 
+def build_checklist_step_training_media_download_url(building_id: str, item_key: str) -> str:
+    query = urlencode({"building": clean_str(building_id), "item_key": clean_str(item_key)})
+    return f"/api/method/pikt_inc.api.checklist_portal.download_checklist_portal_step_training_media?{query}"
+
+
+def build_checklist_session_item_training_media_download_url(session_id: str, item_key: str) -> str:
+    query = urlencode({"session": clean_str(session_id), "item_key": clean_str(item_key)})
+    return f"/api/method/pikt_inc.api.checklist_portal.download_checklist_portal_session_item_training_media?{query}"
+
+
 def serialize_checklist_portal_building(building: CustomerPortalBuilding) -> ChecklistPortalBuildingPayload:
     return ChecklistPortalBuildingPayload(
         id=building.id,
@@ -55,7 +66,7 @@ def serialize_checklist_portal_step(step: ChecklistStep) -> ChecklistPortalStepP
         title=step.title,
         description=step.description,
         target_duration_seconds=step.target_duration_seconds,
-        training_media=step.training_media_path,
+        training_media=build_checklist_step_training_media_download_url(step.building_id, step.id) if step.training_media_path else None,
         training_media_kind=step.training_media_kind,
         requires_image=step.requires_image,
         allow_notes=step.allow_notes,
@@ -64,7 +75,10 @@ def serialize_checklist_portal_step(step: ChecklistStep) -> ChecklistPortalStepP
     )
 
 
-def serialize_checklist_portal_session_item(item: CustomerPortalSessionItem) -> ChecklistPortalSessionItemPayload:
+def serialize_checklist_portal_session_item(
+    item: CustomerPortalSessionItem,
+    session_id: str,
+) -> ChecklistPortalSessionItemPayload:
     return ChecklistPortalSessionItemPayload(
         id=item.id,
         job_session_id=item.job_session_id,
@@ -74,7 +88,7 @@ def serialize_checklist_portal_session_item(item: CustomerPortalSessionItem) -> 
         title=item.title,
         description=item.description,
         target_duration_seconds=item.target_duration_seconds,
-        training_media=item.training_media_path,
+        training_media=build_checklist_session_item_training_media_download_url(session_id, item.item_key) if item.training_media_path else None,
         training_media_kind=item.training_media_kind,
         requires_image=item.requires_image,
         allow_notes=item.allow_notes,
@@ -98,7 +112,7 @@ def serialize_checklist_portal_session(session: CustomerPortalSession) -> Checkl
         worker=session.worker,
         session_notes=session.session_notes,
         status=session.status,
-        items=[serialize_checklist_portal_session_item(item) for item in session.items],
+        items=[serialize_checklist_portal_session_item(item, session.id) for item in session.items],
     )
 
 
@@ -118,5 +132,5 @@ def serialize_checklist_portal_session_item_mutation(
 ) -> ChecklistPortalSessionItemMutationPayload:
     return ChecklistPortalSessionItemMutationPayload(
         session=serialize_checklist_portal_session(mutation.session),
-        item=serialize_checklist_portal_session_item(mutation.item),
+        item=serialize_checklist_portal_session_item(mutation.item, mutation.session.id),
     )
