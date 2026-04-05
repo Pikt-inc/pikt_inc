@@ -54,12 +54,23 @@
   {
     "doctype": "Custom Field",
     "dt": "Building",
-    "name": "Building-service_days",
-    "fieldname": "service_days",
-    "label": "Preferred Service Days",
+    "name": "Building-unavailable_service_days",
+    "fieldname": "unavailable_service_days",
+    "label": "Unavailable Service Days",
     "fieldtype": "Data",
     "insert_after": "custom_service_agreement_addendum",
-    "description": "Comma-separated weekday keys for the preferred recurring service pattern."
+    "description": "Comma-separated weekday keys for days this building must not be serviced."
+  },
+  {
+    "doctype": "Custom Field",
+    "dt": "Building",
+    "name": "Building-service_days",
+    "fieldname": "service_days",
+    "label": "Preferred Service Days (Legacy)",
+    "fieldtype": "Data",
+    "insert_after": "unavailable_service_days",
+    "description": "Legacy exact-day service pattern retained temporarily for migration compatibility.",
+    "hidden": 1
   },
   {
     "doctype": "Custom Field",

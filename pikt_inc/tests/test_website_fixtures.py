@@ -9,6 +9,9 @@ from pikt_inc.tests._frappe_harness import install_test_frappe
 install_test_frappe()
 
 from pikt_inc import hooks as app_hooks
+from pikt_inc.patches.post_model_sync.backfill_building_unavailable_service_days import (
+    derive_unavailable_service_days,
+)
 
 
 BUILDER_PAGE_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "builder_page.json"
@@ -66,6 +69,12 @@ CONTACT_WEB_FORM_CLEANUP_PATCH_PATH = (
     / "patches"
     / "post_model_sync"
     / "remove_legacy_contact_request_web_form.py"
+)
+BUILDING_SCHEDULE_BACKFILL_PATCH_PATH = (
+    Path(__file__).resolve().parents[1]
+    / "patches"
+    / "post_model_sync"
+    / "backfill_building_unavailable_service_days.py"
 )
 
 
@@ -355,6 +364,27 @@ class TestWebsiteFixtures(unittest.TestCase):
         self.assertIn("supervisor_user", custom_field_names)
         self.assertIn("custom_service_agreement", custom_field_names)
         self.assertIn("custom_service_agreement_addendum", custom_field_names)
+        self.assertIn("unavailable_service_days", custom_field_names)
+        self.assertIn("service_days", custom_field_names)
+        self.assertIn("service_frequency", custom_field_names)
+        self.assertIn("preferred_service_start_time", custom_field_names)
+        self.assertIn("preferred_service_end_time", custom_field_names)
+
+    def test_building_schedule_backfill_patch_is_registered(self):
+        patches_text = PATCHES_PATH.read_text(encoding="utf-8")
+
+        self.assertIn(
+            "pikt_inc.patches.post_model_sync.backfill_building_unavailable_service_days",
+            patches_text,
+        )
+        self.assertTrue(BUILDING_SCHEDULE_BACKFILL_PATCH_PATH.exists())
+
+    def test_building_schedule_backfill_derives_unavailable_days_from_legacy_days(self):
+        self.assertEqual(
+            derive_unavailable_service_days("mon,wed,fri"),
+            ["tue", "thu", "sat", "sun"],
+        )
+        self.assertEqual(derive_unavailable_service_days("mon,tue,wed,thu,fri,sat,sun"), [])
 
     def test_user_customer_scope_fixture_exports_direct_customer_link(self):
         user_custom_fields = json.loads(USER_CUSTOM_FIELD_FIXTURE_PATH.read_text(encoding="utf-8"))
