@@ -160,6 +160,9 @@ doc_events = {
 		"after_insert": "pikt_inc.events.building.after_insert",
 		"on_update": "pikt_inc.events.building.on_update",
 	},
+	"Storage Location": {
+		"before_save": "pikt_inc.events.storage_location.before_save",
+	},
 	"Checklist Template": {
 		"before_save": "pikt_inc.events.checklist_template.before_save",
 		"after_insert": "pikt_inc.events.checklist_template.after_insert",
@@ -243,6 +246,7 @@ fixtures = [
 				"in",
 				[
 					"Building",
+					"Storage Location",
 				],
 			]
 		],

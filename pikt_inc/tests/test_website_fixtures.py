@@ -12,6 +12,9 @@ from pikt_inc import hooks as app_hooks
 from pikt_inc.patches.post_model_sync.backfill_building_unavailable_service_days import (
     derive_unavailable_service_days,
 )
+from pikt_inc.patches.post_model_sync.backfill_building_storage_locations import (
+    build_legacy_storage_location_values,
+)
 
 
 BUILDER_PAGE_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "builder_page.json"
@@ -75,6 +78,12 @@ BUILDING_SCHEDULE_BACKFILL_PATCH_PATH = (
     / "patches"
     / "post_model_sync"
     / "backfill_building_unavailable_service_days.py"
+)
+BUILDING_STORAGE_LOCATION_BACKFILL_PATCH_PATH = (
+    Path(__file__).resolve().parents[1]
+    / "patches"
+    / "post_model_sync"
+    / "backfill_building_storage_locations.py"
 )
 
 
@@ -323,7 +332,10 @@ class TestWebsiteFixtures(unittest.TestCase):
             if row["dt"] == "Custom Field" and row.get("prefix") == "02_user"
         )
 
-        self.assertEqual(building_doctype_fixture["filters"], [["name", "in", ["Building"]]])
+        self.assertEqual(
+            building_doctype_fixture["filters"],
+            [["name", "in", ["Building", "Storage Location"]]],
+        )
         self.assertEqual(
             checklist_doctype_fixture["filters"],
             [[
@@ -348,10 +360,13 @@ class TestWebsiteFixtures(unittest.TestCase):
         building_doctypes = json.loads(BUILDING_DOCTYPE_FIXTURE_PATH.read_text(encoding="utf-8"))
         building_custom_fields = json.loads(BUILDING_CUSTOM_FIELD_FIXTURE_PATH.read_text(encoding="utf-8"))
 
-        self.assertEqual(len(building_doctypes), 1)
-        self.assertEqual(building_doctypes[0]["name"], "Building")
+        self.assertEqual({doc["name"] for doc in building_doctypes}, {"Building", "Storage Location"})
 
-        base_field_names = {row["fieldname"] for row in building_doctypes[0]["fields"]}
+        building_doc = next(doc for doc in building_doctypes if doc["name"] == "Building")
+        storage_location_doc = next(doc for doc in building_doctypes if doc["name"] == "Storage Location")
+
+        base_field_names = {row["fieldname"] for row in building_doc["fields"]}
+        storage_location_field_names = {row["fieldname"] for row in storage_location_doc["fields"]}
         custom_field_names = {row["fieldname"] for row in building_custom_fields}
 
         self.assertIn("building_name", base_field_names)
@@ -369,6 +384,13 @@ class TestWebsiteFixtures(unittest.TestCase):
         self.assertIn("service_frequency", custom_field_names)
         self.assertIn("preferred_service_start_time", custom_field_names)
         self.assertIn("preferred_service_end_time", custom_field_names)
+        self.assertIn("building", storage_location_field_names)
+        self.assertIn("location_name", storage_location_field_names)
+        self.assertIn("location_type", storage_location_field_names)
+        self.assertIn("directions", storage_location_field_names)
+        self.assertIn("notes", storage_location_field_names)
+        self.assertIn("active", storage_location_field_names)
+        self.assertIn("is_primary", storage_location_field_names)
 
     def test_building_schedule_backfill_patch_is_registered(self):
         patches_text = PATCHES_PATH.read_text(encoding="utf-8")
@@ -385,6 +407,29 @@ class TestWebsiteFixtures(unittest.TestCase):
             ["tue", "thu", "sat", "sun"],
         )
         self.assertEqual(derive_unavailable_service_days("mon,tue,wed,thu,fri,sat,sun"), [])
+
+    def test_building_storage_location_backfill_patch_is_registered(self):
+        patches_text = PATCHES_PATH.read_text(encoding="utf-8")
+
+        self.assertIn(
+            "pikt_inc.patches.post_model_sync.backfill_building_storage_locations",
+            patches_text,
+        )
+        self.assertTrue(BUILDING_STORAGE_LOCATION_BACKFILL_PATCH_PATH.exists())
+
+    def test_building_storage_location_backfill_uses_primary_storage_defaults(self):
+        values = build_legacy_storage_location_values(
+            building_name="BUILD-1",
+            directions="Supply closet next to lobby",
+        )
+
+        self.assertEqual(values["doctype"], "Storage Location")
+        self.assertEqual(values["building"], "BUILD-1")
+        self.assertEqual(values["location_name"], "Primary Storage")
+        self.assertEqual(values["location_type"], "other")
+        self.assertEqual(values["directions"], "Supply closet next to lobby")
+        self.assertEqual(values["active"], 1)
+        self.assertEqual(values["is_primary"], 1)
 
     def test_user_customer_scope_fixture_exports_direct_customer_link(self):
         user_custom_fields = json.loads(USER_CUSTOM_FIELD_FIXTURE_PATH.read_text(encoding="utf-8"))

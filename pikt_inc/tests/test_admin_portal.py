@@ -145,6 +145,10 @@ class TestAdminPortalBuildingDeletion(unittest.TestCase):
             "Recurring Service Rule_list": [
                 {"name": "RSR-1", "building": "BUILD-1"},
             ],
+            "Storage Location_list": [
+                {"name": "SL-1", "building": "BUILD-1"},
+                {"name": "SL-2", "building": "BUILD-1"},
+            ],
             "File_list": [
                 {"name": "FILE-1", "attached_to_doctype": "Checklist Session", "attached_to_name": "CS-1"},
                 {"name": "FILE-2", "attached_to_doctype": "Checklist Session", "attached_to_name": "CS-2"},
@@ -217,6 +221,8 @@ class TestAdminPortalBuildingDeletion(unittest.TestCase):
                 ("Site Shift Requirement", "SSR-1"),
                 ("Site Shift Requirement", "SSR-2"),
                 ("Recurring Service Rule", "RSR-1"),
+                ("Storage Location", "SL-1"),
+                ("Storage Location", "SL-2"),
                 ("Building", "BUILD-1"),
             ],
         )

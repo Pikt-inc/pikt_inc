@@ -20,6 +20,7 @@ CALL_OUT_DOCTYPE = "Call Out"
 SITE_SHIFT_REQUIREMENT_DOCTYPE = "Site Shift Requirement"
 RECURRING_SERVICE_RULE_DOCTYPE = "Recurring Service Rule"
 SERVICE_AGREEMENT_ADDENDUM_DOCTYPE = "Service Agreement Addendum"
+STORAGE_LOCATION_DOCTYPE = "Storage Location"
 CURRENT_TEMPLATE_FIELD = "current_checklist_template"
 SSR_SOP_FIELD = "custom_building_sop"
 SSR_CALLOUT_FIELD = "call_out_record"
@@ -114,6 +115,7 @@ def delete_admin_building(building_id: str) -> AdminBuildingDeleteResult:
     ssr_names = _list_doc_names(SITE_SHIFT_REQUIREMENT_DOCTYPE, {"building": building_name})
     call_out_names = _list_doc_names(CALL_OUT_DOCTYPE, {"building": building_name})
     recurring_rule_names = _list_doc_names(RECURRING_SERVICE_RULE_DOCTYPE, {"building": building_name})
+    storage_location_names = _list_doc_names(STORAGE_LOCATION_DOCTYPE, {"building": building_name})
 
     recommendation_names: list[str] = []
     if ssr_names:
@@ -144,6 +146,7 @@ def delete_admin_building(building_id: str) -> AdminBuildingDeleteResult:
     _delete_doc_names(CALL_OUT_DOCTYPE, call_out_names)
     _delete_doc_names(SITE_SHIFT_REQUIREMENT_DOCTYPE, ssr_names)
     _delete_doc_names(RECURRING_SERVICE_RULE_DOCTYPE, recurring_rule_names)
+    _delete_doc_names(STORAGE_LOCATION_DOCTYPE, storage_location_names)
     _delete_doc_if_exists(BUILDING_DOCTYPE, building_name)
 
     return AdminBuildingDeleteResult(building_id=building_name)
