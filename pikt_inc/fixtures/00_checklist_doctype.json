@@ -134,6 +134,17 @@
         "fieldtype": "Int"
       },
       {
+        "fieldname": "training_media",
+        "label": "Training Media",
+        "fieldtype": "Attach"
+      },
+      {
+        "fieldname": "training_media_kind",
+        "label": "Training Media Kind",
+        "fieldtype": "Select",
+        "options": "image\nvideo"
+      },
+      {
         "fieldname": "requires_image",
         "label": "Requires Image",
         "fieldtype": "Check",
@@ -303,6 +314,17 @@
         "fieldname": "target_duration_seconds",
         "label": "Target Duration Seconds",
         "fieldtype": "Int"
+      },
+      {
+        "fieldname": "training_media",
+        "label": "Training Media",
+        "fieldtype": "Attach"
+      },
+      {
+        "fieldname": "training_media_kind",
+        "label": "Training Media Kind",
+        "fieldtype": "Select",
+        "options": "image\nvideo"
       },
       {
         "fieldname": "requires_image",

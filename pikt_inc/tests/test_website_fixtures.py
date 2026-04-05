@@ -416,9 +416,13 @@ class TestWebsiteFixtures(unittest.TestCase):
         self.assertEqual(template_fields["status"]["options"], "Draft\nActive\nArchived")
         self.assertEqual(template_fields["items"]["options"], "Checklist Template Item")
         self.assertEqual(template_item_fields["category"]["options"], "access\njob_completion\nrearm_security")
+        self.assertEqual(template_item_fields["training_media"]["fieldtype"], "Attach")
+        self.assertEqual(template_item_fields["training_media_kind"]["options"], "image\nvideo")
         self.assertEqual(session_fields["status"]["options"], "in_progress\ncompleted")
         self.assertEqual(session_fields["items"]["options"], "Checklist Session Item")
         self.assertEqual(session_item_fields["proof_image"]["fieldtype"], "Attach Image")
+        self.assertEqual(session_item_fields["training_media"]["fieldtype"], "Attach")
+        self.assertEqual(session_item_fields["training_media_kind"]["options"], "image\nvideo")
 
     def test_contact_request_doctype_fixture_covers_public_contact_fields(self):
         doctypes = json.loads(CONTACT_REQUEST_DOCTYPE_FIXTURE_PATH.read_text(encoding="utf-8"))

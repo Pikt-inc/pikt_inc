@@ -80,6 +80,8 @@ class ChecklistPortalStepPayload(ResponseModel):
     title: str
     description: str | None
     target_duration_seconds: int | None = None
+    training_media: str | None = None
+    training_media_kind: str | None = None
     requires_image: bool
     allow_notes: bool
     is_required: bool
@@ -95,6 +97,8 @@ class ChecklistPortalSessionItemPayload(ResponseModel):
     title: str
     description: str | None
     target_duration_seconds: int | None = None
+    training_media: str | None = None
+    training_media_kind: str | None = None
     requires_image: bool
     allow_notes: bool
     is_required: bool

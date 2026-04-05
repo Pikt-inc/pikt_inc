@@ -67,6 +67,8 @@ class TestChecklistModel(unittest.TestCase):
                         "title": "Use north entrance",
                         "target_duration_seconds": 45,
                         "requires_image": False,
+                        "training_media": "/private/files/north-entrance.jpg",
+                        "training_media_kind": "image",
                     }
                 ],
             }
@@ -83,6 +85,8 @@ class TestChecklistModel(unittest.TestCase):
         self.assertEqual(doc["items"][0]["category"], "access")
         self.assertEqual(doc["items"][0]["sort_order"], 1)
         self.assertEqual(doc["items"][0]["allow_notes"], 1)
+        self.assertEqual(doc["items"][0]["training_media"], "/private/files/north-entrance.jpg")
+        self.assertEqual(doc["items"][0]["training_media_kind"], "image")
 
     def test_sync_active_checklist_template_archives_previous_active_and_updates_building_pointer(self):
         doc = FakeDoc({"name": "CHK-TPL-2", "building": "BUILD-1", "status": "Active"})
@@ -129,6 +133,8 @@ class TestChecklistModel(unittest.TestCase):
                     "allow_notes": 1,
                     "is_required": 1,
                     "active": 1,
+                    "training_media": "/private/files/north-entrance.mp4",
+                    "training_media_kind": "video",
                 }
             ],
         ), patch.object(
@@ -142,6 +148,8 @@ class TestChecklistModel(unittest.TestCase):
         self.assertEqual(len(doc["items"]), 1)
         self.assertEqual(doc["items"][0]["title_snapshot"], "Use north entrance")
         self.assertEqual(doc["items"][0]["target_duration_seconds"], 45)
+        self.assertEqual(doc["items"][0]["training_media"], "/private/files/north-entrance.mp4")
+        self.assertEqual(doc["items"][0]["training_media_kind"], "video")
         self.assertEqual(doc["items"][0]["completed"], 0)
 
     def test_validate_checklist_session_blocks_duplicate_in_progress_session_for_same_day(self):

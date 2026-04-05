@@ -187,6 +187,8 @@ class FakeChecklistSessionDoc:
                     completed_at=None,
                     note="",
                     proof_image="",
+                    training_media=item.get("training_media", ""),
+                    training_media_kind=item.get("training_media_kind", ""),
                     parent=self.name,
                     parenttype="Checklist Session",
                     parentfield="items",
@@ -236,6 +238,8 @@ class FakeChecklistSessionDoc:
                 "completed_at": item.completed_at,
                 "note": item.note,
                 "proof_image": item.proof_image,
+                "training_media": getattr(item, "training_media", ""),
+                "training_media_kind": getattr(item, "training_media_kind", ""),
             }
             for item in self.items
         ]
@@ -315,6 +319,8 @@ class TestChecklistPortal(TestCase):
                     "allow_notes": 1,
                     "is_required": 1,
                     "active": 1,
+                    "training_media": "/files/access-training.jpg",
+                    "training_media_kind": "image",
                 }
             ],
             "Checklist Session": {
@@ -353,6 +359,8 @@ class TestChecklistPortal(TestCase):
                     "completed_at": None,
                     "note": "",
                     "proof_image": "",
+                    "training_media": "/files/access-training.jpg",
+                    "training_media_kind": "image",
                 }
             ],
         }
@@ -395,9 +403,13 @@ class TestChecklistPortal(TestCase):
         self.assertEqual(len(detail.steps), 1)
         self.assertEqual(detail.steps[0].category, "access")
         self.assertEqual(detail.steps[0].target_duration_seconds, 3)
+        self.assertEqual(detail.steps[0].training_media_path, "/files/access-training.jpg")
+        self.assertEqual(detail.steps[0].training_media_kind, "image")
         self.assertEqual(detail.active_session.id, "CS-1")
         self.assertEqual(detail.active_session.items[0].item_key, "access_code")
         self.assertEqual(detail.active_session.items[0].target_duration_seconds, 3)
+        self.assertEqual(detail.active_session.items[0].training_media_path, "/files/access-training.jpg")
+        self.assertEqual(detail.active_session.items[0].training_media_kind, "image")
 
     def test_api_session_payloads_include_server_now(self):
         expected_server_now = checklist_api_serializers.checklist_server_now_string()
@@ -410,12 +422,18 @@ class TestChecklistPortal(TestCase):
                 serviceDate="2026-03-09",
             )
             self.assertEqual(detail["active_session"]["server_now"], expected_server_now)
+            self.assertEqual(detail["steps"][0]["training_media"], "/files/access-training.jpg")
+            self.assertEqual(detail["steps"][0]["training_media_kind"], "image")
+            self.assertEqual(detail["active_session"]["items"][0]["training_media"], "/files/access-training.jpg")
+            self.assertEqual(detail["active_session"]["items"][0]["training_media_kind"], "image")
 
             created = checklist_api.ensure_checklist_portal_session(
                 building="BUILD-1",
                 serviceDate="2026-04-02",
             )
             self.assertEqual(created["server_now"], expected_server_now)
+            self.assertEqual(created["items"][0]["training_media"], "/files/access-training.jpg")
+            self.assertEqual(created["items"][0]["training_media_kind"], "image")
 
             updated = checklist_api.update_checklist_portal_session_item(
                 session=created["id"],
@@ -446,6 +464,8 @@ class TestChecklistPortal(TestCase):
             self.assertEqual(created.id, "CS-NEW")
             self.assertEqual(created.items[0].item_key, "access_code")
             self.assertEqual(created.items[0].target_duration_seconds, 3)
+            self.assertEqual(created.items[0].training_media_path, "/files/access-training.jpg")
+            self.assertEqual(created.items[0].training_media_kind, "image")
 
             updated = cleaner.update_checklist_session_item(
                 created.id,
@@ -494,6 +514,8 @@ class TestChecklistPortal(TestCase):
                     allow_notes=True,
                     is_required=True,
                     active=True,
+                    training_media_path="/files/access-training.mp4",
+                    training_media_kind="video",
                 )
             ],
             active_session=None,
@@ -502,6 +524,8 @@ class TestChecklistPortal(TestCase):
         self.assertEqual(payload.building.created_at, "2026-03-01 08:00:00")
         self.assertEqual(payload.steps[0].category, "access")
         self.assertEqual(payload.steps[0].target_duration_seconds, 3)
+        self.assertEqual(payload.steps[0].training_media, "/files/access-training.mp4")
+        self.assertEqual(payload.steps[0].training_media_kind, "video")
 
         with patch.object(
             checklist_api.customer_portal_service,
@@ -511,6 +535,8 @@ class TestChecklistPortal(TestCase):
             result = checklist_api.get_checklist_portal_building(building="BUILD-1", serviceDate="2026-04-02")
 
         self.assertEqual(result["building"]["id"], "BUILD-1")
+        self.assertEqual(result["steps"][0]["training_media"], "/files/access-training.mp4")
+        self.assertEqual(result["steps"][0]["training_media_kind"], "video")
         self.assertEqual(get_checklist_building.call_args.args, ("BUILD-1", "2026-04-02"))
 
         with self.assertRaises(ValidationError):

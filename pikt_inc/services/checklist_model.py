@@ -42,6 +42,15 @@ def _normalize_target_duration_seconds(value: Any) -> int | None:
     return normalized or None
 
 
+def _normalize_training_media_kind(value: Any) -> str | None:
+    normalized = clean(value).lower()
+    if not normalized:
+        return None
+    if normalized not in {"image", "video"}:
+        frappe.throw("Checklist training media must be an image or video.")
+    return normalized
+
+
 def _now_datetime():
     try:
         return frappe.utils.now_datetime()
@@ -130,6 +139,8 @@ def _load_template_item_rows(template_name: str, *, active_only: bool = True) ->
             "title",
             "description",
             "target_duration_seconds",
+            "training_media",
+            "training_media_kind",
             "requires_image",
             "allow_notes",
             "is_required",
@@ -172,6 +183,13 @@ def normalize_template_items(items: list[Any] | None) -> list[dict[str, Any]]:
         if not category:
             frappe.throw(f"{title} requires a category.")
 
+        training_media = clean(_row_value(raw, "training_media"))
+        training_media_kind = _normalize_training_media_kind(
+            _row_value(raw, "training_media_kind")
+        )
+        if not training_media:
+            training_media_kind = None
+
         normalized.append(
             {
                 "item_key": item_key or _slugify(title) or f"item_{index}",
@@ -182,6 +200,8 @@ def normalize_template_items(items: list[Any] | None) -> list[dict[str, Any]]:
                 "target_duration_seconds": _normalize_target_duration_seconds(
                     _row_value(raw, "target_duration_seconds")
                 ),
+                "training_media": training_media,
+                "training_media_kind": training_media_kind,
                 "requires_image": 1 if truthy(_row_value(raw, "requires_image") or _row_value(raw, "requires_photo_proof")) else 0,
                 "allow_notes": 0 if _row_value(raw, "allow_notes") in (0, "0", False) else 1,
                 "is_required": 0 if _row_value(raw, "is_required") in (0, "0", False) else 1,
@@ -298,6 +318,13 @@ def _resolve_session_template(doc) -> dict[str, Any]:
 def _build_session_items_from_template(template_name: str) -> list[dict[str, Any]]:
     session_rows: list[dict[str, Any]] = []
     for row in _load_template_item_rows(template_name, active_only=True):
+        training_media = clean(row.get("training_media"))
+        training_media_kind = _normalize_training_media_kind(
+            row.get("training_media_kind")
+        )
+        if not training_media:
+            training_media_kind = None
+
         session_rows.append(
             {
                 "doctype": CHECKLIST_SESSION_ITEM_DOCTYPE,
@@ -309,6 +336,8 @@ def _build_session_items_from_template(template_name: str) -> list[dict[str, Any
                 "target_duration_seconds": _normalize_target_duration_seconds(
                     row.get("target_duration_seconds")
                 ),
+                "training_media": training_media,
+                "training_media_kind": training_media_kind,
                 "requires_image": 1 if truthy(row.get("requires_image")) else 0,
                 "allow_notes": 0 if row.get("allow_notes") in (0, "0", False) else 1,
                 "is_required": 0 if row.get("is_required") in (0, "0", False) else 1,

@@ -21,12 +21,23 @@ class ChecklistTemplateItemRecord(ResponseModel):
     title: str = ""
     description: str = ""
     target_duration_seconds: int | None = None
+    training_media: str = ""
+    training_media_kind: str = ""
     requires_image: bool = False
     allow_notes: bool = True
     is_required: bool = True
     active: bool = True
 
-    @field_validator("name", "item_key", "category", "title", "description", mode="before")
+    @field_validator(
+        "name",
+        "item_key",
+        "category",
+        "title",
+        "description",
+        "training_media",
+        "training_media_kind",
+        mode="before",
+    )
     @classmethod
     def clean_strings(cls, value: object) -> str:
         return clean_str(value)
@@ -88,6 +99,8 @@ class ChecklistSessionItemRecord(ResponseModel):
     title_snapshot: str = ""
     description_snapshot: str = ""
     target_duration_seconds: int | None = None
+    training_media: str = ""
+    training_media_kind: str = ""
     requires_image: bool = False
     allow_notes: bool | None = None
     is_required: bool | None = None
@@ -102,6 +115,8 @@ class ChecklistSessionItemRecord(ResponseModel):
         "category",
         "title_snapshot",
         "description_snapshot",
+        "training_media",
+        "training_media_kind",
         "note",
         "proof_image",
         mode="before",
@@ -157,6 +172,8 @@ class ChecklistStep(ResponseModel):
     title: str
     description: str | None
     target_duration_seconds: int | None = None
+    training_media_path: str | None = None
+    training_media_kind: str | None = None
     requires_image: bool
     allow_notes: bool
     is_required: bool
@@ -172,6 +189,8 @@ class CustomerPortalSessionItem(ResponseModel):
     title: str
     description: str | None
     target_duration_seconds: int | None = None
+    training_media_path: str | None = None
+    training_media_kind: str | None = None
     requires_image: bool
     allow_notes: bool
     is_required: bool
