@@ -99,5 +99,146 @@
     "label": "Preferred Service End Time",
     "fieldtype": "Time",
     "insert_after": "preferred_service_start_time"
+  },
+  {
+    "doctype": "Custom Field",
+    "dt": "Building",
+    "name": "Building-company",
+    "fieldname": "company",
+    "label": "Company",
+    "fieldtype": "Link",
+    "options": "Company",
+    "insert_after": "preferred_service_end_time"
+  },
+  {
+    "doctype": "Custom Field",
+    "dt": "Building",
+    "name": "Building-billing_model",
+    "fieldname": "billing_model",
+    "label": "Billing Model",
+    "fieldtype": "Select",
+    "options": "recurring\none_time",
+    "insert_after": "company"
+  },
+  {
+    "doctype": "Custom Field",
+    "dt": "Building",
+    "name": "Building-contract_amount",
+    "fieldname": "contract_amount",
+    "label": "Contract Amount",
+    "fieldtype": "Currency",
+    "insert_after": "billing_model"
+  },
+  {
+    "doctype": "Custom Field",
+    "dt": "Building",
+    "name": "Building-billing_interval",
+    "fieldname": "billing_interval",
+    "label": "Billing Interval",
+    "fieldtype": "Select",
+    "options": "day\nweek\nmonth\nyear",
+    "insert_after": "contract_amount"
+  },
+  {
+    "doctype": "Custom Field",
+    "dt": "Building",
+    "name": "Building-billing_interval_count",
+    "fieldname": "billing_interval_count",
+    "label": "Billing Interval Count",
+    "fieldtype": "Int",
+    "insert_after": "billing_interval"
+  },
+  {
+    "doctype": "Custom Field",
+    "dt": "Building",
+    "name": "Building-contract_start_date",
+    "fieldname": "contract_start_date",
+    "label": "Contract Start Date",
+    "fieldtype": "Date",
+    "insert_after": "billing_interval_count"
+  },
+  {
+    "doctype": "Custom Field",
+    "dt": "Building",
+    "name": "Building-contract_end_date",
+    "fieldname": "contract_end_date",
+    "label": "Contract End Date",
+    "fieldtype": "Date",
+    "insert_after": "contract_start_date"
+  },
+  {
+    "doctype": "Custom Field",
+    "dt": "Building",
+    "name": "Building-auto_renew",
+    "fieldname": "auto_renew",
+    "label": "Auto Renew",
+    "fieldtype": "Check",
+    "insert_after": "contract_end_date"
+  },
+  {
+    "doctype": "Custom Field",
+    "dt": "Building",
+    "name": "Building-project",
+    "fieldname": "project",
+    "label": "Project",
+    "fieldtype": "Link",
+    "options": "Project",
+    "insert_after": "auto_renew",
+    "read_only": 1
+  },
+  {
+    "doctype": "Custom Field",
+    "dt": "Building",
+    "name": "Building-cost_center",
+    "fieldname": "cost_center",
+    "label": "Cost Center",
+    "fieldtype": "Link",
+    "options": "Cost Center",
+    "insert_after": "project",
+    "read_only": 1
+  },
+  {
+    "doctype": "Custom Field",
+    "dt": "Building",
+    "name": "Building-subscription_plan",
+    "fieldname": "subscription_plan",
+    "label": "Subscription Plan",
+    "fieldtype": "Link",
+    "options": "Subscription Plan",
+    "insert_after": "cost_center",
+    "read_only": 1
+  },
+  {
+    "doctype": "Custom Field",
+    "dt": "Building",
+    "name": "Building-subscription",
+    "fieldname": "subscription",
+    "label": "Subscription",
+    "fieldtype": "Link",
+    "options": "Subscription",
+    "insert_after": "subscription_plan",
+    "read_only": 1
+  },
+  {
+    "doctype": "Custom Field",
+    "dt": "Building",
+    "name": "Building-sales_order",
+    "fieldname": "sales_order",
+    "label": "Sales Order",
+    "fieldtype": "Link",
+    "options": "Sales Order",
+    "insert_after": "subscription",
+    "read_only": 1
+  },
+  {
+    "doctype": "Custom Field",
+    "dt": "Building",
+    "name": "Building-contract",
+    "fieldname": "contract",
+    "label": "Contract",
+    "fieldtype": "Link",
+    "options": "Contract",
+    "insert_after": "sales_order",
+    "read_only": 1
   }
 ]

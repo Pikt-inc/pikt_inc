@@ -259,5 +259,366 @@ def clean_name(value):
     return str(value or "").strip()
 
 
+class TestAdminPortalCommercialOptions(unittest.TestCase):
+    def test_get_admin_building_commercial_options_returns_service_item_and_lookup_lists(self):
+        def fake_get_all(doctype, **_kwargs):
+            if doctype == "Customer":
+                return [
+                    {"name": "CUST-1", "customer_name": "Acme HQ"},
+                    {"name": "CUST-2", "customer_name": ""},
+                ]
+            if doctype == "Company":
+                return [
+                    {"name": "PK Holdings", "company_name": "PK Holdings LLC"},
+                ]
+            raise AssertionError(f"Unexpected doctype lookup: {doctype}")
+
+        admin_service.frappe.get_all = fake_get_all
+
+        with patch.object(admin_service, "require_portal_section", return_value=SimpleNamespace()):
+            with patch.object(admin_service, "_configured_service_item_code", return_value="General Cleaning"):
+                result = admin_service.get_admin_building_commercial_options()
+
+        self.assertEqual(result.service_item_code, "General Cleaning")
+        self.assertEqual(
+            [option.model_dump(mode="python") for option in result.customers],
+            [
+                {"id": "CUST-1", "label": "Acme HQ"},
+                {"id": "CUST-2", "label": "CUST-2"},
+            ],
+        )
+        self.assertEqual(
+            [option.model_dump(mode="python") for option in result.companies],
+            [{"id": "PK Holdings", "label": "PK Holdings LLC"}],
+        )
+
+
+class TestAdminPortalBuildingCommercialSetup(unittest.TestCase):
+    def setUp(self):
+        self.set_value_calls = []
+        admin_service.frappe.db.set_value = self._record_set_value
+
+    def _record_set_value(self, doctype, name, fieldname, value=None, update_modified=False):
+        self.set_value_calls.append((doctype, name, fieldname, value, update_modified))
+
+    def test_update_admin_building_recurring_creates_project_costs_and_recurring_docs(self):
+        request = admin_api.AdminBuildingUpdateRequestApi.model_validate(
+            {
+                "building": "BUILD-1",
+                "name": "Pilot Building 1",
+                "customer": "CUST-1",
+                "company": "PK Holdings",
+                "billing_model": "recurring",
+                "contract_amount": 2500,
+                "billing_interval": "month",
+                "billing_interval_count": 1,
+                "contract_start_date": "2026-04-01",
+                "contract_end_date": "2027-03-31",
+                "auto_renew": True,
+            }
+        )
+
+        initial_row = {
+            "name": "BUILD-1",
+            "building_name": "Pilot Building 1",
+            "customer": "",
+            "company": "",
+            "billing_model": "",
+            "project": "",
+            "cost_center": "",
+            "subscription_plan": "",
+            "subscription": "",
+            "sales_order": "",
+            "contract": "",
+        }
+        current_row = dict(initial_row)
+        final_row = {
+            **current_row,
+            "customer": "CUST-1",
+            "company": "PK Holdings",
+            "billing_model": "recurring",
+            "contract_amount": 2500,
+            "billing_interval": "month",
+            "billing_interval_count": 1,
+            "contract_start_date": "2026-04-01",
+            "contract_end_date": "2027-03-31",
+            "auto_renew": 1,
+            "project": "PROJ-BUILD-1",
+            "cost_center": "CC-BUILD-1",
+            "subscription_plan": "PLAN-BUILD-1",
+            "subscription": "SUB-BUILD-1",
+            "sales_order": "",
+            "contract": "CON-BUILD-1",
+        }
+
+        with patch.object(admin_service, "require_portal_section", return_value=SimpleNamespace()):
+            with patch.object(admin_service, "_building_row", side_effect=[initial_row, current_row, final_row]):
+                with patch.object(admin_service, "_rename_building", return_value="BUILD-1"):
+                    with patch.object(admin_service, "_ensure_customer", return_value="CUST-1") as ensure_customer:
+                        with patch.object(
+                            admin_service,
+                            "_ensure_company",
+                            return_value={
+                                "name": "PK Holdings",
+                                "default_currency": "USD",
+                                "cost_center": "Main - PK",
+                            },
+                        ) as ensure_company:
+                            with patch.object(
+                                admin_service,
+                                "_ensure_service_item",
+                                return_value="General Cleaning",
+                            ) as ensure_service_item:
+                                with patch.object(admin_service, "_upsert_cost_center", return_value="CC-BUILD-1") as upsert_cost_center:
+                                    with patch.object(admin_service, "_upsert_project", return_value="PROJ-BUILD-1") as upsert_project:
+                                        with patch.object(admin_service, "_upsert_subscription_plan", return_value="PLAN-BUILD-1") as upsert_plan:
+                                            with patch.object(admin_service, "_upsert_subscription", return_value="SUB-BUILD-1") as upsert_subscription:
+                                                with patch.object(admin_service, "_upsert_contract", return_value="CON-BUILD-1") as upsert_contract:
+                                                    result = admin_service.update_admin_building(request)
+
+        self.assertEqual(result.building_id, "BUILD-1")
+        self.assertEqual(result.project, "PROJ-BUILD-1")
+        self.assertEqual(result.cost_center, "CC-BUILD-1")
+        self.assertEqual(result.subscription_plan, "PLAN-BUILD-1")
+        self.assertEqual(result.subscription, "SUB-BUILD-1")
+        self.assertEqual(result.contract, "CON-BUILD-1")
+        self.assertIsNone(result.sales_order)
+
+        self.assertEqual(ensure_customer.call_args.args, ("CUST-1",))
+        self.assertEqual(ensure_company.call_args.args, ("PK Holdings",))
+        self.assertEqual(ensure_service_item.call_args.args, ("General Cleaning",))
+        self.assertEqual(upsert_cost_center.call_count, 1)
+        self.assertEqual(upsert_project.call_count, 1)
+        self.assertEqual(upsert_plan.call_count, 1)
+        self.assertEqual(upsert_subscription.call_count, 1)
+        self.assertEqual(upsert_contract.call_count, 1)
+
+        self.assertEqual(self.set_value_calls[0][0:2], ("Building", "BUILD-1"))
+        self.assertEqual(
+            self.set_value_calls[0][2],
+            {
+                "building_name": "Pilot Building 1",
+                "customer": "CUST-1",
+                "company": "PK Holdings",
+                "address_line_1": None,
+                "address_line_2": None,
+                "city": None,
+                "state": None,
+                "postal_code": None,
+                "site_notes": None,
+                "unavailable_service_days": None,
+                "service_frequency": None,
+                "preferred_service_start_time": None,
+                "preferred_service_end_time": None,
+                "billing_model": "recurring",
+                "contract_amount": 2500.0,
+                "billing_interval": "month",
+                "billing_interval_count": 1,
+                "contract_start_date": "2026-04-01",
+                "contract_end_date": "2027-03-31",
+                "auto_renew": 1,
+            },
+        )
+        self.assertEqual(self.set_value_calls[1][0:2], ("Building", "BUILD-1"))
+        self.assertEqual(
+            self.set_value_calls[1][2],
+            {
+                "project": "PROJ-BUILD-1",
+                "cost_center": "CC-BUILD-1",
+                "subscription_plan": "PLAN-BUILD-1",
+                "subscription": "SUB-BUILD-1",
+                "contract": "CON-BUILD-1",
+                "sales_order": "",
+            },
+        )
+
+    def test_update_admin_building_one_time_creates_sales_order_and_clears_recurring_links(self):
+        request = admin_api.AdminBuildingUpdateRequestApi.model_validate(
+            {
+                "building": "BUILD-1",
+                "name": "Pilot Building 1",
+                "customer": "CUST-1",
+                "company": "PK Holdings",
+                "billing_model": "one_time",
+                "contract_amount": 900,
+                "contract_start_date": "2026-04-01",
+            }
+        )
+
+        initial_row = {
+            "name": "BUILD-1",
+            "building_name": "Pilot Building 1",
+            "customer": "CUST-1",
+            "company": "PK Holdings",
+            "billing_model": "recurring",
+            "project": "PROJ-BUILD-1",
+            "cost_center": "CC-BUILD-1",
+            "subscription_plan": "PLAN-OLD",
+            "subscription": "SUB-OLD",
+            "sales_order": "",
+            "contract": "CON-OLD",
+        }
+        current_row = dict(initial_row)
+        final_row = {
+            **current_row,
+            "billing_model": "one_time",
+            "contract_amount": 900,
+            "billing_interval": "",
+            "billing_interval_count": None,
+            "contract_start_date": "2026-04-01",
+            "contract_end_date": "",
+            "auto_renew": 0,
+            "project": "PROJ-BUILD-1",
+            "cost_center": "CC-BUILD-1",
+            "sales_order": "SO-BUILD-1",
+            "subscription_plan": "",
+            "subscription": "",
+            "contract": "",
+        }
+
+        with patch.object(admin_service, "require_portal_section", return_value=SimpleNamespace()):
+            with patch.object(admin_service, "_building_row", side_effect=[initial_row, current_row, final_row]):
+                with patch.object(admin_service, "_rename_building", return_value="BUILD-1"):
+                    with patch.object(admin_service, "_ensure_customer", return_value="CUST-1"):
+                        with patch.object(
+                            admin_service,
+                            "_ensure_company",
+                            return_value={
+                                "name": "PK Holdings",
+                                "default_currency": "USD",
+                                "cost_center": "Main - PK",
+                            },
+                        ):
+                            with patch.object(
+                                admin_service,
+                                "_ensure_service_item",
+                                return_value="General Cleaning",
+                            ):
+                                with patch.object(admin_service, "_upsert_cost_center", return_value="CC-BUILD-1"):
+                                    with patch.object(admin_service, "_upsert_project", return_value="PROJ-BUILD-1"):
+                                        with patch.object(admin_service, "_upsert_sales_order", return_value="SO-BUILD-1") as upsert_sales_order:
+                                            result = admin_service.update_admin_building(request)
+
+        self.assertEqual(result.building_id, "BUILD-1")
+        self.assertEqual(result.project, "PROJ-BUILD-1")
+        self.assertEqual(result.cost_center, "CC-BUILD-1")
+        self.assertEqual(result.sales_order, "SO-BUILD-1")
+        self.assertIsNone(result.subscription_plan)
+        self.assertIsNone(result.subscription)
+        self.assertIsNone(result.contract)
+        self.assertEqual(upsert_sales_order.call_count, 1)
+
+        self.assertEqual(self.set_value_calls[1][0:2], ("Building", "BUILD-1"))
+        self.assertEqual(
+            self.set_value_calls[1][2],
+            {
+                "project": "PROJ-BUILD-1",
+                "cost_center": "CC-BUILD-1",
+                "sales_order": "SO-BUILD-1",
+                "subscription_plan": "",
+                "subscription": "",
+                "contract": "",
+            },
+        )
+
+    def test_subscription_update_blocks_when_existing_doc_is_active(self):
+        locked_doc = SimpleNamespace(status="Active")
+
+        with patch.object(admin_service, "_load_doc", return_value=locked_doc):
+            with self.assertRaisesRegex(Exception, "linked subscription is already active or finalized"):
+                admin_service._upsert_subscription(
+                    linked_name="SUB-1",
+                    customer="CUST-1",
+                    company_row={"name": "PK Holdings"},
+                    plan_name="PLAN-1",
+                    cost_center_name="CC-1",
+                    contract_start_date="2026-04-01",
+                    contract_end_date="2027-03-31",
+                )
+
+    def test_sales_order_update_blocks_when_existing_doc_is_submitted(self):
+        locked_doc = SimpleNamespace(docstatus=1, status="Submitted")
+
+        with patch.object(admin_service, "_load_doc", return_value=locked_doc):
+            with self.assertRaisesRegex(Exception, "linked sales order is already submitted or finalized"):
+                admin_service._upsert_sales_order(
+                    linked_name="SO-1",
+                    building_name="BUILD-1",
+                    customer="CUST-1",
+                    company_row={"name": "PK Holdings"},
+                    project_name="PROJ-1",
+                    cost_center_name="CC-1",
+                    service_item_code="General Cleaning",
+                    contract_amount=900,
+                    contract_start_date="2026-04-01",
+                    contract_end_date=None,
+                )
+
+
+class TestAdminPortalBuildingUpdateApi(unittest.TestCase):
+    def test_update_admin_building_api_wrapper_validates_and_returns_payload(self):
+        expected = admin_service.AdminBuildingUpdateResult(
+            building_id="BUILD-1",
+            project="PROJ-BUILD-1",
+            cost_center="CC-BUILD-1",
+            subscription_plan="PLAN-BUILD-1",
+            subscription="SUB-BUILD-1",
+            contract="CON-BUILD-1",
+        )
+        with patch.object(
+            admin_api.admin_portal_service,
+            "update_admin_building",
+            return_value=expected,
+        ) as update_admin_building:
+            result = admin_api.update_admin_building(
+                building="BUILD-1",
+                name="Pilot Building 1",
+                customer="CUST-1",
+                company="PK Holdings",
+                billing_model="recurring",
+                contract_amount=2500,
+                billing_interval="month",
+                billing_interval_count=1,
+                contract_start_date="2026-04-01",
+                contract_end_date="2027-03-31",
+                auto_renew=1,
+            )
+
+        self.assertEqual(
+            result,
+            {
+                "building_id": "BUILD-1",
+                "project": "PROJ-BUILD-1",
+                "cost_center": "CC-BUILD-1",
+                "subscription_plan": "PLAN-BUILD-1",
+                "subscription": "SUB-BUILD-1",
+                "sales_order": None,
+                "contract": "CON-BUILD-1",
+            },
+        )
+        request = update_admin_building.call_args.args[0]
+        self.assertEqual(request.building_id, "BUILD-1")
+        self.assertEqual(request.name, "Pilot Building 1")
+        self.assertEqual(request.customer, "CUST-1")
+        self.assertEqual(request.company, "PK Holdings")
+        self.assertEqual(request.billing_model, "recurring")
+        self.assertEqual(request.contract_amount, 2500.0)
+        self.assertEqual(str(request.contract_start_date), "2026-04-01")
+        self.assertEqual(str(request.contract_end_date), "2027-03-31")
+        self.assertTrue(request.auto_renew)
+
+    def test_update_admin_building_api_wrapper_rejects_incomplete_commercial_setup(self):
+        with self.assertRaisesRegex(Exception, "Customer is required when commercial setup is configured"):
+            admin_api.update_admin_building(
+                building="BUILD-1",
+                name="Pilot Building 1",
+                billing_model="recurring",
+                contract_amount=2500,
+                billing_interval="month",
+                billing_interval_count=1,
+                contract_start_date="2026-04-01",
+            )
+
+
 if __name__ == "__main__":
     unittest.main()
