@@ -155,11 +155,6 @@
         "fieldtype": "Small Text"
       },
       {
-        "fieldname": "key_storage_location",
-        "label": "Key Storage Location",
-        "fieldtype": "Data"
-      },
-      {
         "fieldname": "has_alarm_system",
         "label": "Has Alarm System",
         "fieldtype": "Select",
