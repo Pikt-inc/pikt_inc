@@ -510,7 +510,7 @@ class TestAdminPortalBuildingCommercialSetup(unittest.TestCase):
 
         self.assertEqual(self.set_value_calls[0][0:2], ("Building", "BUILD-1"))
         self.assertEqual(self.set_value_calls[0][2]["billing_model"], "one_time")
-        self.assertEqual(self.set_value_calls[0][2]["billing_interval_count"], "")
+        self.assertEqual(self.set_value_calls[0][2]["billing_interval_count"], 0)
 
         self.assertEqual(self.set_value_calls[1][0:2], ("Building", "BUILD-1"))
         self.assertEqual(

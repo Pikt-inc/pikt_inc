@@ -317,16 +317,20 @@ def _commercial_state_from_row(row: dict | None):
 
 
 def _commercial_state_from_request(request):
+    billing_model = _clean_optional_name(request.billing_model)
+    interval_count = int(request.billing_interval_count) if request.billing_interval_count is not None else None
+    if billing_model == "one_time":
+        interval_count = 0
     return {
         "customer": _clean_optional_name(request.customer),
         "company": _clean_optional_name(request.company),
-        "billing_model": _clean_optional_name(request.billing_model),
+        "billing_model": billing_model,
         "contract_amount": round(float(request.contract_amount), 2) if request.contract_amount is not None else None,
         "billing_interval": _clean_optional_name(request.billing_interval),
-        "billing_interval_count": int(request.billing_interval_count) if request.billing_interval_count is not None else None,
+        "billing_interval_count": interval_count,
         "contract_start_date": _serialize_date(request.contract_start_date),
         "contract_end_date": _serialize_date(request.contract_end_date),
-        "auto_renew": bool(request.auto_renew) if clean_str(request.billing_model) == "recurring" else False,
+        "auto_renew": bool(request.auto_renew) if billing_model == "recurring" else False,
     }
 
 
@@ -651,6 +655,11 @@ def _upsert_sales_order(
 
 
 def _building_update_payload(request, desired_building_name: str):
+    billing_model = clean_str(request.billing_model)
+    billing_interval_count = int(request.billing_interval_count) if request.billing_interval_count is not None else None
+    if billing_model == "one_time":
+        billing_interval_count = 0
+
     payload = {
         "building_name": desired_building_name,
         "customer": clean_str(request.customer) or None,
@@ -665,13 +674,13 @@ def _building_update_payload(request, desired_building_name: str):
         "service_frequency": request.service_frequency,
         "preferred_service_start_time": _serialize_time(request.preferred_service_start_time),
         "preferred_service_end_time": _serialize_time(request.preferred_service_end_time),
-        "billing_model": clean_str(request.billing_model) or None,
+        "billing_model": billing_model or None,
         "contract_amount": request.contract_amount,
         "billing_interval": clean_str(request.billing_interval) or None,
-        "billing_interval_count": int(request.billing_interval_count) if request.billing_interval_count is not None else "",
+        "billing_interval_count": billing_interval_count,
         "contract_start_date": _serialize_date(request.contract_start_date),
         "contract_end_date": _serialize_date(request.contract_end_date),
-        "auto_renew": _bool_int(bool(request.auto_renew) and clean_str(request.billing_model) == "recurring"),
+        "auto_renew": _bool_int(bool(request.auto_renew) and billing_model == "recurring"),
     }
     if request.active is not None:
         payload["active"] = _bool_int(request.active)
