@@ -20,7 +20,7 @@ from .checklist_portal_serializers import (
     serialize_checklist_portal_session,
     serialize_checklist_portal_session_item_mutation,
 )
-from .customer_portal_serializers import apply_customer_portal_file_download
+from .customer_portal_serializers import apply_customer_portal_inline_media_response
 from ..services import customer_portal as customer_portal_service
 from ..services.contracts.common import first_validation_message
 from ..services.customer_portal.errors import CustomerPortalAccessError, CustomerPortalNotFoundError
@@ -97,7 +97,7 @@ def download_checklist_portal_step_training_media(building=None, item_key=None, 
     except Exception as exc:
         _raise_portal_error(exc)
         raise
-    apply_customer_portal_file_download(response)
+    apply_customer_portal_inline_media_response(response)
     return None
 
 
@@ -191,5 +191,5 @@ def download_checklist_portal_session_item_training_media(session=None, item_key
     except Exception as exc:
         _raise_portal_error(exc)
         raise
-    apply_customer_portal_file_download(response)
+    apply_customer_portal_inline_media_response(response)
     return None

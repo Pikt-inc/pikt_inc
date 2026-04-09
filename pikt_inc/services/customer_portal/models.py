@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pydantic import Field
+
 from ..contracts.common import ResponseModel
 from .building.models import CustomerPortalBuilding
 from .checklist.models import ChecklistStep, CustomerPortalSession, CustomerPortalSessionItem
@@ -36,3 +38,12 @@ class ProofFileContent(ResponseModel):
     filename: str
     content: bytes
     content_type: str = "application/octet-stream"
+
+
+class PortalMediaContent(ResponseModel):
+    filename: str
+    content: bytes
+    content_type: str = "application/octet-stream"
+    display_content_as: str = "inline"
+    http_status_code: int = 200
+    headers: dict[str, str] = Field(default_factory=dict)

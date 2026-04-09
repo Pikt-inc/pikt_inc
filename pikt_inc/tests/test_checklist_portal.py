@@ -582,10 +582,11 @@ class TestChecklistPortal(TestCase):
         with patch.object(
             checklist_api.customer_portal_service,
             "download_checklist_step_training_media",
-            return_value=portal.ProofFileContent(
+            return_value=portal.PortalMediaContent(
                 filename="training.jpg",
                 content=b"IMG",
                 content_type="image/jpeg",
+                display_content_as="inline",
             ),
         ) as download_step_training_media:
             result = checklist_api.download_checklist_portal_step_training_media(
@@ -596,14 +597,18 @@ class TestChecklistPortal(TestCase):
         self.assertIsNone(result)
         self.assertEqual(download_step_training_media.call_args.args, ("BUILD-1", "access_code"))
         self.assertEqual(checklist_api.frappe.local.response["filename"], "training.jpg")
+        self.assertEqual(checklist_api.frappe.local.response["type"], "download")
+        self.assertEqual(checklist_api.frappe.local.response["content_type"], "image/jpeg")
+        self.assertEqual(checklist_api.frappe.local.response["display_content_as"], "inline")
 
         with patch.object(
             checklist_api.customer_portal_service,
             "download_checklist_session_item_training_media",
-            return_value=portal.ProofFileContent(
+            return_value=portal.PortalMediaContent(
                 filename="training.webm",
                 content=b"VID",
                 content_type="video/webm",
+                display_content_as="inline",
             ),
         ) as download_session_training_media:
             result = checklist_api.download_checklist_portal_session_item_training_media(
@@ -614,6 +619,9 @@ class TestChecklistPortal(TestCase):
         self.assertIsNone(result)
         self.assertEqual(download_session_training_media.call_args.args, ("CS-1", "access_code"))
         self.assertEqual(checklist_api.frappe.local.response["filename"], "training.webm")
+        self.assertEqual(checklist_api.frappe.local.response["type"], "download")
+        self.assertEqual(checklist_api.frappe.local.response["content_type"], "video/webm")
+        self.assertEqual(checklist_api.frappe.local.response["display_content_as"], "inline")
 
 
 if __name__ == "__main__":

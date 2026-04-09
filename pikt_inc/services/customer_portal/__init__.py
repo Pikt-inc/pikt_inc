@@ -18,6 +18,7 @@ from .models import (
     CustomerBuildingHistory,
     CustomerJobDetail,
     CustomerOverview,
+    PortalMediaContent,
     ProofFileContent,
 )
 
@@ -31,8 +32,6 @@ __all__ = [
     "ChecklistSessionItemMutation",
     "ProofFileContent",
     "download_client_job_proof",
-    "download_checklist_session_item_training_media",
-    "download_checklist_step_training_media",
     "get_client_building",
     "get_client_job",
     "get_client_overview",

@@ -8,7 +8,13 @@ import frappe
 from ..services.contracts.common import clean_str
 from ..services.customer_portal.building.models import CustomerPortalBuilding
 from ..services.customer_portal.checklist.models import CustomerPortalSession, CustomerPortalSessionItem
-from ..services.customer_portal.models import CustomerBuildingHistory, CustomerJobDetail, CustomerOverview, ProofFileContent
+from ..services.customer_portal.models import (
+    CustomerBuildingHistory,
+    CustomerJobDetail,
+    CustomerOverview,
+    PortalMediaContent,
+    ProofFileContent,
+)
 from .customer_portal_contracts import (
     CustomerPortalClientBuildingPayload,
     CustomerPortalClientBuildingSummaryPayload,
@@ -122,3 +128,23 @@ def apply_customer_portal_file_download(download: ProofFileContent) -> None:
     response["filecontent"] = download.content
     response["type"] = "binary"
     response["content_type"] = clean_str(download.content_type) or "application/octet-stream"
+
+
+def apply_customer_portal_inline_media_response(download: PortalMediaContent) -> None:
+    local = getattr(frappe, "local", None)
+    if local is None:
+        return
+
+    response = getattr(local, "response", None)
+    if response is None:
+        local.response = {}
+        response = local.response
+
+    response["filename"] = clean_str(download.filename)
+    response["filecontent"] = download.content
+    response["type"] = "download"
+    response["content_type"] = clean_str(download.content_type) or "application/octet-stream"
+    response["display_content_as"] = clean_str(download.display_content_as) or "inline"
+    response["http_status_code"] = int(download.http_status_code or 200)
+    if download.headers:
+        response["headers"] = {clean_str(key): clean_str(value) for key, value in download.headers.items()}
