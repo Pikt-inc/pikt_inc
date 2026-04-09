@@ -281,6 +281,45 @@ fixtures = [
 		],
 	},
 	{
+		"dt": "Item",
+		"prefix": "04_commercial",
+		"filters": [
+			[
+				"name",
+				"in",
+				[
+					"General Cleaning",
+				],
+			]
+		],
+	},
+	{
+		"dt": "Property Setter",
+		"prefix": "05_commercial",
+		"filters": [
+			[
+				"name",
+				"in",
+				[
+					"Subscription Plan-price_determination-default",
+				],
+			]
+		],
+	},
+	{
+		"dt": "Property Setter",
+		"prefix": "06_commercial",
+		"filters": [
+			[
+				"name",
+				"in",
+				[
+					"Contract-contract_terms-default",
+				],
+			]
+		],
+	},
+	{
 		"dt": "Notification",
 		"filters": [
 			[

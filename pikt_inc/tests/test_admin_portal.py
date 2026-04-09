@@ -508,6 +508,10 @@ class TestAdminPortalBuildingCommercialSetup(unittest.TestCase):
         self.assertIsNone(result.contract)
         self.assertEqual(upsert_sales_order.call_count, 1)
 
+        self.assertEqual(self.set_value_calls[0][0:2], ("Building", "BUILD-1"))
+        self.assertEqual(self.set_value_calls[0][2]["billing_model"], "one_time")
+        self.assertEqual(self.set_value_calls[0][2]["billing_interval_count"], "")
+
         self.assertEqual(self.set_value_calls[1][0:2], ("Building", "BUILD-1"))
         self.assertEqual(
             self.set_value_calls[1][2],
@@ -553,6 +557,168 @@ class TestAdminPortalBuildingCommercialSetup(unittest.TestCase):
                     contract_start_date="2026-04-01",
                     contract_end_date=None,
                 )
+
+
+class TestAdminPortalCostCenterResolution(unittest.TestCase):
+    def test_resolve_company_group_cost_center_returns_parent_group_when_company_default_is_leaf(self):
+        with patch.object(
+            admin_service,
+            "_cost_center_row",
+            side_effect=[
+                {
+                    "name": "Main - PK",
+                    "company": "PK Holdings",
+                    "parent_cost_center": "PK Holdings - PK",
+                    "is_group": 0,
+                },
+                {
+                    "name": "PK Holdings - PK",
+                    "company": "PK Holdings",
+                    "parent_cost_center": "",
+                    "is_group": 1,
+                },
+            ],
+        ):
+            with patch.object(admin_service, "_company_group_cost_centers", return_value=[]):
+                resolved = admin_service._resolve_company_group_cost_center(
+                    {"name": "PK Holdings", "cost_center": "Main - PK"}
+                )
+
+        self.assertEqual(resolved, "PK Holdings - PK")
+
+    def test_resolve_company_group_cost_center_falls_back_to_root_group(self):
+        with patch.object(admin_service, "_cost_center_row", return_value=None):
+            with patch.object(
+                admin_service,
+                "_company_group_cost_centers",
+                return_value=[
+                    {"name": "PK Holdings - PK", "parent_cost_center": ""},
+                    {"name": "North Region - PK", "parent_cost_center": "PK Holdings - PK"},
+                ],
+            ):
+                resolved = admin_service._resolve_company_group_cost_center(
+                    {"name": "PK Holdings", "cost_center": "Missing - PK"}
+                )
+
+        self.assertEqual(resolved, "PK Holdings - PK")
+
+
+class TestAdminPortalSubscriptionPlanUpsert(unittest.TestCase):
+    def test_upsert_subscription_plan_sets_fixed_rate_on_insert(self):
+        created = SimpleNamespace(name="PLAN-1")
+
+        with patch.object(admin_service, "_load_doc", return_value=None):
+            with patch.object(admin_service, "_insert_doc", return_value=created) as insert_doc:
+                result = admin_service._upsert_subscription_plan(
+                    linked_name=None,
+                    building_display_name="Pilot Building 1",
+                    company_row={"default_currency": "USD"},
+                    cost_center_name="CC-1",
+                    service_item_code="General Cleaning",
+                    contract_amount=2500,
+                    billing_interval="month",
+                    billing_interval_count=1,
+                )
+
+        self.assertEqual(result, "PLAN-1")
+        payload = insert_doc.call_args.args[0]
+        self.assertEqual(payload["doctype"], "Subscription Plan")
+        self.assertEqual(payload["item"], "General Cleaning")
+        self.assertEqual(payload["price_determination"], "Fixed Rate")
+        self.assertEqual(payload["cost"], 2500)
+        self.assertEqual(payload["billing_interval"], "Month")
+        self.assertEqual(payload["billing_interval_count"], 1)
+
+    def test_upsert_subscription_plan_sets_fixed_rate_on_update(self):
+        linked = SimpleNamespace(
+            name="PLAN-1",
+            plan_name="",
+            currency="USD",
+            item="Old Item",
+            price_determination="Based On Price List",
+            price_list="Standard Selling",
+            cost=1200,
+            billing_interval="Week",
+            billing_interval_count=2,
+            cost_center="OLD-CC",
+        )
+
+        with patch.object(admin_service, "_load_doc", return_value=linked):
+            with patch.object(admin_service, "_save_doc") as save_doc:
+                result = admin_service._upsert_subscription_plan(
+                    linked_name="PLAN-1",
+                    building_display_name="Pilot Building 1",
+                    company_row={"default_currency": "USD"},
+                    cost_center_name="CC-1",
+                    service_item_code="General Cleaning",
+                    contract_amount=2500,
+                    billing_interval="month",
+                    billing_interval_count=1,
+                )
+
+        self.assertEqual(result, "PLAN-1")
+        self.assertEqual(linked.plan_name, "Pilot Building 1 General Cleaning")
+        self.assertEqual(linked.item, "General Cleaning")
+        self.assertEqual(linked.price_determination, "Fixed Rate")
+        self.assertEqual(linked.price_list, "")
+        self.assertEqual(linked.cost, 2500)
+        self.assertEqual(linked.billing_interval, "Month")
+        self.assertEqual(linked.billing_interval_count, 1)
+        self.assertEqual(linked.cost_center, "CC-1")
+        save_doc.assert_called_once_with(linked)
+
+
+class TestAdminPortalContractUpsert(unittest.TestCase):
+    def test_upsert_contract_sets_default_terms_on_insert(self):
+        created = SimpleNamespace(name="CON-1")
+
+        with patch.object(admin_service, "_load_doc", return_value=None):
+            with patch.object(admin_service, "_insert_doc", return_value=created) as insert_doc:
+                result = admin_service._upsert_contract(
+                    linked_name=None,
+                    customer="CUST-1",
+                    project_name="PROJ-1",
+                    contract_start_date="2026-04-01",
+                    contract_end_date="2027-03-31",
+                )
+
+        self.assertEqual(result, "CON-1")
+        payload = insert_doc.call_args.args[0]
+        self.assertEqual(payload["doctype"], "Contract")
+        self.assertEqual(payload["party_type"], "Customer")
+        self.assertEqual(payload["party_name"], "CUST-1")
+        self.assertEqual(payload["document_type"], "Project")
+        self.assertEqual(payload["document_name"], "PROJ-1")
+        self.assertEqual(payload["contract_terms"], admin_service.DEFAULT_COMMERCIAL_CONTRACT_TERMS)
+
+    def test_upsert_contract_preserves_existing_terms_on_update(self):
+        linked = SimpleNamespace(
+            name="CON-1",
+            party_type="Customer",
+            party_name="CUST-OLD",
+            start_date="2025-01-01",
+            end_date="2025-12-31",
+            contract_terms="Custom negotiated terms",
+            document_type="Project",
+            document_name="PROJ-OLD",
+            status="",
+        )
+
+        with patch.object(admin_service, "_load_doc", return_value=linked):
+            with patch.object(admin_service, "_save_doc") as save_doc:
+                result = admin_service._upsert_contract(
+                    linked_name="CON-1",
+                    customer="CUST-1",
+                    project_name="PROJ-1",
+                    contract_start_date="2026-04-01",
+                    contract_end_date="2027-03-31",
+                )
+
+        self.assertEqual(result, "CON-1")
+        self.assertEqual(linked.party_name, "CUST-1")
+        self.assertEqual(linked.contract_terms, "Custom negotiated terms")
+        self.assertEqual(linked.document_name, "PROJ-1")
+        save_doc.assert_called_once_with(linked)
 
 
 class TestAdminPortalBuildingUpdateApi(unittest.TestCase):

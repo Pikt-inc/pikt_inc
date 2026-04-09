@@ -1,0 +1,13 @@
+[
+  {
+    "doctype": "Property Setter",
+    "name": "Subscription Plan-price_determination-default",
+    "doc_type": "Subscription Plan",
+    "doctype_or_field": "DocField",
+    "field_name": "price_determination",
+    "property": "default",
+    "property_type": "Text",
+    "value": "Fixed Rate",
+    "module": "Accounts"
+  }
+]

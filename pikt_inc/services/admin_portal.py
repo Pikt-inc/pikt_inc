@@ -36,6 +36,11 @@ SSR_SOP_FIELD = "custom_building_sop"
 SSR_CALLOUT_FIELD = "call_out_record"
 COMMERCIAL_SERVICE_ITEM_CONFIG_KEY = "pikt_commercial_service_item_code"
 DEFAULT_COMMERCIAL_SERVICE_ITEM_CODE = "General Cleaning"
+DEFAULT_COMMERCIAL_CONTRACT_TERMS = (
+    "Recurring general cleaning services will be provided for the linked project and billed according "
+    "to the associated ERPNext subscription. Site schedule, checklist requirements, and operational "
+    "notes are maintained on the building and project records."
+)
 
 COMMERCIAL_BUILDING_LINK_FIELDS = (
     ("Opportunity", "custom_building"),
@@ -123,6 +128,10 @@ def _configured_service_item_code() -> str:
     return _site_config_value(COMMERCIAL_SERVICE_ITEM_CONFIG_KEY) or DEFAULT_COMMERCIAL_SERVICE_ITEM_CODE
 
 
+def _default_contract_terms() -> str:
+    return DEFAULT_COMMERCIAL_CONTRACT_TERMS
+
+
 def _clean_optional_name(value) -> str | None:
     cleaned = clean_str(value)
     return cleaned or None
@@ -168,6 +177,62 @@ def _company_row(company: str):
     )
 
 
+def _cost_center_row(name: str):
+    cost_center_name = clean_str(name)
+    if not cost_center_name:
+        return None
+    return _row(
+        COST_CENTER_DOCTYPE,
+        {"name": cost_center_name},
+        ["name", "company", "parent_cost_center", "is_group"],
+    )
+
+
+def _company_group_cost_centers(company: str) -> list[dict]:
+    company_name = clean_str(company)
+    if not company_name:
+        return []
+    return [
+        dict(row)
+        for row in frappe.get_all(
+            COST_CENTER_DOCTYPE,
+            filters={"company": company_name, "is_group": 1},
+            fields=["name", "parent_cost_center"],
+            order_by="lft asc",
+            limit=100,
+        )
+    ]
+
+
+def _resolve_company_group_cost_center(company_row: dict | None) -> str:
+    row = company_row or {}
+    company_name = clean_str(row.get("name"))
+    configured_cost_center = clean_str(row.get("cost_center"))
+
+    if configured_cost_center:
+        configured_row = _cost_center_row(configured_cost_center) or {}
+        if clean_str(configured_row.get("company")) == company_name:
+            if int(configured_row.get("is_group") or 0) == 1:
+                return configured_cost_center
+
+            parent_cost_center = clean_str(configured_row.get("parent_cost_center"))
+            if parent_cost_center:
+                parent_row = _cost_center_row(parent_cost_center) or {}
+                if clean_str(parent_row.get("company")) == company_name and int(parent_row.get("is_group") or 0) == 1:
+                    return parent_cost_center
+
+    group_rows = _company_group_cost_centers(company_name)
+    if not group_rows:
+        return ""
+
+    for candidate in group_rows:
+        candidate_name = clean_str(candidate.get("name"))
+        if candidate_name and not clean_str(candidate.get("parent_cost_center")):
+            return candidate_name
+
+    return clean_str(group_rows[0].get("name"))
+
+
 def _project_type_name() -> str | None:
     row = _row("Project Type", {"name": "External"}, ["name"])
     return clean_str((row or {}).get("name")) or None
@@ -200,8 +265,10 @@ def _ensure_company(company: str):
     row = _company_row(company_name) or {}
     if not clean_str(row.get("default_currency")):
         _throw("Selected company is missing a default currency.")
-    if not clean_str(row.get("cost_center")):
-        _throw("Selected company is missing a default cost center.")
+    group_cost_center = _resolve_company_group_cost_center(row)
+    if not group_cost_center:
+        _throw("Selected company is missing a group cost center.")
+    row["cost_center"] = group_cost_center
     return row
 
 
@@ -400,6 +467,7 @@ def _upsert_subscription_plan(
                 "plan_name": f"{building_display_name} General Cleaning",
                 "currency": clean_str(company_row.get("default_currency")),
                 "item": service_item_code,
+                "price_determination": "Fixed Rate",
                 "cost": contract_amount,
                 "billing_interval": billing_interval.capitalize(),
                 "billing_interval_count": billing_interval_count,
@@ -411,6 +479,8 @@ def _upsert_subscription_plan(
     linked.plan_name = clean_str(getattr(linked, "plan_name", None)) or f"{building_display_name} General Cleaning"
     linked.currency = clean_str(company_row.get("default_currency"))
     linked.item = service_item_code
+    linked.price_determination = "Fixed Rate"
+    linked.price_list = ""
     linked.cost = contract_amount
     linked.billing_interval = billing_interval.capitalize()
     linked.billing_interval_count = billing_interval_count
@@ -501,6 +571,7 @@ def _upsert_contract(
                 "status": "Unsigned",
                 "start_date": contract_start_date,
                 "end_date": contract_end_date,
+                "contract_terms": _default_contract_terms(),
                 "document_type": "Project",
                 "document_name": project_name,
             }
@@ -511,6 +582,8 @@ def _upsert_contract(
     linked.party_name = customer
     linked.start_date = contract_start_date
     linked.end_date = contract_end_date
+    if not clean_str(getattr(linked, "contract_terms", None)):
+        linked.contract_terms = _default_contract_terms()
     linked.document_type = "Project"
     linked.document_name = project_name
     linked.status = clean_str(getattr(linked, "status", None)) or "Unsigned"
@@ -595,7 +668,7 @@ def _building_update_payload(request, desired_building_name: str):
         "billing_model": clean_str(request.billing_model) or None,
         "contract_amount": request.contract_amount,
         "billing_interval": clean_str(request.billing_interval) or None,
-        "billing_interval_count": request.billing_interval_count,
+        "billing_interval_count": int(request.billing_interval_count) if request.billing_interval_count is not None else "",
         "contract_start_date": _serialize_date(request.contract_start_date),
         "contract_end_date": _serialize_date(request.contract_end_date),
         "auto_renew": _bool_int(bool(request.auto_renew) and clean_str(request.billing_model) == "recurring"),

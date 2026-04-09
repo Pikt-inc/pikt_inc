@@ -1,0 +1,13 @@
+[
+  {
+    "doctype": "Property Setter",
+    "name": "Contract-contract_terms-default",
+    "doc_type": "Contract",
+    "doctype_or_field": "DocField",
+    "field_name": "contract_terms",
+    "property": "default",
+    "property_type": "Text",
+    "value": "Recurring general cleaning services will be provided for the linked project and billed according to the associated ERPNext subscription. Site schedule, checklist requirements, and operational notes are maintained on the building and project records.",
+    "module": "CRM"
+  }
+]

@@ -12,6 +12,9 @@ from pikt_inc import hooks as app_hooks
 from pikt_inc.patches.post_model_sync.backfill_building_unavailable_service_days import (
     derive_unavailable_service_days,
 )
+from pikt_inc.patches.post_model_sync.normalize_company_cost_center_groups import (
+    resolve_group_cost_center,
+)
 
 
 BUILDER_PAGE_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "builder_page.json"
@@ -22,6 +25,13 @@ CONTACT_REQUEST_DOCTYPE_FIXTURE_PATH = (
 )
 BUILDING_CUSTOM_FIELD_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "01_building_custom_field.json"
 USER_CUSTOM_FIELD_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "02_user_custom_field.json"
+COMMERCIAL_ITEM_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "04_commercial_item.json"
+COMMERCIAL_PROPERTY_SETTER_FIXTURE_PATH = (
+    Path(__file__).resolve().parents[1] / "fixtures" / "05_commercial_property_setter.json"
+)
+COMMERCIAL_CONTRACT_PROPERTY_SETTER_FIXTURE_PATH = (
+    Path(__file__).resolve().parents[1] / "fixtures" / "06_commercial_contract_property_setter.json"
+)
 CUSTOM_FIELD_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "custom_field.json"
 CUSTOM_DOCPERM_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "custom_docperm.json"
 BUILDER_COMPONENT_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "builder_component.json"
@@ -75,6 +85,12 @@ BUILDING_SCHEDULE_BACKFILL_PATCH_PATH = (
     / "patches"
     / "post_model_sync"
     / "backfill_building_unavailable_service_days.py"
+)
+COMPANY_COST_CENTER_NORMALIZATION_PATCH_PATH = (
+    Path(__file__).resolve().parents[1]
+    / "patches"
+    / "post_model_sync"
+    / "normalize_company_cost_center_groups.py"
 )
 
 class TestWebsiteFixtures(unittest.TestCase):
@@ -210,6 +226,7 @@ class TestWebsiteFixtures(unittest.TestCase):
         self.assertIn("DocType", fixture_doctypes)
         self.assertIn("Custom Field", fixture_doctypes)
         self.assertIn("Custom DocPerm", fixture_doctypes)
+        self.assertIn("Property Setter", fixture_doctypes)
 
     def test_master_service_agreement_web_form_fixture_is_exported(self):
         web_form_fixture = next(row for row in app_hooks.fixtures if row["dt"] == "Web Form")
@@ -346,6 +363,30 @@ class TestWebsiteFixtures(unittest.TestCase):
             if row["dt"] == "DocType" and row.get("prefix") == "03_contact_request"
         )
         self.assertEqual(contact_request_fixture["filters"], [["name", "in", ["Contact Request"]]])
+        commercial_item_fixture = next(
+            row
+            for row in app_hooks.fixtures
+            if row["dt"] == "Item" and row.get("prefix") == "04_commercial"
+        )
+        self.assertEqual(commercial_item_fixture["filters"], [["name", "in", ["General Cleaning"]]])
+        commercial_property_setter_fixture = next(
+            row
+            for row in app_hooks.fixtures
+            if row["dt"] == "Property Setter" and row.get("prefix") == "05_commercial"
+        )
+        self.assertEqual(
+            commercial_property_setter_fixture["filters"],
+            [["name", "in", ["Subscription Plan-price_determination-default"]]],
+        )
+        commercial_contract_property_setter_fixture = next(
+            row
+            for row in app_hooks.fixtures
+            if row["dt"] == "Property Setter" and row.get("prefix") == "06_commercial"
+        )
+        self.assertEqual(
+            commercial_contract_property_setter_fixture["filters"],
+            [["name", "in", ["Contract-contract_terms-default"]]],
+        )
     def test_building_schema_fixture_files_cover_live_portal_fields(self):
         building_doctypes = json.loads(BUILDING_DOCTYPE_FIXTURE_PATH.read_text(encoding="utf-8"))
         building_custom_fields = json.loads(BUILDING_CUSTOM_FIELD_FIXTURE_PATH.read_text(encoding="utf-8"))
@@ -406,12 +447,85 @@ class TestWebsiteFixtures(unittest.TestCase):
         )
         self.assertTrue(BUILDING_SCHEDULE_BACKFILL_PATCH_PATH.exists())
 
+    def test_company_cost_center_normalization_patch_is_registered(self):
+        patches_text = PATCHES_PATH.read_text(encoding="utf-8")
+
+        self.assertIn(
+            "pikt_inc.patches.post_model_sync.normalize_company_cost_center_groups",
+            patches_text,
+        )
+        self.assertTrue(COMPANY_COST_CENTER_NORMALIZATION_PATCH_PATH.exists())
+
     def test_building_schedule_backfill_derives_unavailable_days_from_legacy_days(self):
         self.assertEqual(
             derive_unavailable_service_days("mon,wed,fri"),
             ["tue", "thu", "sat", "sun"],
         )
         self.assertEqual(derive_unavailable_service_days("mon,tue,wed,thu,fri,sat,sun"), [])
+
+    def test_company_cost_center_normalization_resolves_parent_group_for_leaf_cost_center(self):
+        with unittest.mock.patch(
+            "pikt_inc.patches.post_model_sync.normalize_company_cost_center_groups._cost_center_row",
+            side_effect=[
+                {
+                    "name": "Main - PK",
+                    "company": "PK Holdings",
+                    "parent_cost_center": "PK Holdings - PK",
+                    "is_group": 0,
+                },
+                {
+                    "name": "PK Holdings - PK",
+                    "company": "PK Holdings",
+                    "parent_cost_center": "",
+                    "is_group": 1,
+                },
+            ],
+        ):
+            with unittest.mock.patch(
+                "pikt_inc.patches.post_model_sync.normalize_company_cost_center_groups._group_cost_centers",
+                return_value=[],
+            ):
+                self.assertEqual(
+                    resolve_group_cost_center("PK Holdings", "Main - PK"),
+                    "PK Holdings - PK",
+                )
+
+    def test_commercial_item_fixture_seeds_general_cleaning_item(self):
+        items = json.loads(COMMERCIAL_ITEM_FIXTURE_PATH.read_text(encoding="utf-8"))
+
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0]["doctype"], "Item")
+        self.assertEqual(items[0]["name"], "General Cleaning")
+        self.assertEqual(items[0]["item_group"], "Services")
+        self.assertEqual(items[0]["stock_uom"], "Month")
+        self.assertEqual(items[0]["is_stock_item"], 0)
+        self.assertEqual(items[0]["is_sales_item"], 1)
+
+    def test_commercial_property_setter_fixture_sets_fixed_rate_subscription_plan_default(self):
+        setters = json.loads(COMMERCIAL_PROPERTY_SETTER_FIXTURE_PATH.read_text(encoding="utf-8"))
+
+        self.assertEqual(len(setters), 1)
+        self.assertEqual(setters[0]["doctype"], "Property Setter")
+        self.assertEqual(setters[0]["name"], "Subscription Plan-price_determination-default")
+        self.assertEqual(setters[0]["doc_type"], "Subscription Plan")
+        self.assertEqual(setters[0]["doctype_or_field"], "DocField")
+        self.assertEqual(setters[0]["field_name"], "price_determination")
+        self.assertEqual(setters[0]["property"], "default")
+        self.assertEqual(setters[0]["property_type"], "Text")
+        self.assertEqual(setters[0]["value"], "Fixed Rate")
+
+    def test_commercial_contract_property_setter_fixture_sets_default_contract_terms(self):
+        setters = json.loads(COMMERCIAL_CONTRACT_PROPERTY_SETTER_FIXTURE_PATH.read_text(encoding="utf-8"))
+
+        self.assertEqual(len(setters), 1)
+        self.assertEqual(setters[0]["doctype"], "Property Setter")
+        self.assertEqual(setters[0]["name"], "Contract-contract_terms-default")
+        self.assertEqual(setters[0]["doc_type"], "Contract")
+        self.assertEqual(setters[0]["doctype_or_field"], "DocField")
+        self.assertEqual(setters[0]["field_name"], "contract_terms")
+        self.assertEqual(setters[0]["property"], "default")
+        self.assertEqual(setters[0]["property_type"], "Text")
+        self.assertIn("Recurring general cleaning services", setters[0]["value"])
 
     def test_user_customer_scope_fixture_exports_direct_customer_link(self):
         user_custom_fields = json.loads(USER_CUSTOM_FIELD_FIXTURE_PATH.read_text(encoding="utf-8"))
