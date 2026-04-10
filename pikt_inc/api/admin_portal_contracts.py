@@ -13,6 +13,27 @@ SERVICE_DAY_SET = set(SERVICE_DAY_KEYS)
 TIME_PATTERN = re.compile(r"^(\d{1,2}):(\d{2})(?::(\d{2}))?$")
 COMMERCIAL_BILLING_MODELS = {"recurring", "one_time"}
 COMMERCIAL_BILLING_INTERVALS = {"day", "week", "month", "year"}
+BUILDING_SCHEDULE_REQUEST_FIELDS = frozenset(
+    {
+        "unavailable_service_days",
+        "service_frequency",
+        "preferred_service_start_time",
+        "preferred_service_end_time",
+    }
+)
+BUILDING_COMMERCIAL_REQUEST_FIELDS = frozenset(
+    {
+        "customer",
+        "company",
+        "billing_model",
+        "contract_amount",
+        "billing_interval",
+        "billing_interval_count",
+        "contract_start_date",
+        "contract_end_date",
+        "auto_renew",
+    }
+)
 
 
 def _clean_optional_str(value):
@@ -151,6 +172,7 @@ class AdminBuildingUpdateRequestApi(RequestModel):
     contract_start_date: date | None = None
     contract_end_date: date | None = None
     auto_renew: bool = False
+    provided_fields: frozenset[str] = frozenset()
 
     @model_validator(mode="before")
     @classmethod
@@ -158,6 +180,9 @@ class AdminBuildingUpdateRequestApi(RequestModel):
         payload = dict(value or {})
         if payload.get("building_id") is None and payload.get("building") is not None:
             payload["building_id"] = payload.get("building")
+        payload["provided_fields"] = frozenset(
+            clean_str(key) for key in payload.keys() if clean_str(key)
+        )
         return payload
 
     @field_validator("building_id", "name", mode="before")
@@ -224,12 +249,27 @@ class AdminBuildingUpdateRequestApi(RequestModel):
     def _normalize_billing_interval_count(cls, value):
         return _normalize_positive_int(value, "Billing interval count")
 
+    @field_validator("provided_fields", mode="before")
+    @classmethod
+    def _normalize_provided_fields(cls, value):
+        if value in (None, "", [], (), set(), frozenset()):
+            return frozenset()
+        if isinstance(value, (list, tuple, set, frozenset)):
+            return frozenset(clean_str(entry) for entry in value if clean_str(entry))
+        raise ValueError("Provided fields must be a collection of field names.")
+
+    def has_schedule_update(self) -> bool:
+        return any(field_name in self.provided_fields for field_name in BUILDING_SCHEDULE_REQUEST_FIELDS)
+
+    def has_commercial_update(self) -> bool:
+        return any(field_name in self.provided_fields for field_name in BUILDING_COMMERCIAL_REQUEST_FIELDS)
+
     @model_validator(mode="after")
     def _validate_building_update(self):
         if not clean_str(self.building_id):
             raise ValueError("Building is required.")
 
-        has_schedule = any(
+        has_schedule_values = any(
             [
                 bool(self.unavailable_service_days),
                 self.service_frequency is not None,
@@ -238,7 +278,7 @@ class AdminBuildingUpdateRequestApi(RequestModel):
             ]
         )
 
-        if has_schedule:
+        if self.has_schedule_update() and has_schedule_values:
             if len(self.unavailable_service_days) == len(SERVICE_DAY_KEYS):
                 raise ValueError("Unavailable days cannot include all 7 weekdays.")
             if self.service_frequency is None:
@@ -264,10 +304,10 @@ class AdminBuildingUpdateRequestApi(RequestModel):
             ]
         )
 
-        if has_commercial_values and not self.billing_model:
+        if self.has_commercial_update() and has_commercial_values and not self.billing_model:
             raise ValueError("Billing model is required when commercial setup is configured.")
 
-        if self.billing_model:
+        if self.has_commercial_update() and self.billing_model:
             if not self.customer:
                 raise ValueError("Customer is required when commercial setup is configured.")
             if not self.company:

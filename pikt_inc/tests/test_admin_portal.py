@@ -400,16 +400,6 @@ class TestAdminPortalBuildingCommercialSetup(unittest.TestCase):
                 "building_name": "Pilot Building 1",
                 "customer": "CUST-1",
                 "company": "PK Holdings",
-                "address_line_1": None,
-                "address_line_2": None,
-                "city": None,
-                "state": None,
-                "postal_code": None,
-                "site_notes": None,
-                "unavailable_service_days": None,
-                "service_frequency": None,
-                "preferred_service_start_time": None,
-                "preferred_service_end_time": None,
                 "billing_model": "recurring",
                 "contract_amount": 2500.0,
                 "billing_interval": "month",
@@ -511,6 +501,7 @@ class TestAdminPortalBuildingCommercialSetup(unittest.TestCase):
         self.assertEqual(self.set_value_calls[0][0:2], ("Building", "BUILD-1"))
         self.assertEqual(self.set_value_calls[0][2]["billing_model"], "one_time")
         self.assertEqual(self.set_value_calls[0][2]["billing_interval_count"], 0)
+        self.assertNotIn("service_frequency", self.set_value_calls[0][2])
 
         self.assertEqual(self.set_value_calls[1][0:2], ("Building", "BUILD-1"))
         self.assertEqual(
@@ -522,6 +513,121 @@ class TestAdminPortalBuildingCommercialSetup(unittest.TestCase):
                 "subscription_plan": "",
                 "subscription": "",
                 "contract": "",
+            },
+        )
+
+    def test_update_admin_building_schedule_only_preserves_existing_commercial_setup(self):
+        request = admin_api.AdminBuildingUpdateRequestApi.model_validate(
+            {
+                "building": "BUILD-1",
+                "unavailable_service_days": ["wed"],
+                "service_frequency": 2,
+                "preferred_service_start_time": "18:00",
+                "preferred_service_end_time": "21:00",
+            }
+        )
+
+        initial_row = {
+            "name": "BUILD-1",
+            "building_name": "Pilot Building 1",
+            "customer": "CUST-1",
+            "company": "PK Holdings",
+            "billing_model": "recurring",
+            "contract_amount": 2500,
+            "billing_interval": "month",
+            "billing_interval_count": 1,
+            "contract_start_date": "2026-04-01",
+            "contract_end_date": "2027-03-31",
+            "auto_renew": 1,
+            "project": "PROJ-BUILD-1",
+            "cost_center": "CC-BUILD-1",
+            "subscription_plan": "PLAN-BUILD-1",
+            "subscription": "SUB-BUILD-1",
+            "sales_order": "",
+            "contract": "CON-BUILD-1",
+        }
+        current_row = dict(initial_row)
+        final_row = {
+            **current_row,
+            "unavailable_service_days": "wed",
+            "service_frequency": 2,
+            "preferred_service_start_time": "18:00:00",
+            "preferred_service_end_time": "21:00:00",
+        }
+
+        with patch.object(admin_service, "require_portal_section", return_value=SimpleNamespace()):
+            with patch.object(admin_service, "_building_row", side_effect=[initial_row, current_row, final_row]):
+                with patch.object(admin_service, "_rename_building", return_value="BUILD-1"):
+                    with patch.object(admin_service, "_ensure_customer") as ensure_customer:
+                        with patch.object(admin_service, "_ensure_company") as ensure_company:
+                            with patch.object(admin_service, "_ensure_service_item") as ensure_service_item:
+                                result = admin_service.update_admin_building(request)
+
+        self.assertEqual(result.building_id, "BUILD-1")
+        self.assertEqual(result.project, "PROJ-BUILD-1")
+        self.assertEqual(result.cost_center, "CC-BUILD-1")
+        self.assertEqual(result.subscription_plan, "PLAN-BUILD-1")
+        self.assertEqual(result.subscription, "SUB-BUILD-1")
+        self.assertEqual(result.contract, "CON-BUILD-1")
+        ensure_customer.assert_not_called()
+        ensure_company.assert_not_called()
+        ensure_service_item.assert_not_called()
+
+        self.assertEqual(len(self.set_value_calls), 1)
+        self.assertEqual(self.set_value_calls[0][0:2], ("Building", "BUILD-1"))
+        self.assertEqual(
+            self.set_value_calls[0][2],
+            {
+                "unavailable_service_days": "wed",
+                "service_frequency": 2,
+                "preferred_service_start_time": "18:00:00",
+                "preferred_service_end_time": "21:00:00",
+            },
+        )
+
+    def test_update_admin_building_schedule_clear_uses_db_safe_empty_values(self):
+        request = admin_api.AdminBuildingUpdateRequestApi.model_validate(
+            {
+                "building": "BUILD-1",
+                "unavailable_service_days": [],
+                "service_frequency": None,
+                "preferred_service_start_time": None,
+                "preferred_service_end_time": None,
+            }
+        )
+
+        initial_row = {
+            "name": "BUILD-1",
+            "building_name": "Pilot Building 1",
+            "unavailable_service_days": "wed",
+            "service_frequency": 2,
+            "preferred_service_start_time": "18:00:00",
+            "preferred_service_end_time": "21:00:00",
+        }
+        current_row = dict(initial_row)
+        final_row = {
+            **current_row,
+            "unavailable_service_days": "",
+            "service_frequency": 0,
+            "preferred_service_start_time": "",
+            "preferred_service_end_time": "",
+        }
+
+        with patch.object(admin_service, "require_portal_section", return_value=SimpleNamespace()):
+            with patch.object(admin_service, "_building_row", side_effect=[initial_row, current_row, final_row]):
+                with patch.object(admin_service, "_rename_building", return_value="BUILD-1"):
+                    result = admin_service.update_admin_building(request)
+
+        self.assertEqual(result.building_id, "BUILD-1")
+        self.assertEqual(len(self.set_value_calls), 1)
+        self.assertEqual(self.set_value_calls[0][0:2], ("Building", "BUILD-1"))
+        self.assertEqual(
+            self.set_value_calls[0][2],
+            {
+                "unavailable_service_days": "",
+                "service_frequency": 0,
+                "preferred_service_start_time": "",
+                "preferred_service_end_time": "",
             },
         )
 
@@ -772,6 +878,8 @@ class TestAdminPortalBuildingUpdateApi(unittest.TestCase):
         self.assertEqual(str(request.contract_start_date), "2026-04-01")
         self.assertEqual(str(request.contract_end_date), "2027-03-31")
         self.assertTrue(request.auto_renew)
+        self.assertIn("billing_model", request.provided_fields)
+        self.assertNotIn("service_frequency", request.provided_fields)
 
     def test_update_admin_building_api_wrapper_rejects_incomplete_commercial_setup(self):
         with self.assertRaisesRegex(Exception, "Customer is required when commercial setup is configured"):

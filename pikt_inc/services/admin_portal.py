@@ -334,6 +334,53 @@ def _commercial_state_from_request(request):
     }
 
 
+def _request_provided_fields(request) -> set[str]:
+    return {
+        clean_str(field_name)
+        for field_name in getattr(request, "provided_fields", ()) or ()
+        if clean_str(field_name)
+    }
+
+
+def _request_has_field(request, field_name: str) -> bool:
+    return field_name in _request_provided_fields(request)
+
+
+def _request_has_schedule_update(request) -> bool:
+    checker = getattr(request, "has_schedule_update", None)
+    if callable(checker):
+        return bool(checker())
+    return any(
+        _request_has_field(request, field_name)
+        for field_name in (
+            "unavailable_service_days",
+            "service_frequency",
+            "preferred_service_start_time",
+            "preferred_service_end_time",
+        )
+    )
+
+
+def _request_has_commercial_update(request) -> bool:
+    checker = getattr(request, "has_commercial_update", None)
+    if callable(checker):
+        return bool(checker())
+    return any(
+        _request_has_field(request, field_name)
+        for field_name in (
+            "customer",
+            "company",
+            "billing_model",
+            "contract_amount",
+            "billing_interval",
+            "billing_interval_count",
+            "contract_start_date",
+            "contract_end_date",
+            "auto_renew",
+        )
+    )
+
+
 def _commercial_links_missing(row: dict | None) -> bool:
     state = _commercial_state_from_row(row)
     billing_model = clean_str(state.get("billing_model"))
@@ -655,35 +702,63 @@ def _upsert_sales_order(
 
 
 def _building_update_payload(request, desired_building_name: str):
-    billing_model = clean_str(request.billing_model)
-    billing_interval_count = int(request.billing_interval_count) if request.billing_interval_count is not None else None
-    if billing_model == "one_time":
-        billing_interval_count = 0
+    payload = {}
 
-    payload = {
-        "building_name": desired_building_name,
-        "customer": clean_str(request.customer) or None,
-        "company": clean_str(request.company) or None,
-        "address_line_1": clean_str(request.address) or None,
-        "address_line_2": None,
-        "city": None,
-        "state": None,
-        "postal_code": None,
-        "site_notes": clean_str(request.notes) or None,
-        "unavailable_service_days": _serialize_day_list(request.unavailable_service_days),
-        "service_frequency": request.service_frequency,
-        "preferred_service_start_time": _serialize_time(request.preferred_service_start_time),
-        "preferred_service_end_time": _serialize_time(request.preferred_service_end_time),
-        "billing_model": billing_model or None,
-        "contract_amount": request.contract_amount,
-        "billing_interval": clean_str(request.billing_interval) or None,
-        "billing_interval_count": billing_interval_count,
-        "contract_start_date": _serialize_date(request.contract_start_date),
-        "contract_end_date": _serialize_date(request.contract_end_date),
-        "auto_renew": _bool_int(bool(request.auto_renew) and billing_model == "recurring"),
-    }
-    if request.active is not None:
+    if _request_has_field(request, "name"):
+        payload["building_name"] = desired_building_name
+
+    if _request_has_field(request, "customer"):
+        payload["customer"] = clean_str(request.customer) or None
+    if _request_has_field(request, "company"):
+        payload["company"] = clean_str(request.company) or None
+    if _request_has_field(request, "address"):
+        payload["address_line_1"] = clean_str(request.address) or None
+        payload["address_line_2"] = None
+        payload["city"] = None
+        payload["state"] = None
+        payload["postal_code"] = None
+    if _request_has_field(request, "notes"):
+        payload["site_notes"] = clean_str(request.notes) or None
+
+    if _request_has_schedule_update(request):
+        has_configured_schedule = any(
+            [
+                bool(request.unavailable_service_days),
+                request.service_frequency is not None,
+                bool(request.preferred_service_start_time),
+                bool(request.preferred_service_end_time),
+            ]
+        )
+        if has_configured_schedule:
+            payload["unavailable_service_days"] = _serialize_day_list(request.unavailable_service_days)
+            payload["service_frequency"] = request.service_frequency
+            payload["preferred_service_start_time"] = _serialize_time(request.preferred_service_start_time)
+            payload["preferred_service_end_time"] = _serialize_time(request.preferred_service_end_time)
+        else:
+            payload["unavailable_service_days"] = ""
+            payload["service_frequency"] = 0
+            payload["preferred_service_start_time"] = ""
+            payload["preferred_service_end_time"] = ""
+
+    if _request_has_commercial_update(request):
+        billing_model = clean_str(request.billing_model)
+        billing_interval_count = int(request.billing_interval_count) if request.billing_interval_count is not None else None
+        if billing_model == "one_time":
+            billing_interval_count = 0
+
+        payload["customer"] = clean_str(request.customer) or None
+        payload["company"] = clean_str(request.company) or None
+        payload["billing_model"] = billing_model or None
+        payload["contract_amount"] = request.contract_amount
+        payload["billing_interval"] = clean_str(request.billing_interval) or None
+        payload["billing_interval_count"] = billing_interval_count
+        payload["contract_start_date"] = _serialize_date(request.contract_start_date)
+        payload["contract_end_date"] = _serialize_date(request.contract_end_date)
+        payload["auto_renew"] = _bool_int(bool(request.auto_renew) and billing_model == "recurring")
+
+    if _request_has_field(request, "active") and request.active is not None:
         payload["active"] = _bool_int(request.active)
+
     return payload
 
 
@@ -801,15 +876,21 @@ def update_admin_building(request) -> AdminBuildingUpdateResult:
     current_row = _building_row(building_name) or {}
 
     base_updates = _building_update_payload(request, desired_building_name)
-    frappe.db.set_value(BUILDING_DOCTYPE, building_name, base_updates)
+    if base_updates:
+        frappe.db.set_value(BUILDING_DOCTYPE, building_name, base_updates)
 
-    requested_commercial_state = _commercial_state_from_request(request)
-    current_commercial_state = _commercial_state_from_row(current_row)
-    commercial_changed = requested_commercial_state != current_commercial_state
+    has_commercial_update = _request_has_commercial_update(request)
     link_updates: dict[str, str] = {}
 
     billing_model = clean_str(request.billing_model)
-    if billing_model and (commercial_changed or _commercial_links_missing(current_row)):
+    if has_commercial_update and billing_model:
+        requested_commercial_state = _commercial_state_from_request(request)
+        current_commercial_state = _commercial_state_from_row(current_row)
+        commercial_changed = requested_commercial_state != current_commercial_state
+    else:
+        commercial_changed = False
+
+    if has_commercial_update and billing_model and (commercial_changed or _commercial_links_missing(current_row)):
         customer = _ensure_customer(request.customer)
         company_row = _ensure_company(request.company)
         service_item_code = _ensure_service_item(_configured_service_item_code())
