@@ -501,7 +501,10 @@ class TestAdminPortalBuildingCommercialSetup(unittest.TestCase):
         self.assertEqual(self.set_value_calls[0][0:2], ("Building", "BUILD-1"))
         self.assertEqual(self.set_value_calls[0][2]["billing_model"], "one_time")
         self.assertEqual(self.set_value_calls[0][2]["billing_interval_count"], 0)
+        self.assertNotIn("unavailable_service_days", self.set_value_calls[0][2])
         self.assertNotIn("service_frequency", self.set_value_calls[0][2])
+        self.assertNotIn("preferred_service_start_time", self.set_value_calls[0][2])
+        self.assertNotIn("preferred_service_end_time", self.set_value_calls[0][2])
 
         self.assertEqual(self.set_value_calls[1][0:2], ("Building", "BUILD-1"))
         self.assertEqual(
@@ -609,8 +612,8 @@ class TestAdminPortalBuildingCommercialSetup(unittest.TestCase):
             **current_row,
             "unavailable_service_days": "",
             "service_frequency": 0,
-            "preferred_service_start_time": "",
-            "preferred_service_end_time": "",
+            "preferred_service_start_time": None,
+            "preferred_service_end_time": None,
         }
 
         with patch.object(admin_service, "require_portal_section", return_value=SimpleNamespace()):
@@ -626,8 +629,8 @@ class TestAdminPortalBuildingCommercialSetup(unittest.TestCase):
             {
                 "unavailable_service_days": "",
                 "service_frequency": 0,
-                "preferred_service_start_time": "",
-                "preferred_service_end_time": "",
+                "preferred_service_start_time": None,
+                "preferred_service_end_time": None,
             },
         )
 

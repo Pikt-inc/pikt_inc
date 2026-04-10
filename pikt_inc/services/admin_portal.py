@@ -737,8 +737,8 @@ def _building_update_payload(request, desired_building_name: str):
         else:
             payload["unavailable_service_days"] = ""
             payload["service_frequency"] = 0
-            payload["preferred_service_start_time"] = ""
-            payload["preferred_service_end_time"] = ""
+            payload["preferred_service_start_time"] = None
+            payload["preferred_service_end_time"] = None
 
     if _request_has_commercial_update(request):
         billing_model = clean_str(request.billing_model)
