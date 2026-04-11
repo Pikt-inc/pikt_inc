@@ -692,6 +692,38 @@ class TestCustomerPortal(TestCase):
             "/api/method/pikt_inc.api.customer_portal.download_customer_portal_client_job_proof?session=CS-1&item_key=restrooms",
         )
 
+    def test_customer_job_serializer_treats_issue_reported_items_as_resolved_without_exposing_issue_fields(self):
+        issue_item = portal_checklist.CustomerPortalSessionItem(
+            id="CSI-ISSUE-1",
+            job_session_id="CS-1",
+            item_key="alarm_panel",
+            category="rearm_security",
+            step_order=1,
+            title="Arm alarm panel",
+            description="Set the alarm before leaving.",
+            target_duration_seconds=90,
+            requires_image=True,
+            allow_notes=True,
+            is_required=True,
+            completed=False,
+            completed_at=None,
+            issue_reported=True,
+            issue_reason="Panel displayed a fault code.",
+            issue_reported_at=datetime(2026, 3, 9, 18, 50, 0),
+            issue_image_path="/private/files/panel-fault.jpg",
+            proof_image_path=None,
+            note=None,
+        )
+
+        payload = portal_api_serializers.serialize_customer_portal_session_item(issue_item, "CS-1")
+        dumped = payload.model_dump(mode="python")
+
+        self.assertTrue(payload.completed)
+        self.assertEqual(payload.completed_at, "2026-03-09 18:50:00")
+        self.assertNotIn("issue_reported", dumped)
+        self.assertNotIn("issue_reason", dumped)
+        self.assertNotIn("issue_image", dumped)
+
     def test_api_wrappers_validate_request_models_and_preserve_shape(self):
         expected_building = portal.CustomerBuildingHistory(
             building=portal_building.CustomerPortalBuilding(

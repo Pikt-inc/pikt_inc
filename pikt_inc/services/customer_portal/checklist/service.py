@@ -44,6 +44,9 @@ def update_session_item(
     item_key: str,
     *,
     completed: bool | None = None,
+    issue_reported: bool | None = None,
+    issue_reason: str | None = None,
+    issue_image: str | None = None,
     note: str | None = None,
     proof_image: str | None = None,
 ) -> tuple[ChecklistSessionRecord, ChecklistSessionItemRecord]:
@@ -52,6 +55,9 @@ def update_session_item(
         session_name,
         item_key,
         completed=completed,
+        issue_reported=issue_reported,
+        issue_reason=issue_reason,
+        issue_image=issue_image,
         note=note,
         proof_image=proof_image,
     )
@@ -102,4 +108,40 @@ def upload_session_item_proof(session_name: str, item_key: str, uploaded=None) -
         item_key,
         completed=True,
         proof_image=clean_str(file_doc.file_url),
+    )
+
+
+def upload_session_item_issue_image(session_name: str, item_key: str, uploaded=None) -> tuple[ChecklistSessionRecord, ChecklistSessionItemRecord]:
+    uploaded = uploaded or (
+        frappe.request.files.get("file")
+        if getattr(frappe, "request", None) and getattr(frappe.request, "files", None)
+        else None
+    )
+    if uploaded is None:
+        raise CustomerPortalNotFoundError("A file upload is required.")
+
+    require_session(session_name)
+    require_session_item(session_name, item_key)
+
+    file_name = clean_str(getattr(uploaded, "filename", "")) or "checklist-issue-upload"
+    content = uploaded.read()
+    if not content:
+        raise CustomerPortalNotFoundError("Uploaded file was empty. Please choose the file again.")
+
+    file_doc = frappe.get_doc(
+        {
+            "doctype": "File",
+            "file_name": file_name,
+            "is_private": 1,
+            "attached_to_doctype": "Checklist Session",
+            "attached_to_name": clean_str(session_name),
+            "content": content,
+        }
+    )
+    file_doc.save(ignore_permissions=True)
+
+    return update_session_item(
+        session_name,
+        item_key,
+        issue_image=clean_str(file_doc.file_url),
     )

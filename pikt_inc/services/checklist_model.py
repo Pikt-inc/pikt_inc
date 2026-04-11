@@ -343,6 +343,10 @@ def _build_session_items_from_template(template_name: str) -> list[dict[str, Any
                 "is_required": 0 if row.get("is_required") in (0, "0", False) else 1,
                 "completed": 0,
                 "completed_at": None,
+                "issue_reported": 0,
+                "issue_reason": "",
+                "issue_reported_at": None,
+                "issue_image": "",
                 "note": "",
                 "proof_image": "",
             }
@@ -413,24 +417,48 @@ def validate_checklist_session(doc) -> None:
     for row in ordered_rows:
         title = clean(_row_value(row, "title_snapshot") or _row_value(row, "title")) or "Checklist item"
         completed = truthy(_row_value(row, "completed"))
+        issue_reported = truthy(_row_value(row, "issue_reported"))
+        issue_reason = clean(_row_value(row, "issue_reason"))
         requires_image = truthy(_row_value(row, "requires_image"))
         is_required = _row_value(row, "is_required") not in (0, "0", False)
         proof_image = clean(_row_value(row, "proof_image"))
+        resolved = completed or issue_reported
 
         if completed and not _row_value(row, "completed_at"):
             _set_row_value(row, "completed_at", _now_datetime())
-        if not completed:
+        if completed:
+            _set_row_value(row, "issue_reported", 0)
+            _set_row_value(row, "issue_reason", "")
+            _set_row_value(row, "issue_reported_at", None)
+            _set_row_value(row, "issue_image", "")
+            issue_reported = False
+            resolved = True
+        if issue_reported:
+            if not issue_reason:
+                frappe.throw(f"{title} requires an issue reason before it can be marked with an issue.")
+            _set_row_value(row, "completed", 0)
+            _set_row_value(row, "completed_at", None)
+            _set_row_value(row, "proof_image", "")
+            if not _row_value(row, "issue_reported_at"):
+                _set_row_value(row, "issue_reported_at", _now_datetime())
+            completed = False
+            resolved = True
+        if not issue_reported:
+            _set_row_value(row, "issue_reason", "")
+            _set_row_value(row, "issue_reported_at", None)
+            _set_row_value(row, "issue_image", "")
+        if not resolved:
             _set_row_value(row, "completed_at", None)
             found_incomplete = True
         if completed and requires_image and not proof_image:
             frappe.throw(f"{title} requires a proof image before completion.")
-        if completed and found_incomplete:
-            frappe.throw(f"{title} cannot be completed before the previous checklist item.")
-        if session_status == SESSION_STATUS_COMPLETED and is_required and not completed:
+        if resolved and found_incomplete:
+            frappe.throw(f"{title} cannot be resolved before the previous checklist item.")
+        if session_status == SESSION_STATUS_COMPLETED and is_required and not resolved:
             required_incomplete.append(title)
 
     if session_status == SESSION_STATUS_COMPLETED and required_incomplete:
-        frappe.throw(f"{required_incomplete[0]} must be completed before the session can be completed.")
+        frappe.throw(f"{required_incomplete[0]} must be resolved before the session can be completed.")
 
     if session_status == SESSION_STATUS_COMPLETED:
         if not _field_value(doc, "completed_at"):

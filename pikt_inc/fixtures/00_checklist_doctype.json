@@ -357,6 +357,27 @@
         "fieldtype": "Datetime"
       },
       {
+        "fieldname": "issue_reported",
+        "label": "Issue Reported",
+        "fieldtype": "Check",
+        "default": "0"
+      },
+      {
+        "fieldname": "issue_reason",
+        "label": "Issue Reason",
+        "fieldtype": "Small Text"
+      },
+      {
+        "fieldname": "issue_reported_at",
+        "label": "Issue Reported At",
+        "fieldtype": "Datetime"
+      },
+      {
+        "fieldname": "issue_image",
+        "label": "Issue Image",
+        "fieldtype": "Attach Image"
+      },
+      {
         "fieldname": "note",
         "label": "Note",
         "fieldtype": "Small Text"

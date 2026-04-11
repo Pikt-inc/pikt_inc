@@ -12,6 +12,7 @@ from .checklist_portal_contracts import (
     ChecklistPortalSessionTrainingMediaRequestApi,
     ChecklistPortalStepTrainingMediaRequestApi,
     ChecklistPortalUpdateSessionItemRequestApi,
+    ChecklistPortalUploadIssueImageRequestApi,
     ChecklistPortalUploadProofRequestApi,
 )
 from .checklist_portal_serializers import (
@@ -132,6 +133,8 @@ def update_checklist_portal_session_item(session=None, itemKey=None, proofImage=
             request.session_id,
             request.item_key,
             completed=request.completed,
+            issue_reported=request.issue_reported,
+            issue_reason=request.issue_reason,
             note=request.note,
             proof_image=request.proof_image,
         )
@@ -165,6 +168,26 @@ def upload_checklist_portal_session_item_proof(session=None, itemKey=None, **kwa
     request = _validate_request(ChecklistPortalUploadProofRequestApi, payload)
     try:
         response = customer_portal_service.upload_checklist_session_item_proof(
+            request.session_id,
+            request.item_key,
+            uploaded=_request_file(),
+        )
+    except Exception as exc:
+        _raise_portal_error(exc)
+        raise
+    return serialize_checklist_portal_session_item_mutation(response).model_dump(mode="python")
+
+
+@frappe.whitelist()
+def upload_checklist_portal_session_item_issue_image(session=None, itemKey=None, **kwargs):
+    payload = _payload(kwargs)
+    if session is not None:
+        payload["session"] = session
+    if itemKey is not None:
+        payload["itemKey"] = itemKey
+    request = _validate_request(ChecklistPortalUploadIssueImageRequestApi, payload)
+    try:
+        response = customer_portal_service.upload_checklist_session_item_issue_image(
             request.session_id,
             request.item_key,
             uploaded=_request_file(),

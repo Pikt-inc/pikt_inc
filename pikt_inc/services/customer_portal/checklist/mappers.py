@@ -58,6 +58,10 @@ def map_portal_session_item(row: ChecklistSessionItemRecord, session_name: str) 
         is_required=row.is_required if row.is_required is not None else True,
         completed=row.completed,
         completed_at=row.completed_at,
+        issue_reported=row.issue_reported,
+        issue_reason=row.issue_reason or None,
+        issue_reported_at=row.issue_reported_at,
+        issue_image_path=row.issue_image or None,
         proof_image_path=row.proof_image or None,
         note=row.note or None,
     )

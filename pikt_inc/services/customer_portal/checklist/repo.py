@@ -56,6 +56,10 @@ CHECKLIST_SESSION_ITEM_FIELDS = [
     "is_required",
     "completed",
     "completed_at",
+    "issue_reported",
+    "issue_reason",
+    "issue_reported_at",
+    "issue_image",
     "note",
     "proof_image",
 ]
@@ -182,6 +186,9 @@ def update_session_item(
     item_key: str,
     *,
     completed: bool | None = None,
+    issue_reported: bool | None = None,
+    issue_reason: str | None = None,
+    issue_image: str | None = None,
     note: str | None = None,
     proof_image: str | None = None,
 ) -> tuple[ChecklistSessionRecord, ChecklistSessionItemRecord] | None:
@@ -204,8 +211,30 @@ def update_session_item(
 
     if completed is not None:
         target.completed = 1 if completed else 0
-        if not completed:
+        if completed:
+            target.issue_reported = 0
+            target.issue_reason = ""
+            target.issue_reported_at = None
+            target.issue_image = ""
+        else:
             target.completed_at = None
+
+    if issue_reported is not None:
+        target.issue_reported = 1 if issue_reported else 0
+        if issue_reported:
+            target.completed = 0
+            target.completed_at = None
+            target.proof_image = ""
+        else:
+            target.issue_reason = ""
+            target.issue_reported_at = None
+            target.issue_image = ""
+
+    if issue_reason is not None:
+        target.issue_reason = clean_str(issue_reason)
+
+    if issue_image is not None:
+        target.issue_image = clean_str(issue_image)
 
     if note is not None:
         target.note = clean_str(note)

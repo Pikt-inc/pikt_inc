@@ -8,6 +8,7 @@ from .cleaner import (
     get_checklist_building,
     list_checklist_buildings,
     update_checklist_session_item,
+    upload_checklist_session_item_issue_image,
     upload_checklist_session_item_proof,
 )
 from .client import download_client_job_proof, get_client_building, get_client_job, get_client_overview

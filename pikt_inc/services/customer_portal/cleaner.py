@@ -7,7 +7,15 @@ from .building.mappers import map_portal_building
 from .building.repo import get_building, list_buildings
 from .checklist.mappers import map_checklist_step, map_portal_session, map_portal_session_item
 from .checklist.repo import get_active_session, get_session_items, get_template_items
-from .checklist.service import complete_session, ensure_active_session, require_session, require_session_item, update_session_item, upload_session_item_proof
+from .checklist.service import (
+    complete_session,
+    ensure_active_session,
+    require_session,
+    require_session_item,
+    update_session_item,
+    upload_session_item_issue_image,
+    upload_session_item_proof,
+)
 from .errors import CustomerPortalNotFoundError
 from .models import ChecklistPortalBuildingDetail, ChecklistSessionItemMutation, PortalMediaContent, ProofFileContent
 
@@ -69,6 +77,8 @@ def update_checklist_session_item(
     item_key: str,
     *,
     completed: bool | None = None,
+    issue_reported: bool | None = None,
+    issue_reason: str | None = None,
     note: str | None = None,
     proof_image: str | None = None,
 ) -> ChecklistSessionItemMutation:
@@ -79,6 +89,8 @@ def update_checklist_session_item(
         session.name,
         clean_str(item_key),
         completed=completed,
+        issue_reported=issue_reported,
+        issue_reason=issue_reason,
         note=note,
         proof_image=proof_image,
     )
@@ -101,6 +113,21 @@ def upload_checklist_session_item_proof(session_id: str, item_key: str, uploaded
     require_portal_section("checklist")
     require_checklist_work_access()
     updated_session, updated_item = upload_session_item_proof(clean_str(session_id), clean_str(item_key), uploaded=uploaded)
+    session_payload, _items = _load_session_with_items(updated_session)
+    return ChecklistSessionItemMutation(
+        session=session_payload,
+        item=map_portal_session_item(updated_item, updated_session.name),
+    )
+
+
+def upload_checklist_session_item_issue_image(session_id: str, item_key: str, uploaded=None) -> ChecklistSessionItemMutation:
+    require_portal_section("checklist")
+    require_checklist_work_access()
+    updated_session, updated_item = upload_session_item_issue_image(
+        clean_str(session_id),
+        clean_str(item_key),
+        uploaded=uploaded,
+    )
     session_payload, _items = _load_session_with_items(updated_session)
     return ChecklistSessionItemMutation(
         session=session_payload,

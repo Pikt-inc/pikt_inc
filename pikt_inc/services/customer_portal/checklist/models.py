@@ -106,6 +106,10 @@ class ChecklistSessionItemRecord(ResponseModel):
     is_required: bool | None = None
     completed: bool = False
     completed_at: datetime | None = None
+    issue_reported: bool = False
+    issue_reason: str = ""
+    issue_reported_at: datetime | None = None
+    issue_image: str = ""
     note: str = ""
     proof_image: str = ""
 
@@ -117,6 +121,8 @@ class ChecklistSessionItemRecord(ResponseModel):
         "description_snapshot",
         "training_media",
         "training_media_kind",
+        "issue_reason",
+        "issue_image",
         "note",
         "proof_image",
         mode="before",
@@ -137,7 +143,7 @@ class ChecklistSessionItemRecord(ResponseModel):
             return None
         return int(value)
 
-    @field_validator("requires_image", "completed", mode="before")
+    @field_validator("requires_image", "completed", "issue_reported", mode="before")
     @classmethod
     def normalize_required_flags(cls, value: object) -> bool:
         if value in (None, ""):
@@ -155,7 +161,7 @@ class ChecklistSessionItemRecord(ResponseModel):
             return value
         return truthy(value)
 
-    @field_validator("completed_at", mode="before")
+    @field_validator("completed_at", "issue_reported_at", mode="before")
     @classmethod
     def empty_completed_at_to_none(cls, value: object):
         if value in (None, ""):
@@ -196,6 +202,10 @@ class CustomerPortalSessionItem(ResponseModel):
     is_required: bool
     completed: bool
     completed_at: datetime | None
+    issue_reported: bool = False
+    issue_reason: str | None = None
+    issue_reported_at: datetime | None = None
+    issue_image_path: str | None = None
     proof_image_path: str | None
     note: str | None
 

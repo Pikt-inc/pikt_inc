@@ -151,6 +151,9 @@ class TestChecklistModel(unittest.TestCase):
         self.assertEqual(doc["items"][0]["training_media"], "/private/files/north-entrance.mp4")
         self.assertEqual(doc["items"][0]["training_media_kind"], "video")
         self.assertEqual(doc["items"][0]["completed"], 0)
+        self.assertEqual(doc["items"][0]["issue_reported"], 0)
+        self.assertEqual(doc["items"][0]["issue_reason"], "")
+        self.assertEqual(doc["items"][0]["issue_image"], "")
 
     def test_validate_checklist_session_blocks_duplicate_in_progress_session_for_same_day(self):
         doc = FakeDoc(
@@ -282,6 +285,155 @@ class TestChecklistModel(unittest.TestCase):
         ):
             with self.assertRaisesRegex(Exception, "previous checklist item"):
                 checklist_model.validate_checklist_session(doc)
+
+    def test_validate_checklist_session_rejects_issue_without_reason(self):
+        doc = FakeDoc(
+            {
+                "name": "CHK-SES-1",
+                "building": "BUILD-1",
+                "service_date": "2026-04-02",
+                "checklist_template": "CHK-TPL-1",
+                "status": "in_progress",
+                "items": [
+                    FakeChildRow(
+                        item_key="alarm_panel",
+                        category="rearm_security",
+                        sort_order=1,
+                        title_snapshot="Arm alarm panel",
+                        requires_image=0,
+                        is_required=1,
+                        completed=0,
+                        issue_reported=1,
+                        issue_reason="",
+                        proof_image="",
+                    )
+                ],
+            }
+        )
+
+        with patch.object(checklist_model, "_active_session_exists", return_value=""), patch.object(
+            checklist_model,
+            "_load_building_row",
+            return_value={"name": "BUILD-1", "current_checklist_template": "CHK-TPL-1"},
+        ), patch.object(
+            checklist_model,
+            "_load_template_row",
+            return_value={"name": "CHK-TPL-1", "building": "BUILD-1", "status": "Active"},
+        ):
+            with self.assertRaisesRegex(Exception, "requires an issue reason"):
+                checklist_model.validate_checklist_session(doc)
+
+    def test_validate_checklist_session_completed_row_clears_issue_fields(self):
+        doc = FakeDoc(
+            {
+                "name": "CHK-SES-1",
+                "building": "BUILD-1",
+                "service_date": "2026-04-02",
+                "checklist_template": "CHK-TPL-1",
+                "status": "in_progress",
+                "items": [
+                    FakeChildRow(
+                        item_key="alarm_panel",
+                        category="rearm_security",
+                        sort_order=1,
+                        title_snapshot="Arm alarm panel",
+                        requires_image=0,
+                        is_required=1,
+                        completed=1,
+                        completed_at=None,
+                        issue_reported=1,
+                        issue_reason="Panel jammed",
+                        issue_reported_at=datetime(2026, 4, 1, 11, 0, 0),
+                        issue_image="/private/files/issue.jpg",
+                        proof_image="",
+                    )
+                ],
+            }
+        )
+
+        with patch.object(checklist_model, "_active_session_exists", return_value=""), patch.object(
+            checklist_model,
+            "_load_building_row",
+            return_value={"name": "BUILD-1", "current_checklist_template": "CHK-TPL-1"},
+        ), patch.object(
+            checklist_model,
+            "_load_template_row",
+            return_value={"name": "CHK-TPL-1", "building": "BUILD-1", "status": "Active"},
+        ), patch.object(
+            checklist_model, "_now_datetime", return_value=datetime(2026, 4, 1, 12, 0, 0)
+        ):
+            checklist_model.validate_checklist_session(doc)
+
+        row = doc["items"][0]
+        self.assertEqual(row.completed_at, datetime(2026, 4, 1, 12, 0, 0))
+        self.assertEqual(row.issue_reported, 0)
+        self.assertEqual(row.issue_reason, "")
+        self.assertIsNone(row.issue_reported_at)
+        self.assertEqual(row.issue_image, "")
+
+    def test_validate_checklist_session_issue_reported_counts_as_resolved_for_completion(self):
+        doc = FakeDoc(
+            {
+                "name": "CHK-SES-1",
+                "building": "BUILD-1",
+                "service_date": "2026-04-02",
+                "checklist_template": "CHK-TPL-1",
+                "status": "completed",
+                "items": [
+                    FakeChildRow(
+                        item_key="alarm_panel",
+                        category="rearm_security",
+                        sort_order=1,
+                        title_snapshot="Arm alarm panel",
+                        requires_image=1,
+                        is_required=1,
+                        completed=0,
+                        completed_at=None,
+                        issue_reported=1,
+                        issue_reason="Alarm panel would not arm",
+                        issue_reported_at=None,
+                        issue_image="",
+                        proof_image="",
+                    ),
+                    FakeChildRow(
+                        item_key="rear_door",
+                        category="rearm_security",
+                        sort_order=2,
+                        title_snapshot="Close rear service door",
+                        requires_image=0,
+                        is_required=1,
+                        completed=1,
+                        completed_at=None,
+                        issue_reported=0,
+                        issue_reason="",
+                        issue_reported_at=None,
+                        issue_image="",
+                        proof_image="",
+                    ),
+                ],
+            }
+        )
+
+        with patch.object(checklist_model, "_active_session_exists", return_value=""), patch.object(
+            checklist_model,
+            "_load_building_row",
+            return_value={"name": "BUILD-1", "current_checklist_template": "CHK-TPL-1"},
+        ), patch.object(
+            checklist_model,
+            "_load_template_row",
+            return_value={"name": "CHK-TPL-1", "building": "BUILD-1", "status": "Active"},
+        ), patch.object(
+            checklist_model, "_now_datetime", return_value=datetime(2026, 4, 1, 12, 0, 0)
+        ):
+            checklist_model.validate_checklist_session(doc)
+
+        first_row = doc["items"][0]
+        second_row = doc["items"][1]
+        self.assertEqual(first_row.issue_reported, 1)
+        self.assertEqual(first_row.issue_reason, "Alarm panel would not arm")
+        self.assertEqual(first_row.issue_reported_at, datetime(2026, 4, 1, 12, 0, 0))
+        self.assertEqual(second_row.completed_at, datetime(2026, 4, 1, 12, 0, 0))
+        self.assertEqual(doc.completed_at, datetime(2026, 4, 1, 12, 0, 0))
 
 
 if __name__ == "__main__":

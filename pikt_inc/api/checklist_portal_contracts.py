@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import AliasChoices, Field, field_validator
+from pydantic import AliasChoices, Field, field_validator, model_validator
 
 from ..services.contracts.common import RequestModel, ResponseModel, clean_str
 from ..services.customer_portal.checklist.models import JobStatus, StepCategory
@@ -40,15 +40,23 @@ class ChecklistPortalUpdateSessionItemRequestApi(RequestModel):
     session_id: str = Field(validation_alias=AliasChoices("session_id", "session"), min_length=1)
     item_key: str = Field(validation_alias=AliasChoices("item_key", "itemKey"), min_length=1)
     completed: bool | None = None
+    issue_reported: bool | None = Field(default=None, validation_alias=AliasChoices("issue_reported", "issueReported"))
+    issue_reason: str | None = Field(default=None, validation_alias=AliasChoices("issue_reason", "issueReason"))
     note: str | None = None
     proof_image: str | None = Field(default=None, validation_alias=AliasChoices("proof_image", "proofImage"))
 
-    @field_validator("session_id", "item_key", "note", "proof_image", mode="before")
+    @field_validator("session_id", "item_key", "issue_reason", "note", "proof_image", mode="before")
     @classmethod
     def clean_strings(cls, value: Any):
         if value is None:
             return None
         return clean_str(value)
+
+    @model_validator(mode="after")
+    def validate_issue_reason(self):
+        if self.issue_reported and not clean_str(self.issue_reason):
+            raise ValueError("Issue reason is required when reporting an issue.")
+        return self
 
 
 class ChecklistPortalCompleteSessionRequestApi(RequestModel):
@@ -61,6 +69,16 @@ class ChecklistPortalCompleteSessionRequestApi(RequestModel):
 
 
 class ChecklistPortalUploadProofRequestApi(RequestModel):
+    session_id: str = Field(validation_alias=AliasChoices("session_id", "session"), min_length=1)
+    item_key: str = Field(validation_alias=AliasChoices("item_key", "itemKey"), min_length=1)
+
+    @field_validator("session_id", "item_key", mode="before")
+    @classmethod
+    def clean_values(cls, value: Any) -> str:
+        return clean_str(value)
+
+
+class ChecklistPortalUploadIssueImageRequestApi(RequestModel):
     session_id: str = Field(validation_alias=AliasChoices("session_id", "session"), min_length=1)
     item_key: str = Field(validation_alias=AliasChoices("item_key", "itemKey"), min_length=1)
 
@@ -124,6 +142,10 @@ class ChecklistPortalSessionItemPayload(ResponseModel):
     is_required: bool
     completed: bool
     completed_at: str | None
+    issue_reported: bool
+    issue_reason: str | None
+    issue_reported_at: str | None
+    issue_image: str | None
     proof_image: str | None
     note: str | None
 

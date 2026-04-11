@@ -562,6 +562,10 @@ class TestWebsiteFixtures(unittest.TestCase):
         self.assertEqual(session_fields["status"]["options"], "in_progress\ncompleted")
         self.assertEqual(session_fields["items"]["options"], "Checklist Session Item")
         self.assertEqual(session_item_fields["proof_image"]["fieldtype"], "Attach Image")
+        self.assertEqual(session_item_fields["issue_reported"]["fieldtype"], "Check")
+        self.assertEqual(session_item_fields["issue_reason"]["fieldtype"], "Small Text")
+        self.assertEqual(session_item_fields["issue_reported_at"]["fieldtype"], "Datetime")
+        self.assertEqual(session_item_fields["issue_image"]["fieldtype"], "Attach Image")
         self.assertEqual(session_item_fields["training_media"]["fieldtype"], "Attach")
         self.assertEqual(session_item_fields["training_media_kind"]["options"], "image\nvideo")
 

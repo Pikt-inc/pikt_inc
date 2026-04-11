@@ -95,6 +95,10 @@ def serialize_checklist_portal_session_item(
         is_required=item.is_required,
         completed=item.completed,
         completed_at=public_temporal_string(item.completed_at) or None,
+        issue_reported=item.issue_reported,
+        issue_reason=item.issue_reason,
+        issue_reported_at=public_temporal_string(item.issue_reported_at) or None,
+        issue_image=item.issue_image_path,
         proof_image=item.proof_image_path,
         note=item.note,
     )

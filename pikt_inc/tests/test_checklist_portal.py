@@ -185,6 +185,10 @@ class FakeChecklistSessionDoc:
                     is_required=item["is_required"],
                     completed=0,
                     completed_at=None,
+                    issue_reported=0,
+                    issue_reason="",
+                    issue_reported_at=None,
+                    issue_image="",
                     note="",
                     proof_image="",
                     training_media=item.get("training_media", ""),
@@ -236,6 +240,10 @@ class FakeChecklistSessionDoc:
                 "is_required": item.is_required,
                 "completed": item.completed,
                 "completed_at": item.completed_at,
+                "issue_reported": getattr(item, "issue_reported", 0),
+                "issue_reason": getattr(item, "issue_reason", ""),
+                "issue_reported_at": getattr(item, "issue_reported_at", None),
+                "issue_image": getattr(item, "issue_image", ""),
                 "note": item.note,
                 "proof_image": item.proof_image,
                 "training_media": getattr(item, "training_media", ""),
@@ -357,6 +365,10 @@ class TestChecklistPortal(TestCase):
                     "is_required": 1,
                     "completed": 0,
                     "completed_at": None,
+                    "issue_reported": 0,
+                    "issue_reason": "",
+                    "issue_reported_at": None,
+                    "issue_image": "",
                     "note": "",
                     "proof_image": "",
                     "training_media": "/files/access-training.jpg",
@@ -410,6 +422,9 @@ class TestChecklistPortal(TestCase):
         self.assertEqual(detail.active_session.items[0].target_duration_seconds, 3)
         self.assertEqual(detail.active_session.items[0].training_media_path, "/files/access-training.jpg")
         self.assertEqual(detail.active_session.items[0].training_media_kind, "image")
+        self.assertFalse(detail.active_session.items[0].issue_reported)
+        self.assertIsNone(detail.active_session.items[0].issue_reason)
+        self.assertIsNone(detail.active_session.items[0].issue_image_path)
 
     def test_api_session_payloads_include_server_now(self):
         expected_server_now = checklist_api_serializers.checklist_server_now_string()
@@ -432,6 +447,9 @@ class TestChecklistPortal(TestCase):
                 "/api/method/pikt_inc.api.checklist_portal.download_checklist_portal_session_item_training_media?session=CS-1&item_key=access_code",
             )
             self.assertEqual(detail["active_session"]["items"][0]["training_media_kind"], "image")
+            self.assertFalse(detail["active_session"]["items"][0]["issue_reported"])
+            self.assertIsNone(detail["active_session"]["items"][0]["issue_reason"])
+            self.assertIsNone(detail["active_session"]["items"][0]["issue_image"])
 
             created = checklist_api.ensure_checklist_portal_session(
                 building="BUILD-1",
@@ -495,6 +513,43 @@ class TestChecklistPortal(TestCase):
 
             completed = cleaner.complete_checklist_session(created.id)
             self.assertEqual(completed.status, "completed")
+
+    def test_session_mutation_flow_supports_issue_reporting(self):
+        with patch.object(cleaner, "require_portal_section", return_value=None), patch.object(
+            cleaner, "require_checklist_work_access", return_value=None
+        ):
+            created = cleaner.ensure_checklist_session("BUILD-1", "2026-04-03")
+
+            issue_mutation = cleaner.update_checklist_session_item(
+                created.id,
+                "access_code",
+                issue_reported=True,
+                issue_reason="Front door keypad was offline",
+            )
+            self.assertTrue(issue_mutation.item.issue_reported)
+            self.assertFalse(issue_mutation.item.completed)
+            self.assertEqual(issue_mutation.item.issue_reason, "Front door keypad was offline")
+
+            uploaded = cleaner.upload_checklist_session_item_issue_image(
+                created.id,
+                "access_code",
+                uploaded=FakeUploadedFile("issue.jpg", b"IMG"),
+            )
+
+            self.assertTrue(uploaded.item.issue_reported)
+            self.assertEqual(uploaded.item.issue_image_path, "/private/files/issue.jpg")
+
+            completed = cleaner.complete_checklist_session(created.id)
+            self.assertEqual(completed.status, "completed")
+
+    def test_api_rejects_blank_issue_reason(self):
+        with self.assertRaisesRegex(Exception, "Issue reason is required"):
+            checklist_api.update_checklist_portal_session_item(
+                session="CS-1",
+                itemKey="access_code",
+                issueReported=True,
+                issueReason="",
+            )
 
     def test_training_media_download_service_uses_scoped_checklist_access(self):
         with patch.object(cleaner, "require_portal_section", return_value=None), patch.object(

@@ -57,6 +57,8 @@ def serialize_customer_portal_session_item(
     item: CustomerPortalSessionItem,
     session_id: str,
 ) -> CustomerPortalClientSessionItemPayload:
+    is_resolved = item.completed or item.issue_reported
+    resolved_at = item.completed_at or item.issue_reported_at
     return CustomerPortalClientSessionItemPayload(
         id=item.id,
         job_session_id=item.job_session_id,
@@ -69,8 +71,8 @@ def serialize_customer_portal_session_item(
         requires_image=item.requires_image,
         allow_notes=item.allow_notes,
         is_required=item.is_required,
-        completed=item.completed,
-        completed_at=public_temporal_string(item.completed_at) or None,
+        completed=is_resolved,
+        completed_at=public_temporal_string(resolved_at) or None,
         proof_image=build_proof_download_url(session_id, item.item_key) if item.proof_image_path else None,
         note=item.note,
     )
