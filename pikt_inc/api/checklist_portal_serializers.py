@@ -6,7 +6,7 @@ from urllib.parse import urlencode
 import frappe
 
 from ..services.contracts.common import clean_str
-from ..services.customer_portal.building.models import CustomerPortalBuilding
+from ..services.customer_portal.building.models import CustomerPortalBuilding, CustomerPortalStorageLocation
 from ..services.customer_portal.checklist.models import ChecklistStep, CustomerPortalSession, CustomerPortalSessionItem
 from ..services.customer_portal.models import ChecklistPortalBuildingDetail, ChecklistSessionItemMutation
 from .checklist_portal_contracts import (
@@ -15,6 +15,7 @@ from .checklist_portal_contracts import (
     ChecklistPortalSessionItemMutationPayload,
     ChecklistPortalSessionItemPayload,
     ChecklistPortalSessionPayload,
+    ChecklistPortalStorageLocationPayload,
     ChecklistPortalStepPayload,
 )
 from .customer_portal_serializers import public_temporal_string
@@ -53,6 +54,23 @@ def serialize_checklist_portal_building(building: CustomerPortalBuilding) -> Che
         current_checklist_template_id=building.current_checklist_template_id,
         created_at=public_temporal_string(building.created_at),
         updated_at=public_temporal_string(building.updated_at),
+    )
+
+
+def serialize_checklist_portal_storage_location(
+    location: CustomerPortalStorageLocation,
+) -> ChecklistPortalStorageLocationPayload:
+    return ChecklistPortalStorageLocationPayload(
+        id=location.id,
+        building_id=location.building_id,
+        name=location.name,
+        location_type=location.location_type,
+        directions=location.directions,
+        notes=location.notes,
+        active=location.active,
+        is_primary=location.is_primary,
+        created_at=public_temporal_string(location.created_at),
+        updated_at=public_temporal_string(location.updated_at),
     )
 
 
@@ -128,6 +146,10 @@ def serialize_checklist_portal_building_detail(
         checklist_template_id=detail.checklist_template_id,
         steps=[serialize_checklist_portal_step(step) for step in detail.steps],
         active_session=serialize_checklist_portal_session(detail.active_session) if detail.active_session else None,
+        storage_locations=[
+            serialize_checklist_portal_storage_location(location)
+            for location in detail.storage_locations
+        ],
     )
 
 

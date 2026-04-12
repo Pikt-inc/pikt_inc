@@ -3,7 +3,7 @@ from __future__ import annotations
 import frappe
 
 from ...contracts.common import clean_str
-from .models import BuildingRecord
+from .models import BuildingRecord, StorageLocationRecord
 
 
 BUILDING_FIELDS = [
@@ -18,6 +18,19 @@ BUILDING_FIELDS = [
     "state",
     "postal_code",
     "site_notes",
+    "creation",
+    "modified",
+]
+
+STORAGE_LOCATION_FIELDS = [
+    "name",
+    "building",
+    "location_name",
+    "location_type",
+    "directions",
+    "notes",
+    "active",
+    "is_primary",
     "creation",
     "modified",
 ]
@@ -62,3 +75,18 @@ def list_customer_buildings(customer_name: str) -> list[BuildingRecord]:
         limit=500,
     )
     return [BuildingRecord.model_validate(row) for row in rows or []]
+
+
+def list_storage_locations(building_name: str) -> list[StorageLocationRecord]:
+    building_name = clean_str(building_name)
+    if not building_name:
+        return []
+
+    rows = frappe.get_all(
+        "Storage Location",
+        filters={"building": building_name},
+        fields=STORAGE_LOCATION_FIELDS,
+        order_by="is_primary desc, active desc, location_name asc",
+        limit=200,
+    )
+    return [StorageLocationRecord.model_validate(row) for row in rows or []]

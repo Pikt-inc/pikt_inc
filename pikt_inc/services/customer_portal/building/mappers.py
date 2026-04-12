@@ -1,6 +1,11 @@
 from __future__ import annotations
 
-from .models import BuildingRecord, CustomerPortalBuilding
+from .models import (
+    BuildingRecord,
+    CustomerPortalBuilding,
+    CustomerPortalStorageLocation,
+    StorageLocationRecord,
+)
 
 
 def compose_building_address(row: BuildingRecord) -> str | None:
@@ -20,6 +25,21 @@ def map_portal_building(row: BuildingRecord) -> CustomerPortalBuilding:
         notes=row.site_notes or None,
         active=row.active,
         current_checklist_template_id=row.current_checklist_template or None,
+        created_at=row.creation or row.modified,
+        updated_at=row.modified or row.creation,
+    )
+
+
+def map_portal_storage_location(row: StorageLocationRecord) -> CustomerPortalStorageLocation:
+    return CustomerPortalStorageLocation(
+        id=row.name,
+        building_id=row.building,
+        name=row.location_name or row.name,
+        location_type=row.location_type or "other",
+        directions=row.directions or None,
+        notes=row.notes or None,
+        active=row.active,
+        is_primary=row.is_primary,
         created_at=row.creation or row.modified,
         updated_at=row.modified or row.creation,
     )

@@ -3,7 +3,7 @@ from __future__ import annotations
 from pydantic import Field
 
 from ..contracts.common import ResponseModel
-from .building.models import CustomerPortalBuilding
+from .building.models import CustomerPortalBuilding, CustomerPortalStorageLocation
 from .checklist.models import ChecklistStep, CustomerPortalSession, CustomerPortalSessionItem
 
 
@@ -27,6 +27,7 @@ class ChecklistPortalBuildingDetail(ResponseModel):
     checklist_template_id: str | None
     steps: list[ChecklistStep]
     active_session: CustomerPortalSession | None
+    storage_locations: list[CustomerPortalStorageLocation] = Field(default_factory=list)
 
 
 class ChecklistSessionItemMutation(ResponseModel):

@@ -3,8 +3,8 @@ from __future__ import annotations
 from .. import building_sop as building_sop_service
 from ..contracts.common import clean_str
 from .account import require_checklist_work_access, require_portal_section
-from .building.mappers import map_portal_building
-from .building.repo import get_building, list_buildings
+from .building.mappers import map_portal_building, map_portal_storage_location
+from .building.repo import get_building, list_buildings, list_storage_locations
 from .checklist.mappers import map_checklist_step, map_portal_session, map_portal_session_item
 from .checklist.repo import get_active_session, get_session_items, get_template_items
 from .checklist.service import (
@@ -60,6 +60,9 @@ def get_checklist_building(building_id: str, service_date: str) -> ChecklistPort
         checklist_template_id=building.current_checklist_template or None,
         steps=steps,
         active_session=active_session_payload,
+        storage_locations=[
+            map_portal_storage_location(row) for row in list_storage_locations(building.name)
+        ],
     )
 
 

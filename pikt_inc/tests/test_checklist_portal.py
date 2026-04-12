@@ -375,6 +375,32 @@ class TestChecklistPortal(TestCase):
                     "training_media_kind": "image",
                 }
             ],
+            "Storage Location_list": [
+                {
+                    "name": "SL-1",
+                    "building": "BUILD-1",
+                    "location_name": "Main Closet",
+                    "location_type": "closet",
+                    "directions": "First floor by the rear stairwell.",
+                    "notes": "Key hangs on the blue hook.",
+                    "active": 1,
+                    "is_primary": 1,
+                    "creation": "2026-03-05 09:00:00",
+                    "modified": "2026-03-06 10:00:00",
+                },
+                {
+                    "name": "SL-2",
+                    "building": "BUILD-1",
+                    "location_name": "Basement Bulk Storage",
+                    "location_type": "basement",
+                    "directions": "Take the freight elevator to B1.",
+                    "notes": "",
+                    "active": 1,
+                    "is_primary": 0,
+                    "creation": "2026-03-05 10:00:00",
+                    "modified": "2026-03-06 10:30:00",
+                },
+            ],
         }
         self.dataset["Building_list"] = [dict(row) for row in self.dataset["Building"].values()]
         self.dataset["Checklist Session_list"] = [dict(row) for row in self.dataset["Checklist Session"].values()]
@@ -425,6 +451,9 @@ class TestChecklistPortal(TestCase):
         self.assertFalse(detail.active_session.items[0].issue_reported)
         self.assertIsNone(detail.active_session.items[0].issue_reason)
         self.assertIsNone(detail.active_session.items[0].issue_image_path)
+        self.assertEqual([location.id for location in detail.storage_locations], ["SL-1", "SL-2"])
+        self.assertTrue(detail.storage_locations[0].is_primary)
+        self.assertEqual(detail.storage_locations[0].name, "Main Closet")
 
     def test_api_session_payloads_include_server_now(self):
         expected_server_now = checklist_api_serializers.checklist_server_now_string()
@@ -450,6 +479,9 @@ class TestChecklistPortal(TestCase):
             self.assertFalse(detail["active_session"]["items"][0]["issue_reported"])
             self.assertIsNone(detail["active_session"]["items"][0]["issue_reason"])
             self.assertIsNone(detail["active_session"]["items"][0]["issue_image"])
+            self.assertEqual(len(detail["storage_locations"]), 2)
+            self.assertEqual(detail["storage_locations"][0]["id"], "SL-1")
+            self.assertEqual(detail["storage_locations"][0]["location_type"], "closet")
 
             created = checklist_api.ensure_checklist_portal_session(
                 building="BUILD-1",
@@ -604,6 +636,20 @@ class TestChecklistPortal(TestCase):
                 )
             ],
             active_session=None,
+            storage_locations=[
+                portal_building.CustomerPortalStorageLocation(
+                    id="SL-1",
+                    building_id="BUILD-1",
+                    name="Main Closet",
+                    location_type="closet",
+                    directions="First floor by the rear stairwell.",
+                    notes="Key hangs on the blue hook.",
+                    active=True,
+                    is_primary=True,
+                    created_at=datetime(2026, 3, 5, 9, 0, 0),
+                    updated_at=datetime(2026, 3, 6, 10, 0, 0),
+                )
+            ],
         )
         payload = checklist_api_serializers.serialize_checklist_portal_building_detail(detail)
         self.assertEqual(payload.building.created_at, "2026-03-01 08:00:00")
@@ -614,6 +660,8 @@ class TestChecklistPortal(TestCase):
             "/api/method/pikt_inc.api.checklist_portal.download_checklist_portal_step_training_media?building=BUILD-1&item_key=access_code",
         )
         self.assertEqual(payload.steps[0].training_media_kind, "video")
+        self.assertEqual(payload.storage_locations[0].id, "SL-1")
+        self.assertTrue(payload.storage_locations[0].is_primary)
 
         with patch.object(
             checklist_api.customer_portal_service,

@@ -63,3 +63,56 @@ class CustomerPortalBuilding(ResponseModel):
     current_checklist_template_id: str | None
     created_at: datetime | None
     updated_at: datetime | None
+
+
+class StorageLocationRecord(ResponseModel):
+    name: str = ""
+    building: str = ""
+    location_name: str = ""
+    location_type: str = ""
+    directions: str = ""
+    notes: str = ""
+    active: bool = False
+    is_primary: bool = False
+    creation: datetime | None = None
+    modified: datetime | None = None
+
+    @field_validator(
+        "name",
+        "building",
+        "location_name",
+        "location_type",
+        "directions",
+        "notes",
+        mode="before",
+    )
+    @classmethod
+    def clean_storage_strings(cls, value: object) -> str:
+        return clean_str(value)
+
+    @field_validator("active", "is_primary", mode="before")
+    @classmethod
+    def normalize_storage_flags(cls, value: object) -> bool:
+        if isinstance(value, bool):
+            return value
+        return truthy(value)
+
+    @field_validator("creation", "modified", mode="before")
+    @classmethod
+    def empty_storage_temporal_to_none(cls, value: object):
+        if value in (None, ""):
+            return None
+        return value
+
+
+class CustomerPortalStorageLocation(ResponseModel):
+    id: str
+    building_id: str
+    name: str
+    location_type: str
+    directions: str | None
+    notes: str | None
+    active: bool
+    is_primary: bool
+    created_at: datetime | None
+    updated_at: datetime | None

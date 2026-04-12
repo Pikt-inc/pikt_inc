@@ -109,6 +109,19 @@ class ChecklistPortalBuildingPayload(ResponseModel):
     updated_at: str
 
 
+class ChecklistPortalStorageLocationPayload(ResponseModel):
+    id: str
+    building_id: str
+    name: str
+    location_type: str
+    directions: str | None
+    notes: str | None
+    active: bool
+    is_primary: bool
+    created_at: str
+    updated_at: str
+
+
 class ChecklistPortalStepPayload(ResponseModel):
     id: str
     building_id: str
@@ -169,6 +182,7 @@ class ChecklistPortalBuildingDetailPayload(ResponseModel):
     checklist_template_id: str | None
     steps: list[ChecklistPortalStepPayload]
     active_session: ChecklistPortalSessionPayload | None
+    storage_locations: list[ChecklistPortalStorageLocationPayload]
 
 
 class ChecklistPortalSessionItemMutationPayload(ResponseModel):
