@@ -185,7 +185,7 @@
     "allow_copy": 0,
     "allow_import": 1,
     "allow_rename": 1,
-    "search_fields": "building,service_date,status",
+    "search_fields": "site_shift_requirement,building,service_date,status",
     "sort_field": "modified",
     "sort_order": "DESC",
     "permissions": [
@@ -203,6 +203,13 @@
       }
     ],
     "fields": [
+      {
+        "fieldname": "site_shift_requirement",
+        "label": "Site Shift Requirement",
+        "fieldtype": "Link",
+        "options": "Site Shift Requirement",
+        "in_list_view": 1
+      },
       {
         "fieldname": "building",
         "label": "Building",

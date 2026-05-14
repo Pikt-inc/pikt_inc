@@ -28,6 +28,7 @@ CHECKLIST_TEMPLATE_ITEM_FIELDS = [
 
 CHECKLIST_SESSION_FIELDS = [
     "name",
+    "site_shift_requirement",
     "building",
     "service_date",
     "checklist_template",
@@ -109,6 +110,7 @@ def get_session(session_name: str) -> ChecklistSessionRecord | None:
 
 def list_sessions(
     *,
+    requirement_names: Sequence[str] | None = None,
     building_names: Sequence[str] | None = None,
     session_name: str = "",
     status: str = "",
@@ -121,6 +123,12 @@ def list_sessions(
 
     if session_name:
         filters.append(["name", "=", session_name])
+
+    if requirement_names is not None:
+        scoped_requirement_names = [clean_str(name) for name in requirement_names if clean_str(name)]
+        if not scoped_requirement_names:
+            return []
+        filters.append(["site_shift_requirement", "in", scoped_requirement_names])
 
     if building_names is not None:
         scoped_building_names = [clean_str(name) for name in building_names if clean_str(name)]
@@ -155,6 +163,15 @@ def get_active_session(building_name: str, service_date) -> ChecklistSessionReco
     return sessions[0] if sessions else None
 
 
+def get_active_session_for_requirement(requirement_name: str) -> ChecklistSessionRecord | None:
+    sessions = list_sessions(
+        requirement_names=[clean_str(requirement_name)],
+        status="in_progress",
+        limit=1,
+    )
+    return sessions[0] if sessions else None
+
+
 def get_session_items(session_name: str) -> list[ChecklistSessionItemRecord]:
     session_name = clean_str(session_name)
     if not session_name:
@@ -169,12 +186,20 @@ def get_session_items(session_name: str) -> list[ChecklistSessionItemRecord]:
     return [ChecklistSessionItemRecord.model_validate(row) for row in rows or []]
 
 
-def create_session(building_name: str, service_date) -> ChecklistSessionRecord:
+def create_session(
+    building_name: str,
+    service_date,
+    *,
+    requirement_name: str = "",
+    worker: str = "",
+) -> ChecklistSessionRecord:
     doc = frappe.get_doc(
         {
             "doctype": "Checklist Session",
+            "site_shift_requirement": clean_str(requirement_name),
             "building": clean_str(building_name),
             "service_date": service_date,
+            "worker": clean_str(worker),
         }
     )
     doc.insert(ignore_permissions=True)

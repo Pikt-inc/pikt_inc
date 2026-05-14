@@ -36,6 +36,16 @@ class ChecklistPortalStepTrainingMediaRequestApi(RequestModel):
         return clean_str(value)
 
 
+class ChecklistPortalAssignedStepTrainingMediaRequestApi(RequestModel):
+    requirement_id: str = Field(validation_alias=AliasChoices("requirement_id", "requirement"), min_length=1)
+    item_key: str = Field(validation_alias=AliasChoices("item_key", "itemKey"), min_length=1)
+
+    @field_validator("requirement_id", "item_key", mode="before")
+    @classmethod
+    def clean_values(cls, value: Any) -> str:
+        return clean_str(value)
+
+
 class ChecklistPortalUpdateSessionItemRequestApi(RequestModel):
     session_id: str = Field(validation_alias=AliasChoices("session_id", "session"), min_length=1)
     item_key: str = Field(validation_alias=AliasChoices("item_key", "itemKey"), min_length=1)
@@ -98,6 +108,29 @@ class ChecklistPortalSessionTrainingMediaRequestApi(RequestModel):
         return clean_str(value)
 
 
+class ChecklistPortalAssignedWorkRequestApi(RequestModel):
+    service_date: str | None = Field(default=None, validation_alias=AliasChoices("service_date", "serviceDate"))
+
+    @field_validator("service_date", mode="before")
+    @classmethod
+    def clean_optional_service_date(cls, value: Any) -> str | None:
+        cleaned = clean_str(value)
+        return cleaned or None
+
+
+class ChecklistPortalAssignedWorkDetailRequestApi(RequestModel):
+    requirement_id: str = Field(validation_alias=AliasChoices("requirement_id", "requirement"), min_length=1)
+
+    @field_validator("requirement_id", mode="before")
+    @classmethod
+    def clean_requirement_id(cls, value: Any) -> str:
+        return clean_str(value)
+
+
+class ChecklistPortalEnsureRequirementSessionRequestApi(ChecklistPortalAssignedWorkDetailRequestApi):
+    pass
+
+
 class ChecklistPortalBuildingPayload(ResponseModel):
     id: str
     name: str
@@ -107,6 +140,34 @@ class ChecklistPortalBuildingPayload(ResponseModel):
     current_checklist_template_id: str | None
     created_at: str
     updated_at: str
+
+
+class ChecklistPortalAssignedWorkProgressSummaryPayload(ResponseModel):
+    total_steps: int
+    resolved_steps: int
+
+
+class ChecklistPortalAssignedWorkPayload(ResponseModel):
+    requirement_id: str
+    building_id: str
+    building_name: str
+    short_address: str | None
+    service_date: str | None
+    shift_type: str | None
+    arrival_window_start: str | None
+    arrival_window_end: str | None
+    status: str
+    checked_in_at: str | None
+    checklist_session_id: str | None
+    progress_summary: ChecklistPortalAssignedWorkProgressSummaryPayload
+    requires_clock_in: bool
+    route_stop_index: int | None = None
+
+
+class ChecklistPortalAssignedWorkQueuePayload(ResponseModel):
+    current_shift: ChecklistPortalAssignedWorkPayload | None = None
+    assigned_work: list[ChecklistPortalAssignedWorkPayload]
+    upcoming_assigned_work: list[ChecklistPortalAssignedWorkPayload]
 
 
 class ChecklistPortalStorageLocationPayload(ResponseModel):
@@ -183,6 +244,19 @@ class ChecklistPortalBuildingDetailPayload(ResponseModel):
     steps: list[ChecklistPortalStepPayload]
     active_session: ChecklistPortalSessionPayload | None
     storage_locations: list[ChecklistPortalStorageLocationPayload]
+
+
+class ChecklistPortalAssignedWorkDetailPayload(ResponseModel):
+    work: ChecklistPortalAssignedWorkPayload
+    building: ChecklistPortalBuildingPayload
+    checklist_template_id: str | None
+    steps: list[ChecklistPortalStepPayload]
+    active_session: ChecklistPortalSessionPayload | None
+    storage_locations: list[ChecklistPortalStorageLocationPayload]
+    access_summary: list[str]
+    alarm_summary: list[str]
+    site_summary: list[str]
+    service_notes: str | None
 
 
 class ChecklistPortalSessionItemMutationPayload(ResponseModel):

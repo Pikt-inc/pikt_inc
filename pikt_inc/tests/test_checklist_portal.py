@@ -86,6 +86,8 @@ def fake_get_all_factory(dataset):
                 return actual == expected
             if operator == "in":
                 return actual in {item for item in expected or []}
+            if operator == ">=":
+                return (actual or "") >= expected
             raise AssertionError(f"Unsupported filter operator in test harness: {operator}")
 
         def matches(row):
@@ -102,7 +104,11 @@ def fake_get_all_factory(dataset):
                 return True
 
             for key, value in filters.items():
-                if row.get(key) != value:
+                if isinstance(value, list) and len(value) == 2:
+                    operator, expected = value
+                    if not matches_operator(row.get(key), str(operator), expected):
+                        return False
+                elif row.get(key) != value:
                     return False
             return True
 
@@ -129,6 +135,7 @@ class FakeChecklistSessionDoc:
         if payload is not None:
             self.doctype = payload.get("doctype")
             self.name = payload.get("name")
+            self.site_shift_requirement = payload.get("site_shift_requirement", "")
             self.building = payload.get("building")
             self.service_date = payload.get("service_date")
             self.checklist_template = payload.get("checklist_template") or dataset["Building"][self.building]["current_checklist_template"]
@@ -144,6 +151,7 @@ class FakeChecklistSessionDoc:
             row = dict(dataset["Checklist Session"][name])
             self.doctype = "Checklist Session"
             self.name = row["name"]
+            self.site_shift_requirement = row.get("site_shift_requirement", "")
             self.building = row["building"]
             self.service_date = row["service_date"]
             self.checklist_template = row["checklist_template"]
@@ -205,6 +213,7 @@ class FakeChecklistSessionDoc:
     def save(self, ignore_permissions=False):
         session_row = {
             "name": self.name,
+            "site_shift_requirement": self.site_shift_requirement,
             "building": self.building,
             "service_date": self.service_date,
             "checklist_template": self.checklist_template,
@@ -290,6 +299,23 @@ class TestChecklistPortal(TestCase):
                     "state": "TX",
                     "postal_code": "78701",
                     "site_notes": "Front entrance only.",
+                    "access_method": "Door code / keypad",
+                    "access_entrance": "Main lobby",
+                    "access_entry_details": "Use 2468 and sign the clipboard.",
+                    "has_alarm_system": "Yes",
+                    "alarm_instructions": "Disarm panel in janitor room.",
+                    "allowed_entry_time": "After 6 PM",
+                    "primary_site_contact": "Jordan Lead",
+                    "lockout_emergency_contact": "555-0100",
+                    "key_fob_handoff_details": "Blue lockbox by side door.",
+                    "areas_to_avoid": "Executive suite during board meetings.",
+                    "closing_instructions": "Lock the rear service hallway.",
+                    "parking_elevator_notes": "Garage level 2, freight elevator only.",
+                    "first_service_notes": "Badge pickup from reception.",
+                    "access_notes": "Do not prop doors open.",
+                    "alarm_notes": "Alarm chirps for 30 seconds after disarm.",
+                    "site_supervisor_name": "Sam Supervisor",
+                    "site_supervisor_phone": "555-0101",
                     "creation": "2026-03-01 08:00:00",
                     "modified": "2026-03-06 12:00:00",
                 },
@@ -305,11 +331,104 @@ class TestChecklistPortal(TestCase):
                     "state": "TX",
                     "postal_code": "78705",
                     "site_notes": "",
+                    "access_method": "Front desk",
+                    "access_entrance": "West lobby",
                     "creation": "2026-03-02 08:00:00",
                     "modified": "2026-03-06 12:00:00",
                 },
             },
+            "Employee_list": [
+                {
+                    "name": "HR-EMP-0001",
+                    "user_id": "cleaner@example.com",
+                    "employee_name": "Jordan Tech",
+                    "company": "Pikt, inc.",
+                    "designation": "Cleaner",
+                    "department": "Operations",
+                    "status": "Active",
+                }
+            ],
             "Building_list": [],
+            "Site Shift Requirement": {
+                "SSR-1": {
+                    "name": "SSR-1",
+                    "building": "BUILD-1",
+                    "service_date": "2026-03-09",
+                    "shift_type": "Evening",
+                    "arrival_window_start": "2026-03-09 18:00:00",
+                    "arrival_window_end": "2026-03-09 19:00:00",
+                    "status": "Assigned",
+                    "checked_in_at": None,
+                    "current_employee": "HR-EMP-0001",
+                    "custom_dispatch_route": "ROUTE-1",
+                    "shift_assignment": "SASSIGN-1",
+                    "completion_status": None,
+                    "service_notes_snapshot": "Focus on lobby and conference rooms.",
+                    "service_timezone": "America/Chicago",
+                    "slot_index": 1,
+                    "creation": "2026-03-08 12:00:00",
+                    "modified": "2026-03-08 12:00:00",
+                },
+                "SSR-2": {
+                    "name": "SSR-2",
+                    "building": "BUILD-1",
+                    "service_date": "2026-03-10",
+                    "shift_type": "Morning",
+                    "arrival_window_start": "2026-03-10 08:00:00",
+                    "arrival_window_end": "2026-03-10 09:00:00",
+                    "status": "Assigned",
+                    "checked_in_at": None,
+                    "current_employee": "HR-EMP-0001",
+                    "custom_dispatch_route": "ROUTE-1",
+                    "shift_assignment": "SASSIGN-2",
+                    "completion_status": None,
+                    "service_notes_snapshot": "Archive wipe down.",
+                    "service_timezone": "America/Chicago",
+                    "slot_index": 2,
+                    "creation": "2026-03-08 12:05:00",
+                    "modified": "2026-03-08 12:05:00",
+                },
+                "SSR-OTHER": {
+                    "name": "SSR-OTHER",
+                    "building": "BUILD-1",
+                    "service_date": "2026-03-11",
+                    "shift_type": "Evening",
+                    "arrival_window_start": "2026-03-11 18:00:00",
+                    "arrival_window_end": "2026-03-11 19:00:00",
+                    "status": "Assigned",
+                    "checked_in_at": None,
+                    "current_employee": "HR-EMP-9999",
+                    "custom_dispatch_route": "ROUTE-2",
+                    "shift_assignment": "SASSIGN-OTHER",
+                    "completion_status": None,
+                    "service_notes_snapshot": "Other cleaner assignment.",
+                    "service_timezone": "America/Chicago",
+                    "slot_index": 1,
+                    "creation": "2026-03-08 12:10:00",
+                    "modified": "2026-03-08 12:10:00",
+                },
+            },
+            "Site Shift Requirement_list": [],
+            "Dispatch Route Stop_list": [
+                {
+                    "parent": "ROUTE-1",
+                    "parenttype": "Dispatch Route",
+                    "site_shift_requirement": "SSR-1",
+                    "stop_index": 1,
+                    "arrival_window_start": "2026-03-09 18:00:00",
+                    "arrival_window_end": "2026-03-09 19:00:00",
+                    "creation": "2026-03-08 13:00:00",
+                },
+                {
+                    "parent": "ROUTE-1",
+                    "parenttype": "Dispatch Route",
+                    "site_shift_requirement": "SSR-2",
+                    "stop_index": 2,
+                    "arrival_window_start": "2026-03-10 08:00:00",
+                    "arrival_window_end": "2026-03-10 09:00:00",
+                    "creation": "2026-03-08 13:05:00",
+                },
+            ],
             "Checklist Template Item_list": [
                 {
                     "name": "TPL-ITEM-1",
@@ -329,11 +448,31 @@ class TestChecklistPortal(TestCase):
                     "active": 1,
                     "training_media": "/files/access-training.jpg",
                     "training_media_kind": "image",
+                },
+                {
+                    "name": "TPL-ITEM-2",
+                    "parent": "CHK-TPL-2",
+                    "parenttype": "Checklist Template",
+                    "parentfield": "items",
+                    "idx": 1,
+                    "item_key": "archive_entry",
+                    "category": "access",
+                    "sort_order": 1,
+                    "title": "Enter archive",
+                    "description": "Check in with the front desk.",
+                    "target_duration_seconds": 2,
+                    "requires_image": 0,
+                    "allow_notes": 1,
+                    "is_required": 1,
+                    "active": 1,
+                    "training_media": "/files/archive-training.jpg",
+                    "training_media_kind": "image",
                 }
             ],
             "Checklist Session": {
                 "CS-1": {
                     "name": "CS-1",
+                    "site_shift_requirement": "SSR-1",
                     "building": "BUILD-1",
                     "service_date": "2026-03-09",
                     "checklist_template": "CHK-TPL-1",
@@ -344,6 +483,34 @@ class TestChecklistPortal(TestCase):
                     "session_notes": "",
                     "creation": "2026-03-09 17:55:00",
                     "modified": "2026-03-09 18:00:00",
+                },
+                "CS-OTHER": {
+                    "name": "CS-OTHER",
+                    "site_shift_requirement": "SSR-OTHER",
+                    "building": "BUILD-1",
+                    "service_date": "2026-03-11",
+                    "checklist_template": "CHK-TPL-1",
+                    "status": "in_progress",
+                    "started_at": "2026-03-11 18:00:00",
+                    "completed_at": None,
+                    "worker": "Other Cleaner",
+                    "session_notes": "",
+                    "creation": "2026-03-11 17:55:00",
+                    "modified": "2026-03-11 18:00:00",
+                },
+                "CS-LEGACY": {
+                    "name": "CS-LEGACY",
+                    "site_shift_requirement": "",
+                    "building": "BUILD-1",
+                    "service_date": "2026-03-12",
+                    "checklist_template": "CHK-TPL-1",
+                    "status": "in_progress",
+                    "started_at": "2026-03-12 18:00:00",
+                    "completed_at": None,
+                    "worker": "Legacy Cleaner",
+                    "session_notes": "",
+                    "creation": "2026-03-12 17:55:00",
+                    "modified": "2026-03-12 18:00:00",
                 }
             },
             "Checklist Session_list": [],
@@ -351,6 +518,58 @@ class TestChecklistPortal(TestCase):
                 {
                     "name": "CSI-1",
                     "parent": "CS-1",
+                    "parenttype": "Checklist Session",
+                    "parentfield": "items",
+                    "idx": 1,
+                    "item_key": "access_code",
+                    "category": "access",
+                    "sort_order": 1,
+                    "title_snapshot": "Enter building",
+                    "description_snapshot": "Use the front code.",
+                    "target_duration_seconds": 3,
+                    "requires_image": 0,
+                    "allow_notes": 1,
+                    "is_required": 1,
+                    "completed": 0,
+                    "completed_at": None,
+                    "issue_reported": 0,
+                    "issue_reason": "",
+                    "issue_reported_at": None,
+                    "issue_image": "",
+                    "note": "",
+                    "proof_image": "",
+                    "training_media": "/files/access-training.jpg",
+                    "training_media_kind": "image",
+                },
+                {
+                    "name": "CSI-OTHER",
+                    "parent": "CS-OTHER",
+                    "parenttype": "Checklist Session",
+                    "parentfield": "items",
+                    "idx": 1,
+                    "item_key": "access_code",
+                    "category": "access",
+                    "sort_order": 1,
+                    "title_snapshot": "Enter building",
+                    "description_snapshot": "Use the front code.",
+                    "target_duration_seconds": 3,
+                    "requires_image": 0,
+                    "allow_notes": 1,
+                    "is_required": 1,
+                    "completed": 1,
+                    "completed_at": "2026-03-11 18:05:00",
+                    "issue_reported": 0,
+                    "issue_reason": "",
+                    "issue_reported_at": None,
+                    "issue_image": "/private/files/issue-other.jpg",
+                    "note": "",
+                    "proof_image": "/private/files/proof-other.jpg",
+                    "training_media": "/files/access-training.jpg",
+                    "training_media_kind": "image",
+                },
+                {
+                    "name": "CSI-LEGACY",
+                    "parent": "CS-LEGACY",
                     "parenttype": "Checklist Session",
                     "parentfield": "items",
                     "idx": 1,
@@ -403,6 +622,9 @@ class TestChecklistPortal(TestCase):
             ],
         }
         self.dataset["Building_list"] = [dict(row) for row in self.dataset["Building"].values()]
+        self.dataset["Site Shift Requirement_list"] = [
+            dict(row) for row in self.dataset["Site Shift Requirement"].values()
+        ]
         self.dataset["Checklist Session_list"] = [dict(row) for row in self.dataset["Checklist Session"].values()]
 
         self.frappe = cleaner.require_portal_section.__globals__["frappe"]
@@ -411,6 +633,7 @@ class TestChecklistPortal(TestCase):
         self.frappe.request = types.SimpleNamespace(data=None, files={})
         self.frappe.local = types.SimpleNamespace(response={}, request=types.SimpleNamespace(get_json=lambda silent=True: None))
         self.frappe.form_dict = {}
+        self.frappe.session = types.SimpleNamespace(user="cleaner@example.com")
 
         def fake_get_doc(*args):
             if len(args) == 1 and isinstance(args[0], dict):
@@ -489,9 +712,8 @@ class TestChecklistPortal(TestCase):
             self.assertEqual(detail["storage_locations"][0]["id"], "SL-1")
             self.assertEqual(detail["storage_locations"][0]["location_type"], "closet")
 
-            created = checklist_api.ensure_checklist_portal_session(
-                building="BUILD-1",
-                serviceDate="2026-04-02",
+            created = checklist_api.ensure_checklist_portal_requirement_session(
+                requirement="SSR-2",
             )
             self.assertEqual(created["server_now"], expected_server_now)
             self.assertEqual(
@@ -554,7 +776,7 @@ class TestChecklistPortal(TestCase):
         ), patch.object(
             cleaner, "require_checklist_work_access", return_value=None
         ):
-            created = cleaner.ensure_checklist_session("BUILD-1", "2026-04-02")
+            created = cleaner.ensure_assigned_work_session("SSR-2")
             self.assertEqual(created.id, "CS-NEW")
             self.assertEqual(created.items[0].item_key, "access_code")
             self.assertEqual(created.items[0].target_duration_seconds, 3)
@@ -587,7 +809,7 @@ class TestChecklistPortal(TestCase):
         ), patch.object(
             cleaner, "require_checklist_work_access", return_value=None
         ):
-            created = cleaner.ensure_checklist_session("BUILD-1", "2026-04-03")
+            created = cleaner.ensure_assigned_work_session("SSR-2")
 
             issue_mutation = cleaner.update_checklist_session_item(
                 created.id,
@@ -628,7 +850,7 @@ class TestChecklistPortal(TestCase):
             "get_proof_file_content",
             return_value=("training.jpg", b"IMG", "image/jpeg"),
         ) as get_proof_file_content:
-            preview_download = cleaner.download_checklist_step_training_media("BUILD-1", "access_code")
+            preview_download = cleaner.download_checklist_assigned_step_training_media("SSR-1", "access_code")
             session_download = cleaner.download_checklist_session_item_training_media("CS-1", "access_code")
 
         self.assertEqual(preview_download.filename, "training.jpg")
@@ -642,6 +864,104 @@ class TestChecklistPortal(TestCase):
                 call("/files/access-training.jpg"),
             ],
         )
+
+    def test_assigned_work_queue_is_scoped_and_preserves_route_order(self):
+        self.dataset["Site Shift Requirement"]["SSR-1B"] = {
+            "name": "SSR-1B",
+            "building": "BUILD-2",
+            "service_date": "2026-03-09",
+            "shift_type": "Evening",
+            "arrival_window_start": "2026-03-09 19:00:00",
+            "arrival_window_end": "2026-03-09 20:00:00",
+            "status": "Assigned",
+            "checked_in_at": None,
+            "current_employee": "HR-EMP-0001",
+            "custom_dispatch_route": "ROUTE-1",
+            "shift_assignment": "SASSIGN-1B",
+            "completion_status": None,
+            "service_notes_snapshot": "Secondary stop.",
+            "service_timezone": "America/Chicago",
+            "slot_index": 3,
+            "creation": "2026-03-08 12:15:00",
+            "modified": "2026-03-08 12:15:00",
+        }
+        self.dataset["Site Shift Requirement_list"] = [
+            dict(row) for row in self.dataset["Site Shift Requirement"].values()
+        ]
+        self.dataset["Dispatch Route Stop_list"].append(
+            {
+                "parent": "ROUTE-1",
+                "parenttype": "Dispatch Route",
+                "site_shift_requirement": "SSR-1B",
+                "stop_index": 2,
+                "arrival_window_start": "2026-03-09 19:00:00",
+                "arrival_window_end": "2026-03-09 20:00:00",
+                "creation": "2026-03-08 13:10:00",
+            }
+        )
+
+        with patch.object(cleaner, "require_portal_section", return_value=None), patch.object(
+            cleaner,
+            "get_account_summary",
+            return_value=types.SimpleNamespace(
+                can_clock=True,
+                clock_state=types.SimpleNamespace(status="clocked_in"),
+            ),
+        ):
+            queue = cleaner.get_assigned_work_queue(service_date="2026-03-09")
+
+        self.assertEqual(queue.current_shift.requirement_id, "SSR-1")
+        self.assertEqual([row.requirement_id for row in queue.assigned_work], ["SSR-1B"])
+        self.assertEqual([row.requirement_id for row in queue.upcoming_assigned_work], ["SSR-2"])
+        self.assertEqual(queue.assigned_work[0].route_stop_index, 2)
+        self.assertEqual(queue.current_shift.progress_summary.total_steps, 1)
+        self.assertEqual(queue.current_shift.progress_summary.resolved_steps, 0)
+
+    def test_assigned_work_detail_returns_requirement_scoped_payload(self):
+        with patch.object(cleaner, "require_portal_section", return_value=None), patch.object(
+            cleaner,
+            "get_account_summary",
+            return_value=types.SimpleNamespace(
+                can_clock=True,
+                clock_state=types.SimpleNamespace(status="clocked_in"),
+            ),
+        ):
+            detail = cleaner.get_assigned_work_detail("SSR-1")
+            payload = checklist_api.get_checklist_portal_assigned_work_detail(requirement="SSR-1")
+
+        self.assertEqual(detail.work.requirement_id, "SSR-1")
+        self.assertEqual(detail.active_session.id, "CS-1")
+        self.assertTrue(any("Access method:" in line for line in detail.access_summary))
+        self.assertEqual(detail.service_notes, "Focus on lobby and conference rooms.")
+        self.assertEqual(payload["work"]["requirement_id"], "SSR-1")
+        self.assertEqual(
+            payload["steps"][0]["training_media"],
+            "/api/method/pikt_inc.api.checklist_portal.download_checklist_portal_assigned_step_training_media?requirement=SSR-1&item_key=access_code",
+        )
+
+    def test_requirement_session_creation_stamps_requirement_and_worker(self):
+        with patch.object(cleaner, "require_portal_section", return_value=None), patch.object(
+            cleaner, "require_checklist_work_access", return_value=None
+        ):
+            created = cleaner.ensure_assigned_work_session("SSR-2")
+
+        self.assertEqual(created.id, "CS-NEW")
+        self.assertEqual(self.dataset["Checklist Session"]["CS-NEW"]["site_shift_requirement"], "SSR-2")
+        self.assertEqual(self.dataset["Checklist Session"]["CS-NEW"]["building"], "BUILD-1")
+        self.assertEqual(self.dataset["Checklist Session"]["CS-NEW"]["worker"], "HR-EMP-0001")
+
+    def test_scoped_proof_and_issue_downloads_reject_out_of_scope_requirement(self):
+        with patch.object(cleaner, "require_portal_section", return_value=None):
+            with self.assertRaisesRegex(Exception, "not available in this checklist"):
+                cleaner.download_checklist_session_item_proof_file("CS-OTHER", "access_code")
+
+            with self.assertRaisesRegex(Exception, "not available in this checklist"):
+                cleaner.download_checklist_session_item_issue_image_file("CS-OTHER", "access_code")
+
+    def test_legacy_session_without_requirement_is_not_available_after_cutover(self):
+        with patch.object(cleaner, "require_portal_section", return_value=None):
+            with self.assertRaisesRegex(Exception, "not available in this portal"):
+                cleaner.download_checklist_session_item_training_media("CS-LEGACY", "access_code")
 
     def test_api_serializers_and_wrappers_preserve_public_shape(self):
         detail = portal.ChecklistPortalBuildingDetail(
@@ -742,6 +1062,25 @@ class TestChecklistPortal(TestCase):
         self.assertEqual(checklist_api.frappe.local.response["type"], "download")
         self.assertEqual(checklist_api.frappe.local.response["content_type"], "image/jpeg")
         self.assertEqual(checklist_api.frappe.local.response["display_content_as"], "inline")
+
+        with patch.object(
+            checklist_api.customer_portal_service,
+            "download_checklist_assigned_step_training_media",
+            return_value=portal.PortalMediaContent(
+                filename="assigned-training.jpg",
+                content=b"IMG",
+                content_type="image/jpeg",
+                display_content_as="inline",
+            ),
+        ) as download_assigned_step_training_media:
+            result = checklist_api.download_checklist_portal_assigned_step_training_media(
+                requirement="SSR-1",
+                item_key="access_code",
+            )
+
+        self.assertIsNone(result)
+        self.assertEqual(download_assigned_step_training_media.call_args.args, ("SSR-1", "access_code"))
+        self.assertEqual(checklist_api.frappe.local.response["filename"], "assigned-training.jpg")
 
         with patch.object(
             checklist_api.customer_portal_service,

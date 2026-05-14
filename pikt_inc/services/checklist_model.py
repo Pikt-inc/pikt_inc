@@ -268,14 +268,25 @@ def sync_active_checklist_template(doc) -> None:
     frappe.db.set_value(BUILDING_DOCTYPE, building_name, BUILDING_CURRENT_TEMPLATE_FIELD, replacement_name or None)
 
 
-def _active_session_exists(building_name: str, service_date, current_name: str = "") -> str:
+def _active_session_exists(
+    building_name: str,
+    service_date,
+    current_name: str = "",
+    requirement_name: str = "",
+) -> str:
+    requirement_name = clean(requirement_name)
+    filters = {
+        "status": SESSION_STATUS_IN_PROGRESS,
+    }
+    if requirement_name:
+        filters["site_shift_requirement"] = requirement_name
+    else:
+        filters["building"] = clean(building_name)
+        filters["service_date"] = service_date
+
     rows = frappe.get_all(
         CHECKLIST_SESSION_DOCTYPE,
-        filters={
-            "building": clean(building_name),
-            "service_date": service_date,
-            "status": SESSION_STATUS_IN_PROGRESS,
-        },
+        filters=filters,
         fields=["name"],
         order_by="started_at desc, creation desc",
         limit=20,
@@ -369,6 +380,7 @@ def prepare_checklist_session_for_insert(doc) -> None:
         building_name,
         service_date,
         clean(_field_value(doc, "name")),
+        clean(_field_value(doc, "site_shift_requirement")),
     ):
         frappe.throw("Only one in-progress Checklist Session is allowed per building and service date.")
 
@@ -400,6 +412,7 @@ def validate_checklist_session(doc) -> None:
         building_name,
         service_date,
         current_name,
+        clean(_field_value(doc, "site_shift_requirement")),
     ):
         frappe.throw("Only one in-progress Checklist Session is allowed per building and service date.")
 

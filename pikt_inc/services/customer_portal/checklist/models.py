@@ -66,6 +66,7 @@ class ChecklistTemplateItemRecord(ResponseModel):
 
 class ChecklistSessionRecord(ResponseModel):
     name: str = ""
+    site_shift_requirement: str = ""
     building: str = ""
     service_date: date | None = None
     checklist_template: str = ""
@@ -77,7 +78,16 @@ class ChecklistSessionRecord(ResponseModel):
     creation: datetime | None = None
     modified: datetime | None = None
 
-    @field_validator("name", "building", "checklist_template", "status", "worker", "session_notes", mode="before")
+    @field_validator(
+        "name",
+        "site_shift_requirement",
+        "building",
+        "checklist_template",
+        "status",
+        "worker",
+        "session_notes",
+        mode="before",
+    )
     @classmethod
     def clean_strings(cls, value: object) -> str:
         return clean_str(value)

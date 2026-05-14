@@ -24,6 +24,26 @@ BUILDING_FIELDS = [
     "modified",
 ]
 
+BUILDING_CONTEXT_FIELDS = BUILDING_FIELDS + [
+    "access_method",
+    "access_entrance",
+    "access_entry_details",
+    "has_alarm_system",
+    "alarm_instructions",
+    "allowed_entry_time",
+    "primary_site_contact",
+    "lockout_emergency_contact",
+    "key_fob_handoff_details",
+    "areas_to_avoid",
+    "closing_instructions",
+    "parking_elevator_notes",
+    "first_service_notes",
+    "access_notes",
+    "alarm_notes",
+    "site_supervisor_name",
+    "site_supervisor_phone",
+]
+
 STORAGE_LOCATION_FIELDS = [
     "name",
     "building",
@@ -46,6 +66,13 @@ def get_building(building_name: str) -> BuildingRecord | None:
     if not row:
         return None
     return BuildingRecord.model_validate(row)
+
+
+def get_building_context(building_name: str) -> dict | None:
+    building_name = clean_str(building_name)
+    if not building_name:
+        return None
+    return frappe.db.get_value("Building", building_name, BUILDING_CONTEXT_FIELDS, as_dict=True)
 
 
 def list_buildings(

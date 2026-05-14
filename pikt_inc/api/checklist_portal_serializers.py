@@ -10,6 +10,10 @@ from ..services.customer_portal.building.models import CustomerPortalBuilding, C
 from ..services.customer_portal.checklist.models import ChecklistStep, CustomerPortalSession, CustomerPortalSessionItem
 from ..services.customer_portal.models import ChecklistPortalBuildingDetail, ChecklistSessionItemMutation
 from .checklist_portal_contracts import (
+    ChecklistPortalAssignedWorkDetailPayload,
+    ChecklistPortalAssignedWorkPayload,
+    ChecklistPortalAssignedWorkProgressSummaryPayload,
+    ChecklistPortalAssignedWorkQueuePayload,
     ChecklistPortalBuildingDetailPayload,
     ChecklistPortalBuildingPayload,
     ChecklistPortalSessionItemMutationPayload,
@@ -37,6 +41,11 @@ def checklist_server_now_string() -> str | None:
 def build_checklist_step_training_media_download_url(building_id: str, item_key: str) -> str:
     query = urlencode({"building": clean_str(building_id), "item_key": clean_str(item_key)})
     return f"/api/method/pikt_inc.api.checklist_portal.download_checklist_portal_step_training_media?{query}"
+
+
+def build_checklist_assigned_step_training_media_download_url(requirement_id: str, item_key: str) -> str:
+    query = urlencode({"requirement": clean_str(requirement_id), "item_key": clean_str(item_key)})
+    return f"/api/method/pikt_inc.api.checklist_portal.download_checklist_portal_assigned_step_training_media?{query}"
 
 
 def build_checklist_session_item_training_media_download_url(session_id: str, item_key: str) -> str:
@@ -67,6 +76,40 @@ def serialize_checklist_portal_building(building: CustomerPortalBuilding) -> Che
     )
 
 
+def serialize_checklist_portal_assigned_work_progress_summary(progress) -> ChecklistPortalAssignedWorkProgressSummaryPayload:
+    return ChecklistPortalAssignedWorkProgressSummaryPayload(
+        total_steps=progress.total_steps,
+        resolved_steps=progress.resolved_steps,
+    )
+
+
+def serialize_checklist_portal_assigned_work(work) -> ChecklistPortalAssignedWorkPayload:
+    return ChecklistPortalAssignedWorkPayload(
+        requirement_id=work.requirement_id,
+        building_id=work.building_id,
+        building_name=work.building_name,
+        short_address=work.short_address,
+        service_date=public_temporal_string(work.service_date) or None,
+        shift_type=work.shift_type,
+        arrival_window_start=public_temporal_string(work.arrival_window_start) or None,
+        arrival_window_end=public_temporal_string(work.arrival_window_end) or None,
+        status=work.status,
+        checked_in_at=public_temporal_string(work.checked_in_at) or None,
+        checklist_session_id=work.checklist_session_id,
+        progress_summary=serialize_checklist_portal_assigned_work_progress_summary(work.progress_summary),
+        requires_clock_in=work.requires_clock_in,
+        route_stop_index=work.route_stop_index,
+    )
+
+
+def serialize_checklist_portal_assigned_work_queue(queue) -> ChecklistPortalAssignedWorkQueuePayload:
+    return ChecklistPortalAssignedWorkQueuePayload(
+        current_shift=serialize_checklist_portal_assigned_work(queue.current_shift) if queue.current_shift else None,
+        assigned_work=[serialize_checklist_portal_assigned_work(work) for work in queue.assigned_work],
+        upcoming_assigned_work=[serialize_checklist_portal_assigned_work(work) for work in queue.upcoming_assigned_work],
+    )
+
+
 def serialize_checklist_portal_storage_location(
     location: CustomerPortalStorageLocation,
 ) -> ChecklistPortalStorageLocationPayload:
@@ -84,7 +127,11 @@ def serialize_checklist_portal_storage_location(
     )
 
 
-def serialize_checklist_portal_step(step: ChecklistStep) -> ChecklistPortalStepPayload:
+def serialize_checklist_portal_step(
+    step: ChecklistStep,
+    *,
+    requirement_id: str | None = None,
+) -> ChecklistPortalStepPayload:
     return ChecklistPortalStepPayload(
         id=step.id,
         building_id=step.building_id,
@@ -94,7 +141,13 @@ def serialize_checklist_portal_step(step: ChecklistStep) -> ChecklistPortalStepP
         title=step.title,
         description=step.description,
         target_duration_seconds=step.target_duration_seconds,
-        training_media=build_checklist_step_training_media_download_url(step.building_id, step.id) if step.training_media_path else None,
+        training_media=(
+            build_checklist_assigned_step_training_media_download_url(requirement_id, step.id)
+            if requirement_id and step.training_media_path
+            else build_checklist_step_training_media_download_url(step.building_id, step.id)
+            if step.training_media_path
+            else None
+        ),
         training_media_kind=step.training_media_kind,
         requires_image=step.requires_image,
         allow_notes=step.allow_notes,
@@ -168,6 +221,27 @@ def serialize_checklist_portal_building_detail(
             serialize_checklist_portal_storage_location(location)
             for location in detail.storage_locations
         ],
+    )
+
+
+def serialize_checklist_portal_assigned_work_detail(detail) -> ChecklistPortalAssignedWorkDetailPayload:
+    return ChecklistPortalAssignedWorkDetailPayload(
+        work=serialize_checklist_portal_assigned_work(detail.work),
+        building=serialize_checklist_portal_building(detail.building),
+        checklist_template_id=detail.checklist_template_id,
+        steps=[
+            serialize_checklist_portal_step(step, requirement_id=detail.work.requirement_id)
+            for step in detail.steps
+        ],
+        active_session=serialize_checklist_portal_session(detail.active_session) if detail.active_session else None,
+        storage_locations=[
+            serialize_checklist_portal_storage_location(location)
+            for location in detail.storage_locations
+        ],
+        access_summary=list(detail.access_summary),
+        alarm_summary=list(detail.alarm_summary),
+        site_summary=list(detail.site_summary),
+        service_notes=detail.service_notes,
     )
 
 

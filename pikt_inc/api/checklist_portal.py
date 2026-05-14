@@ -5,9 +5,13 @@ from pydantic import ValidationError
 
 from ._request_payload import collect_request_payload
 from .checklist_portal_contracts import (
+    ChecklistPortalAssignedStepTrainingMediaRequestApi,
+    ChecklistPortalAssignedWorkDetailRequestApi,
+    ChecklistPortalAssignedWorkRequestApi,
     ChecklistPortalBuildingRequestApi,
     ChecklistPortalBuildingsRequestApi,
     ChecklistPortalCompleteSessionRequestApi,
+    ChecklistPortalEnsureRequirementSessionRequestApi,
     ChecklistPortalEnsureSessionRequestApi,
     ChecklistPortalSessionTrainingMediaRequestApi,
     ChecklistPortalStepTrainingMediaRequestApi,
@@ -16,6 +20,8 @@ from .checklist_portal_contracts import (
     ChecklistPortalUploadProofRequestApi,
 )
 from .checklist_portal_serializers import (
+    serialize_checklist_portal_assigned_work_detail,
+    serialize_checklist_portal_assigned_work_queue,
     serialize_checklist_portal_building,
     serialize_checklist_portal_building_detail,
     serialize_checklist_portal_session,
@@ -67,6 +73,34 @@ def get_checklist_portal_buildings(activeOnly=None, **kwargs):
 
 
 @frappe.whitelist()
+def get_checklist_portal_assigned_work(serviceDate=None, **kwargs):
+    payload = _payload(kwargs)
+    if serviceDate is not None:
+        payload["serviceDate"] = serviceDate
+    request = _validate_request(ChecklistPortalAssignedWorkRequestApi, payload)
+    try:
+        response = customer_portal_service.get_assigned_work_queue(service_date=request.service_date)
+    except Exception as exc:
+        _raise_portal_error(exc)
+        raise
+    return serialize_checklist_portal_assigned_work_queue(response).model_dump(mode="python")
+
+
+@frappe.whitelist()
+def get_checklist_portal_assigned_work_detail(requirement=None, **kwargs):
+    payload = _payload(kwargs)
+    if requirement is not None:
+        payload["requirement"] = requirement
+    request = _validate_request(ChecklistPortalAssignedWorkDetailRequestApi, payload)
+    try:
+        response = customer_portal_service.get_assigned_work_detail(request.requirement_id)
+    except Exception as exc:
+        _raise_portal_error(exc)
+        raise
+    return serialize_checklist_portal_assigned_work_detail(response).model_dump(mode="python")
+
+
+@frappe.whitelist()
 def get_checklist_portal_building(building=None, serviceDate=None, **kwargs):
     payload = _payload(kwargs)
     if building is not None:
@@ -103,6 +137,26 @@ def download_checklist_portal_step_training_media(building=None, item_key=None, 
 
 
 @frappe.whitelist()
+def download_checklist_portal_assigned_step_training_media(requirement=None, item_key=None, **kwargs):
+    payload = _payload(kwargs)
+    if requirement is not None:
+        payload["requirement"] = requirement
+    if item_key is not None:
+        payload["item_key"] = item_key
+    request = _validate_request(ChecklistPortalAssignedStepTrainingMediaRequestApi, payload)
+    try:
+        response = customer_portal_service.download_checklist_assigned_step_training_media(
+            request.requirement_id,
+            request.item_key,
+        )
+    except Exception as exc:
+        _raise_portal_error(exc)
+        raise
+    apply_customer_portal_inline_media_response(response)
+    return None
+
+
+@frappe.whitelist()
 def ensure_checklist_portal_session(building=None, serviceDate=None, **kwargs):
     payload = _payload(kwargs)
     if building is not None:
@@ -112,6 +166,20 @@ def ensure_checklist_portal_session(building=None, serviceDate=None, **kwargs):
     request = _validate_request(ChecklistPortalEnsureSessionRequestApi, payload)
     try:
         response = customer_portal_service.ensure_checklist_session(request.building_id, request.service_date)
+    except Exception as exc:
+        _raise_portal_error(exc)
+        raise
+    return serialize_checklist_portal_session(response).model_dump(mode="python")
+
+
+@frappe.whitelist()
+def ensure_checklist_portal_requirement_session(requirement=None, **kwargs):
+    payload = _payload(kwargs)
+    if requirement is not None:
+        payload["requirement"] = requirement
+    request = _validate_request(ChecklistPortalEnsureRequirementSessionRequestApi, payload)
+    try:
+        response = customer_portal_service.ensure_assigned_work_session(request.requirement_id)
     except Exception as exc:
         _raise_portal_error(exc)
         raise
