@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from .cleaner import (
     complete_checklist_session,
+    download_checklist_session_item_issue_image_file,
+    download_checklist_session_item_proof_file,
     download_checklist_session_item_training_media,
     download_checklist_step_training_media,
     ensure_checklist_session,
@@ -33,6 +35,8 @@ __all__ = [
     "ChecklistSessionItemMutation",
     "ProofFileContent",
     "download_client_job_proof",
+    "download_checklist_session_item_issue_image_file",
+    "download_checklist_session_item_proof_file",
     "get_client_building",
     "get_client_job",
     "get_client_overview",
@@ -41,5 +45,6 @@ __all__ = [
     "get_checklist_building",
     "list_checklist_buildings",
     "update_checklist_session_item",
+    "upload_checklist_session_item_issue_image",
     "upload_checklist_session_item_proof",
 ]

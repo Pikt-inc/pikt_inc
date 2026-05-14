@@ -3,6 +3,8 @@ from __future__ import annotations
 import frappe
 
 from ...contracts.common import clean_str
+
+SITE_SHIFT_REQUIREMENT_BUILDING_FIELDS = ["building"]
 from .models import BuildingRecord, StorageLocationRecord
 
 
@@ -46,12 +48,21 @@ def get_building(building_name: str) -> BuildingRecord | None:
     return BuildingRecord.model_validate(row)
 
 
-def list_buildings(*, active_only: bool | None = None) -> list[BuildingRecord]:
+def list_buildings(
+    *, active_only: bool | None = None, building_names: list[str] | None = None
+) -> list[BuildingRecord]:
     filters: dict[str, object] | None = None
     if active_only is True:
         filters = {"active": 1}
     elif active_only is False:
         filters = {"active": 0}
+
+    if building_names is not None:
+        scoped_building_names = [clean_str(name) for name in building_names if clean_str(name)]
+        if not scoped_building_names:
+            return []
+        filters = dict(filters or {})
+        filters["name"] = ["in", scoped_building_names]
 
     rows = frappe.get_all(
         "Building",
@@ -61,6 +72,33 @@ def list_buildings(*, active_only: bool | None = None) -> list[BuildingRecord]:
         limit=500,
     )
     return [BuildingRecord.model_validate(row) for row in rows or []]
+
+
+def list_assigned_building_names_for_employee(employee_name: str, service_date) -> list[str]:
+    employee_name = clean_str(employee_name)
+    if not employee_name or service_date in (None, ""):
+        return []
+
+    rows = frappe.get_all(
+        "Site Shift Requirement",
+        filters={
+            "current_employee": employee_name,
+            "service_date": service_date,
+        },
+        fields=SITE_SHIFT_REQUIREMENT_BUILDING_FIELDS,
+        order_by="creation asc",
+        limit=500,
+    )
+
+    seen: set[str] = set()
+    building_names: list[str] = []
+    for row in rows or []:
+        building_name = clean_str((row or {}).get("building"))
+        if building_name and building_name not in seen:
+            seen.add(building_name)
+            building_names.append(building_name)
+
+    return building_names
 
 
 def list_customer_buildings(customer_name: str) -> list[BuildingRecord]:

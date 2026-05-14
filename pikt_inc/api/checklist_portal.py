@@ -216,3 +216,43 @@ def download_checklist_portal_session_item_training_media(session=None, item_key
         raise
     apply_customer_portal_inline_media_response(response)
     return None
+
+
+@frappe.whitelist()
+def download_checklist_portal_session_item_proof(session=None, item_key=None, **kwargs):
+    payload = _payload(kwargs)
+    if session is not None:
+        payload["session"] = session
+    if item_key is not None:
+        payload["item_key"] = item_key
+    request = _validate_request(ChecklistPortalSessionTrainingMediaRequestApi, payload)
+    try:
+        response = customer_portal_service.download_checklist_session_item_proof_file(
+            request.session_id,
+            request.item_key,
+        )
+    except Exception as exc:
+        _raise_portal_error(exc)
+        raise
+    apply_customer_portal_inline_media_response(response)
+    return None
+
+
+@frappe.whitelist()
+def download_checklist_portal_session_item_issue_image(session=None, item_key=None, **kwargs):
+    payload = _payload(kwargs)
+    if session is not None:
+        payload["session"] = session
+    if item_key is not None:
+        payload["item_key"] = item_key
+    request = _validate_request(ChecklistPortalSessionTrainingMediaRequestApi, payload)
+    try:
+        response = customer_portal_service.download_checklist_session_item_issue_image_file(
+            request.session_id,
+            request.item_key,
+        )
+    except Exception as exc:
+        _raise_portal_error(exc)
+        raise
+    apply_customer_portal_inline_media_response(response)
+    return None

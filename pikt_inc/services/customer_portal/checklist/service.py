@@ -4,8 +4,10 @@ from typing import Any
 
 import frappe
 
+from ... import building_sop as building_sop_service
 from ...contracts.common import clean_str
 from ..errors import CustomerPortalNotFoundError
+from ..models import PortalMediaContent
 from . import repo
 from .models import ChecklistSessionItemRecord, ChecklistSessionRecord
 
@@ -144,4 +146,32 @@ def upload_session_item_issue_image(session_name: str, item_key: str, uploaded=N
         session_name,
         item_key,
         issue_image=clean_str(file_doc.file_url),
+    )
+
+
+def download_session_item_proof(session_name: str, item_key: str) -> PortalMediaContent:
+    item = require_session_item(session_name, item_key)
+    if not item.proof_image:
+        raise CustomerPortalNotFoundError("No proof photo is attached to this checklist item.")
+
+    file_name, content, content_type = building_sop_service.get_proof_file_content(item.proof_image)
+    return PortalMediaContent(
+        filename=clean_str(file_name),
+        content=content,
+        content_type=clean_str(content_type) or "application/octet-stream",
+        display_content_as="inline",
+    )
+
+
+def download_session_item_issue_image(session_name: str, item_key: str) -> PortalMediaContent:
+    item = require_session_item(session_name, item_key)
+    if not item.issue_image:
+        raise CustomerPortalNotFoundError("No issue photo is attached to this checklist item.")
+
+    file_name, content, content_type = building_sop_service.get_proof_file_content(item.issue_image)
+    return PortalMediaContent(
+        filename=clean_str(file_name),
+        content=content,
+        content_type=clean_str(content_type) or "application/octet-stream",
+        display_content_as="inline",
     )

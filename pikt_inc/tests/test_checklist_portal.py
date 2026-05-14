@@ -426,14 +426,18 @@ class TestChecklistPortal(TestCase):
         self.frappe.get_doc = fake_get_doc
 
     def test_list_checklist_buildings_returns_active_only_by_default(self):
-        with patch.object(cleaner, "require_portal_section", return_value=None):
+        with patch.object(cleaner, "require_portal_section", return_value=None), patch.object(
+            cleaner, "_get_assigned_building_names", return_value=["BUILD-1"]
+        ):
             buildings = cleaner.list_checklist_buildings(active_only=True)
 
         self.assertEqual([building.id for building in buildings], ["BUILD-1"])
         self.assertEqual(buildings[0].address, "123 Market St, Suite 300, Austin, TX 78701")
 
     def test_get_checklist_building_returns_steps_and_active_session(self):
-        with patch.object(cleaner, "require_portal_section", return_value=None):
+        with patch.object(cleaner, "require_portal_section", return_value=None), patch.object(
+            cleaner, "_get_assigned_building_names", return_value=["BUILD-1"]
+        ):
             detail = cleaner.get_checklist_building("BUILD-1", "2026-03-09")
 
         self.assertEqual(detail.building.id, "BUILD-1")
@@ -459,6 +463,8 @@ class TestChecklistPortal(TestCase):
         expected_server_now = checklist_api_serializers.checklist_server_now_string()
 
         with patch.object(cleaner, "require_portal_section", return_value=None), patch.object(
+            cleaner, "_get_assigned_building_names", return_value=["BUILD-1"]
+        ), patch.object(
             cleaner, "require_checklist_work_access", return_value=None
         ):
             detail = checklist_api.get_checklist_portal_building(
@@ -511,12 +517,41 @@ class TestChecklistPortal(TestCase):
                     itemKey="access_code",
                 )
             self.assertEqual(uploaded["session"]["server_now"], expected_server_now)
+            self.assertEqual(
+                uploaded["item"]["proof_image"],
+                "/api/method/pikt_inc.api.checklist_portal.download_checklist_portal_session_item_proof?session=CS-NEW&item_key=access_code",
+            )
+
+            issue_updated = checklist_api.update_checklist_portal_session_item(
+                session=created["id"],
+                itemKey="access_code",
+                issueReported=True,
+                issueReason="Blocked entrance",
+            )
+
+            with patch.object(
+                checklist_api,
+                "_request_file",
+                return_value=FakeUploadedFile("issue.jpg", b"IMG"),
+            ):
+                issue_uploaded = checklist_api.upload_checklist_portal_session_item_issue_image(
+                    session=created["id"],
+                    itemKey="access_code",
+                )
+
+            self.assertEqual(issue_updated["session"]["server_now"], expected_server_now)
+            self.assertEqual(
+                issue_uploaded["item"]["issue_image"],
+                "/api/method/pikt_inc.api.checklist_portal.download_checklist_portal_session_item_issue_image?session=CS-NEW&item_key=access_code",
+            )
 
             completed = checklist_api.complete_checklist_portal_session(session=created["id"])
             self.assertEqual(completed["server_now"], expected_server_now)
 
     def test_session_mutation_flow_runs_through_cleaner_service(self):
         with patch.object(cleaner, "require_portal_section", return_value=None), patch.object(
+            cleaner, "_get_assigned_building_names", return_value=["BUILD-1"]
+        ), patch.object(
             cleaner, "require_checklist_work_access", return_value=None
         ):
             created = cleaner.ensure_checklist_session("BUILD-1", "2026-04-02")
@@ -548,6 +583,8 @@ class TestChecklistPortal(TestCase):
 
     def test_session_mutation_flow_supports_issue_reporting(self):
         with patch.object(cleaner, "require_portal_section", return_value=None), patch.object(
+            cleaner, "_get_assigned_building_names", return_value=["BUILD-1"]
+        ), patch.object(
             cleaner, "require_checklist_work_access", return_value=None
         ):
             created = cleaner.ensure_checklist_session("BUILD-1", "2026-04-03")
@@ -585,6 +622,8 @@ class TestChecklistPortal(TestCase):
 
     def test_training_media_download_service_uses_scoped_checklist_access(self):
         with patch.object(cleaner, "require_portal_section", return_value=None), patch.object(
+            cleaner, "_get_assigned_building_names", return_value=["BUILD-1"]
+        ), patch.object(
             cleaner.building_sop_service,
             "get_proof_file_content",
             return_value=("training.jpg", b"IMG", "image/jpeg"),
@@ -725,6 +764,44 @@ class TestChecklistPortal(TestCase):
         self.assertEqual(checklist_api.frappe.local.response["type"], "download")
         self.assertEqual(checklist_api.frappe.local.response["content_type"], "video/webm")
         self.assertEqual(checklist_api.frappe.local.response["display_content_as"], "inline")
+
+        with patch.object(
+            checklist_api.customer_portal_service,
+            "download_checklist_session_item_proof_file",
+            return_value=portal.PortalMediaContent(
+                filename="proof.jpg",
+                content=b"IMG",
+                content_type="image/jpeg",
+                display_content_as="inline",
+            ),
+        ) as download_session_proof:
+            result = checklist_api.download_checklist_portal_session_item_proof(
+                session="CS-1",
+                item_key="access_code",
+            )
+
+        self.assertIsNone(result)
+        self.assertEqual(download_session_proof.call_args.args, ("CS-1", "access_code"))
+        self.assertEqual(checklist_api.frappe.local.response["filename"], "proof.jpg")
+
+        with patch.object(
+            checklist_api.customer_portal_service,
+            "download_checklist_session_item_issue_image_file",
+            return_value=portal.PortalMediaContent(
+                filename="issue.jpg",
+                content=b"IMG",
+                content_type="image/jpeg",
+                display_content_as="inline",
+            ),
+        ) as download_session_issue_image:
+            result = checklist_api.download_checklist_portal_session_item_issue_image(
+                session="CS-1",
+                item_key="access_code",
+            )
+
+        self.assertIsNone(result)
+        self.assertEqual(download_session_issue_image.call_args.args, ("CS-1", "access_code"))
+        self.assertEqual(checklist_api.frappe.local.response["filename"], "issue.jpg")
 
 
 if __name__ == "__main__":

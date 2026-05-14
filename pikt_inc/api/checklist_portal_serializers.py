@@ -44,6 +44,16 @@ def build_checklist_session_item_training_media_download_url(session_id: str, it
     return f"/api/method/pikt_inc.api.checklist_portal.download_checklist_portal_session_item_training_media?{query}"
 
 
+def build_checklist_session_item_proof_download_url(session_id: str, item_key: str) -> str:
+    query = urlencode({"session": clean_str(session_id), "item_key": clean_str(item_key)})
+    return f"/api/method/pikt_inc.api.checklist_portal.download_checklist_portal_session_item_proof?{query}"
+
+
+def build_checklist_session_item_issue_image_download_url(session_id: str, item_key: str) -> str:
+    query = urlencode({"session": clean_str(session_id), "item_key": clean_str(item_key)})
+    return f"/api/method/pikt_inc.api.checklist_portal.download_checklist_portal_session_item_issue_image?{query}"
+
+
 def serialize_checklist_portal_building(building: CustomerPortalBuilding) -> ChecklistPortalBuildingPayload:
     return ChecklistPortalBuildingPayload(
         id=building.id,
@@ -116,8 +126,16 @@ def serialize_checklist_portal_session_item(
         issue_reported=item.issue_reported,
         issue_reason=item.issue_reason,
         issue_reported_at=public_temporal_string(item.issue_reported_at) or None,
-        issue_image=item.issue_image_path,
-        proof_image=item.proof_image_path,
+        issue_image=(
+            build_checklist_session_item_issue_image_download_url(session_id, item.item_key)
+            if item.issue_image_path
+            else None
+        ),
+        proof_image=(
+            build_checklist_session_item_proof_download_url(session_id, item.item_key)
+            if item.proof_image_path
+            else None
+        ),
         note=item.note,
     )
 
